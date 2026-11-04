@@ -8,6 +8,7 @@ export * from "./domain/discount-cards.js";
 export * from "./domain/star-reminders.js";
 export * from "./domain/access.js";
 export * from "./domain/guilds.js";
+export * from "./domain/guild-features.js";
 export * from "./domain/health.js";
 export * from "./ports/clock.js";
 export * from "./ports/repositories.js";
