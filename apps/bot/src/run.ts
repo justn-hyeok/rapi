@@ -17,19 +17,24 @@ import {
   RapiAgent,
   collectDiscountCandidates,
   createCommunityFeeds,
+  changeGuild,
   createGuildFeatures,
   discountCardButton,
+  guildRequestButton,
   loadDiscountSources,
   problemCardButton,
   publishDiscountCard,
+  receiveGuildRequest,
   receiveReport,
   remindStars,
   sendDiscountCards,
+  sendGuildRequestCards,
   sendProblemCards,
   verifyDiscountCandidates,
   verifyReports,
 } from "@rapi/agent";
 import {
+  allowedGuildIds,
   createGuildGate,
   discordOwnerIds,
   GUILD_NOT_ALLOWED_MESSAGE,
@@ -46,8 +51,11 @@ import {
 } from "@rapi/db";
 import { readFile } from "node:fs/promises";
 import {
+  clearGuildCommands,
   createDiscordInteractionServer,
+  fetchGuildName,
   registerAllowedGuildCommands,
+  registerSlashCommands,
 } from "./discord-http.js";
 import { assessSourceHealth } from "./source-health.js";
 
@@ -134,9 +142,39 @@ const allowlists = {
     ? { channelIds: config.DISCORD_ALLOWED_CHANNEL_IDS }
     : {}),
 };
+const guildRequests = {
+  store,
+  gate: guildGate,
+  ownerIds: discordOwnerIds(allowlists),
+  reviewChannelId: config.DISCOUNT_REVIEW_CHANNEL_ID,
+  // Allowed by configuration, so a row cannot take them away.
+  configuredGuildIds: allowedGuildIds(
+    config.DISCORD_ALLOWED_GUILD_IDS,
+    [],
+    homeGuildId,
+  ),
+  commands: {
+    register: (guildId: string) =>
+      registerSlashCommands(
+        config.DISCORD_APPLICATION_ID,
+        config.DISCORD_BOT_TOKEN,
+        guildId,
+      ),
+    clear: (guildId: string) =>
+      clearGuildCommands(
+        config.DISCORD_APPLICATION_ID,
+        config.DISCORD_BOT_TOKEN,
+        guildId,
+      ),
+  },
+  // Sends the card now unless a run is already going; the timer catches that one.
+  onOpened: () => void runLoop("cards", sendCards),
+};
 const commands = new DiscordCommandService(agent, allowlists, {
   guildAllowlist: () => guildGate.allowed(),
   guildFeatures,
+  changeGuild: (actorId, action, target) =>
+    changeGuild(guildRequests, actorId, action, target),
   report: (identity, options) =>
     receiveReport(
       { store, reviewChannelId: config.DISCOUNT_REVIEW_CHANNEL_ID },
@@ -286,13 +324,23 @@ async function checkReports(): Promise<string[]> {
 // Independent of the daily collection, so cards held back by the hourly limit
 // still go out and a report does not wait a day. Without a channel nothing is sent.
 async function sendCards(): Promise<void> {
-  const failures = await checkReports();
-  if (config.DISCOUNT_REVIEW_CHANNEL_ID) {
-    const target = {
-      store,
-      delivery: discord,
-      channelId: config.DISCOUNT_REVIEW_CHANNEL_ID,
-    };
+  const target = config.DISCOUNT_REVIEW_CHANNEL_ID
+    ? {
+        store,
+        delivery: discord,
+        channelId: config.DISCOUNT_REVIEW_CHANNEL_ID,
+      }
+    : undefined;
+  // First, because someone is waiting and checking reports reads web pages.
+  const failures = target
+    ? await sendGuildRequestCards({
+        ...target,
+        guildName: (guildId) =>
+          fetchGuildName(config.DISCORD_BOT_TOKEN, guildId),
+      })
+    : [];
+  failures.push(...(await checkReports()));
+  if (target) {
     failures.push(
       ...(await sendProblemCards(target)),
       ...(await sendDiscountCards(target)),
@@ -340,6 +388,12 @@ const server = createDiscordInteractionServer(
   config.DISCORD_PUBLIC_KEY,
   {
     guildGate,
+    guildRequests: {
+      request: (identity, reason) =>
+        receiveGuildRequest(guildRequests, identity, reason),
+      button: (identity, customId) =>
+        guildRequestButton(guildRequests, identity, customId),
+    },
     discountCards: {
       button: (identity, customId) =>
         discountCardButton(discountApproval, identity, customId),

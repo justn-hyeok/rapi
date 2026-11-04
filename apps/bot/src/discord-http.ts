@@ -5,6 +5,8 @@ import {
   type ServerResponse,
 } from "node:http";
 import {
+  GUILD_APPROVE_PREFIX,
+  GUILD_BLOCK_PREFIX,
   DISCOUNT_DEADLINE_INPUT,
   DISCOUNT_DISCARD_PREFIX,
   DISCOUNT_MODAL_PREFIX,
@@ -63,6 +65,7 @@ export const discordCommandAliases = {
   서버구성: "server_config",
   제보: "report",
   기능: "features",
+  서버: "guilds",
 } as const satisfies Record<string, DiscordCommand["name"]>;
 
 const featureOption = {
@@ -72,6 +75,8 @@ const featureOption = {
     value: key,
   })),
 };
+
+const guildTargetOption = stringOption("서버", "서버 ID");
 
 export const slashCommandDefinitions = [
   { name: "수집원", description: "수집원 상태를 확인합니다", type: 1 },
@@ -137,6 +142,31 @@ export const slashCommandDefinitions = [
         name: "끄기",
         description: "기능을 끕니다",
         options: [featureOption],
+      },
+    ],
+  },
+  {
+    name: "서버",
+    description: "다른 서버를 승인하거나 차단합니다. 소유자만 쓸 수 있습니다",
+    type: 1,
+    options: [
+      {
+        type: 1,
+        name: "승인",
+        description: "서버를 승인하고 명령을 등록합니다",
+        options: [guildTargetOption],
+      },
+      {
+        type: 1,
+        name: "차단",
+        description: "서버를 차단하고 명령을 지웁니다",
+        options: [guildTargetOption],
+      },
+      {
+        type: 1,
+        name: "해제",
+        description: "차단을 풉니다. 승인되지는 않습니다",
+        options: [guildTargetOption],
       },
     ],
   },
@@ -222,6 +252,30 @@ export function registerSlashCommands(
     guildId,
     guildId ? slashCommandDefinitions : globalCommandDefinitions,
   );
+}
+
+/** The name isn't in the interaction. Only a guild the bot is in can answer this. */
+export async function fetchGuildName(
+  botToken: string,
+  guildId: string,
+): Promise<string | null> {
+  try {
+    const response = await fetch(
+      `https://discord.com/api/v10/guilds/${guildId}`,
+      {
+        headers: { authorization: `Bot ${botToken}` },
+        signal: AbortSignal.timeout(5_000),
+      },
+    );
+    if (!response.ok) {
+      await response.arrayBuffer();
+      return null;
+    }
+    const { name } = (await response.json()) as { name?: unknown };
+    return typeof name === "string" ? name : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Takes a blocked guild's commands away. */
@@ -317,6 +371,16 @@ export function createDiscordInteractionServer(
     readiness?: () => Promise<unknown>;
     /** Checked before any handler, so none of them has to remember it. */
     guildGate?: { allowed(): Promise<readonly string[]> };
+    guildRequests?: {
+      request: (
+        identity: DiscordIdentity,
+        reason: string | undefined,
+      ) => Promise<string>;
+      button: (
+        identity: DiscordIdentity,
+        customId: string,
+      ) => Promise<DiscountPublishResult>;
+    };
     component?: (
       identity: {
         userId: string;
@@ -412,6 +476,27 @@ export function createDiscordInteractionServer(
           ? { guildPermissions: interaction.member.permissions }
           : {}),
       };
+      // The one thing a server may do before it is allowed.
+      if (
+        interaction.type === 2 &&
+        interaction.data?.name === GUILD_REQUEST_COMMAND &&
+        integrations?.guildRequests
+      ) {
+        const reason = interaction.data.options?.find(
+          (option) => option.name === "사유",
+        )?.value;
+        return json(response, 200, {
+          type: 4,
+          data: {
+            content: await integrations.guildRequests.request(
+              identity,
+              typeof reason === "string" ? reason : undefined,
+            ),
+            flags: 64,
+            allowed_mentions: { parse: [] },
+          },
+        });
+      }
       if (interaction.guild_id && integrations?.guildGate) {
         const refusal = await integrations.guildGate.allowed().then(
           (allowed) =>
@@ -431,6 +516,30 @@ export function createDiscordInteractionServer(
           });
       }
       const customId = interaction.data?.custom_id ?? "";
+      // Registering commands can take longer than Discord waits, so this is answered first.
+      if (
+        interaction.type === 3 &&
+        integrations?.guildRequests &&
+        (customId.startsWith(GUILD_APPROVE_PREFIX) ||
+          customId.startsWith(GUILD_BLOCK_PREFIX)) &&
+        interaction.application_id &&
+        interaction.token
+      ) {
+        json(response, 200, { type: 6 });
+        const webhook = {
+          application_id: interaction.application_id,
+          token: interaction.token,
+        };
+        void integrations.guildRequests
+          .button(identity, customId)
+          .then((result) => deliverDiscountResult(webhook, result))
+          .catch(() =>
+            process.stderr.write(
+              "Guild request result could not be delivered\n",
+            ),
+          );
+        return;
+      }
       const discountCards = integrations?.discountCards;
       if (
         interaction.type === 3 &&
@@ -566,6 +675,7 @@ export function createDiscordInteractionServer(
         종류: "kind",
         메모: "memo",
         기능: "feature",
+        서버: "target",
       };
       for (const [discordName, internalName] of Object.entries(aliases)) {
         if (options[discordName] !== undefined) {
@@ -575,8 +685,8 @@ export function createDiscordInteractionServer(
       if (interaction.id) options.requestId = interaction.id;
       const command = { name: commandName, options };
       if (
-        commandName === "server_config" &&
-        options.action === "적용" &&
+        ((commandName === "server_config" && options.action === "적용") ||
+          commandName === "guilds") &&
         interaction.application_id &&
         interaction.token
       ) {

@@ -267,7 +267,7 @@ export const verifyReports = (input: {
  * carded_at without a message id) rather than sending it twice. Only a send
  * Discord definitely refused is released and tried again. Returns the failures.
  */
-async function sendClaimedCards<Row extends { id: string }>(input: {
+export async function sendClaimedCards<Row extends { id: string }>(input: {
   rows: readonly Row[];
   budget: number;
   delivery: Pick<DeliveryAdapter, "send">;

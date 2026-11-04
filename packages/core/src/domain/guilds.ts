@@ -1,3 +1,6 @@
+import { CARD_COLOR, clip, type DiscordCard } from "./discord-card.js";
+import { escapeMarkdown, plainLine } from "./discount-cards.js";
+
 /** Shown to anyone using Rapi in a guild the operator has not approved. */
 export const GUILD_NOT_ALLOWED_MESSAGE =
   "승인되지 않은 서버입니다. 서버 관리 권한이 있는 분이 /서버신청으로 라피 운영자에게 승인을 요청할 수 있어요.";
@@ -8,6 +11,57 @@ export const GUILD_CHECK_FAILED_MESSAGE =
 
 export const GUILD_REQUEST_COMMAND = "서버신청";
 export const GUILD_REQUEST_REASON_MAX_CHARS = 100;
+export const GUILD_NAME_MAX_CHARS = 100;
+/** How long a guild no longer blocked waits before it may ask again. */
+export const GUILD_REQUEST_WAIT_DAYS = 7;
+
+export interface GuildRequestForCard {
+  guildId: string;
+  name: string | null;
+  requesterId: string | null;
+  reason: string | null;
+}
+
+/** One line of a stranger's text, safe to store: no controls, no scheme, short. */
+export function cleanGuildText(
+  value: string | undefined,
+  limit: number,
+): string | null {
+  return clip(plainLine(value ?? ""), limit) || null;
+}
+
+/**
+ * The owner's card. The name and reason are strangers' text, so they are escaped
+ * again here: nothing in them can format, link or mention.
+ */
+export function guildRequestCard(request: GuildRequestForCard): DiscordCard {
+  const text = (value: string, limit: number) =>
+    escapeMarkdown(clip(plainLine(value), limit));
+  return {
+    title: "새 서버 승인 요청",
+    fields: [
+      {
+        name: "서버",
+        value: request.name
+          ? text(request.name, GUILD_NAME_MAX_CHARS)
+          : "이름을 확인하지 못했습니다. 봇이 그 서버에 없을 수 있습니다.",
+      },
+      { name: "서버 ID", value: request.guildId },
+      ...(request.requesterId
+        ? [{ name: "요청자", value: `<@${request.requesterId}>` }]
+        : []),
+      ...(request.reason
+        ? [
+            {
+              name: "사유",
+              value: text(request.reason, GUILD_REQUEST_REASON_MAX_CHARS),
+            },
+          ]
+        : []),
+    ],
+    color: CARD_COLOR.warn,
+  };
+}
 
 /** Home guild: explicit setting, then the community guild, then the first allowed guild. */
 export function resolveHomeGuildId(
