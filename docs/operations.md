@@ -782,9 +782,9 @@ docker exec rapi-postgres-1 psql -U rapi -d rapi -c "UPDATE discount_candidates 
 어떤 후보를 보내는가:
 
 - `band`가 `green` 또는 `yellow`인 행만 보낸다. `red`와 아직 확인하지 않은 행은 보내지 않는다.
-- `new_service`는 모두 보낸다. `discount`는 `price_check`가 `below_list`이거나 제목이나 근거에 무료나 크레딧이 적힌 행만 보낸다. 약관 변경 소식은 보내지 않는다.
+- `new_service`와 [제보](#제보-007)는 모두 보낸다. 다른 `discount`는 `price_check`가 `below_list`이거나 제목이나 근거에 무료나 크레딧이 적힌 행만 보낸다. 약관 변경 소식은 보내지 않는다.
 - 게시일이 최근 7일 안인 행을 최신순으로 보낸다. 게시일이 없으면 처음 본 날로 따진다. 처음 수집하면 몇 달 전 변경로그도 오늘 처음 본 행이 되므로, 게시일이 있으면 처음 본 날은 보지 않는다. 더 오래된 행은 보내지 않고 그대로 둔다.
-- 최근 1시간에 보낸 카드가 5장이면 멈추고, 나머지는 다음 실행으로 넘긴다.
+- 최근 1시간에 보낸 카드가 문제 제보 카드까지 합쳐 5장이면 멈추고, 나머지는 다음 실행으로 넘긴다.
 
 중복을 막는 방식:
 
@@ -858,3 +858,56 @@ docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT id, decided_at, left
 ```sh
 docker exec rapi-postgres-1 psql -U rapi -d rapi -c "UPDATE discount_candidates SET status = 'new', decided_at = NULL, carded_at = NULL, card_message_id = NULL WHERE id = '행 ID' AND status = 'published' AND public_message_id IS NULL"
 ```
+
+## 제보 (0.0.7)
+
+허용된 서버에 있는 사람은 누구나 `/제보`로 링크를 보낼 수 있다. 봇은 Gateway 없이 HTTP 상호작용만 받으므로 채널 메시지를 읽지 못한다. 그래서 링크를 채널에 던지는 대신 명령으로 받는다.
+
+| 옵션 | 값 |
+| --- | --- |
+| `링크` | 필수. `https` 공개 주소 |
+| `종류` | `할인`(기본), `새 서비스`, `문제` |
+| `메모` | 선택. 200자까지 |
+
+명령은 다른 명령과 같은 방식으로 등록한다. `.env`에 `REGISTER_DISCORD_COMMANDS=true`를 넣고 봇을 다시 시작한다. 홈 서버가 있으면 그 서버에만 등록된다. 허용 서버 목록과 `DISCORD_ALLOWED_CHANNEL_IDS`도 다른 명령처럼 적용된다. 라피 역할은 없어도 되고, DM에서는 받지 않는다.
+
+받을 때 지키는 것:
+
+- 링크를 열지 않고 저장만 한 뒤 본인에게만 보이는 답을 바로 준다. 답에 링크나 메모를 되풀이하지 않는다.
+- `https`이고 `isPublicUrl`을 통과하는 주소만 받는다. 계정 정보, 추천 파라미터, `#` 뒤를 지우고 파라미터 순서를 맞춘 주소로 중복을 가른다.
+- 주소, 도메인, 제보자 ID, 메모만 저장한다.
+- 한 사람당 최근 1시간에 5건까지 받는다. 두 종류를 합쳐 세고, 이미 받은 링크는 세지 않는다.
+
+### 할인, 새 서비스
+
+`route`가 `report`인 후보가 된다. 10분마다 도는 카드 작업이 먼저 제보 후보를 검증하고(한 번에 20건, 나머지는 다음 실행) 이어서 카드를 보내므로 약 10분 안에 검토 채널에 온다. 페이지는 후보 도메인의 첫 화면만 `publicFetch`로 읽는다.
+
+- 제목은 도메인이고 근거는 비어 있다. 도메인 이름과 메모는 색, 가격, 태그를 정하는 데 쓰지 않는다.
+- 할인 문구 필터를 건너뛴다. 사람이 골라 보낸 것이기 때문이다. 빨강, 미확인 제외와 시간당 5장 제한은 그대로다.
+- 메모는 검토 카드에만 글자로 보인다. [게시]로 나가는 카드에는 넣지 않는다.
+
+### 문제
+
+`problem_reports`에만 저장한다. 후보가 되지 않고, 자동으로 색을 바꾸지 않으며, 공개 채널로 나가지 않는다. 다음 카드 작업에서 검토 채널로 도메인, 링크, 메모, 제보자가 적힌 카드가 온다. 다른 카드보다 먼저 보내고, 채널의 시간당 5장에 함께 센다. 같은 링크로 아직 닫히지 않은 제보가 있으면 새로 만들지 않는다.
+
+버튼은 승인 버튼과 같이 소유자가 검토 채널에서 눌렀을 때만 동작한다.
+
+- [빨강으로 정함]: 그 도메인의 모든 행을 `band = 'red'`로 바꾸고 결정, 결정한 사람을 제보 행에 적는다. 하위 도메인은 포함하지 않는다. 나중에 찾은 같은 도메인 후보도 검증할 때 빨강이 된다. 이미 공개 채널에 나간 글은 지우지 않고, 몇 건인지 알려 준다.
+- [문제 없음]: 제보만 닫는다. 같은 링크를 나중에 다시 제보할 수 있다.
+
+`DISCOUNT_REVIEW_CHANNEL_ID`가 없으면 제보는 저장하고 제보자에게 아직 전달되지 않는다고 답한다. 값을 넣으면 쌓인 카드가 나간다.
+
+결과를 볼 때:
+
+```sh
+docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT first_seen_at, kind, band, carded_at, reporter_id, url, memo FROM discount_candidates WHERE route = 'report' ORDER BY first_seen_at DESC LIMIT 20"
+docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT reported_at, domain, reporter_id, carded_at, decision, decided_by, decided_at, url, memo FROM problem_reports ORDER BY reported_at DESC LIMIT 20"
+```
+
+보냈는지 알 수 없는 문제 카드는 `carded_at`만 있고 `card_message_id`가 없는 행이다. 채널에 없는 것을 확인했으면 표시를 지워 다시 보낸다.
+
+```sh
+docker exec rapi-postgres-1 psql -U rapi -d rapi -c "UPDATE problem_reports SET carded_at = NULL WHERE id = '행 ID' AND card_message_id IS NULL AND decision IS NULL"
+```
+
+되돌리면(`packages/db/rollbacks/0006_reports.sql`) `problem_reports`와 제보 후보 행이 지워진다. 이미 빨강이 된 다른 행은 그대로다.
