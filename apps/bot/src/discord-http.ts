@@ -13,7 +13,11 @@ import {
   type DiscordCommand,
   type DiscountPublishResult,
 } from "@rapi/agent";
-import { runtimeRevision, type DiscordIdentity } from "@rapi/core";
+import {
+  REPORT_MEMO_MAX_CHARS,
+  runtimeRevision,
+  type DiscordIdentity,
+} from "@rapi/core";
 import { redactChat } from "@rapi/contracts";
 
 const ed25519SpkiPrefix = Buffer.from("302a300506032b6570032100", "hex");
@@ -48,6 +52,7 @@ export const discordCommandAliases = {
   수집원: "sources",
   상태: "status",
   서버구성: "server_config",
+  제보: "report",
 } as const satisfies Record<string, DiscordCommand["name"]>;
 
 export const slashCommandDefinitions = [
@@ -74,6 +79,26 @@ export const slashCommandDefinitions = [
         name: "내보내기",
         description: "현재 원본 구성을 YAML 또는 JSON으로 봅니다",
         options: [stringOption("형식", "yaml 또는 json", false)],
+      },
+    ],
+  },
+  {
+    name: "제보",
+    description: "AI 서비스 링크를 라피에게 알려 줍니다",
+    type: 1,
+    options: [
+      stringOption("링크", "https 링크"),
+      {
+        ...stringOption("종류", "고르지 않으면 할인", false),
+        choices: [
+          { name: "할인", value: "discount" },
+          { name: "새 서비스", value: "new_service" },
+          { name: "문제", value: "problem" },
+        ],
+      },
+      {
+        ...stringOption("메모", "소유자에게 전할 짧은 메모", false),
+        max_length: REPORT_MEMO_MAX_CHARS,
       },
     ],
   },
@@ -382,6 +407,9 @@ export function createDiscordInteractionServer(
       const aliases: Record<string, string> = {
         계획: "planId",
         형식: "format",
+        링크: "link",
+        종류: "kind",
+        메모: "memo",
       };
       for (const [discordName, internalName] of Object.entries(aliases)) {
         if (options[discordName] !== undefined) {

@@ -11,8 +11,14 @@ import {
   type DiscordIdentity,
 } from "@rapi/core";
 import { RapiAgent } from "./rapi-agent.js";
+import type { ReportOptions } from "./reports.js";
 
-export const slashCommands = ["sources", "status", "server_config"] as const;
+export const slashCommands = [
+  "sources",
+  "status",
+  "server_config",
+  "report",
+] as const;
 
 export interface DiscordCommand {
   name: (typeof slashCommands)[number];
@@ -27,6 +33,7 @@ export interface DiscordCommandResult {
 export function requiredCommandAccess(
   command: DiscordCommand["name"],
 ): DiscordAccessLevel {
+  if (command === "report") return "user";
   return command === "server_config" ? "superadmin" : "admin";
 }
 
@@ -80,6 +87,10 @@ export class DiscordCommandService {
         ): Promise<string>;
         export(guildId: string, format: "yaml" | "json"): Promise<string>;
       };
+      report?: (
+        identity: DiscordIdentity,
+        options: ReportOptions,
+      ) => Promise<string>;
       /** Guilds the bot answers in; undefined means no restriction. */
       guildAllowlist?: () => Promise<readonly string[] | undefined>;
     },
@@ -98,7 +109,15 @@ export class DiscordCommandService {
       )
         throw new Error(GUILD_NOT_ALLOWED_MESSAGE);
     }
-    const access = resolveDiscordAccess(identity, this.allowlists);
+    // Anyone in an allowed server may report; the channel gate still applies.
+    if (command.name === "report" && !identity.guildId)
+      throw new Error("제보는 서버에서만 보낼 수 있습니다.");
+    const access = resolveDiscordAccess(
+      identity,
+      command.name === "report"
+        ? { ...this.allowlists, guildMembersAreUsers: true }
+        : this.allowlists,
+    );
     const level = access.level;
     // A guild-scoped admin may run guild settings but nothing that reaches all of Rapi.
     const guildAdmin =
@@ -162,6 +181,19 @@ export class DiscordCommandService {
           };
         }
         throw new Error("지원하지 않는 서버 구성 동작입니다.");
+      }
+      case "report": {
+        if (!this.operations?.report)
+          throw new Error("제보 기능이 설정되지 않았습니다.");
+        return {
+          messages: [
+            await this.operations.report(identity, {
+              link: requiredString(command.options, "link"),
+              kind: optionalString(command.options, "kind"),
+              memo: optionalString(command.options, "memo"),
+            }),
+          ],
+        };
       }
     }
   }

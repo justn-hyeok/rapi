@@ -19,6 +19,7 @@ import {
   discountCardButton,
   loadDiscountSources,
   publishDiscountCard,
+  receiveReport,
   sendDiscountCards,
   verifyDiscountCandidates,
 } from "@rapi/agent";
@@ -121,6 +122,12 @@ const allowlists = {
 };
 const commands = new DiscordCommandService(agent, allowlists, {
   guildAllowlist: () => guildGate.allowed(),
+  report: (identity, options) =>
+    receiveReport(
+      { store, reviewChannelId: config.DISCOUNT_REVIEW_CHANNEL_ID },
+      identity,
+      options,
+    ),
   status: async () => {
     try {
       const monitor = JSON.parse(
