@@ -2,11 +2,18 @@ import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import {
   DiscordCommandService,
+  problemCardButton,
   receiveReport,
   reportableLink,
+  sendProblemCards,
   type RapiAgent,
 } from "@rapi/agent";
-import type { NewReport, ReportOutcome } from "@rapi/core";
+import { DiscordDeliveryAdapter } from "@rapi/adapters";
+import type {
+  NewReport,
+  ProblemReportForCard,
+  ReportOutcome,
+} from "@rapi/core";
 import { slashCommandDefinitions } from "../apps/bot/src/discord-http.js";
 
 const MEMBER = { userId: "7", guildId: "g", channelId: "c", roleIds: [] };
@@ -229,4 +236,236 @@ test("the command takes a required link and two optional fields", () => {
     ],
   );
   assert.equal(options[2]!.max_length, 200);
+});
+
+const problem: ProblemReportForCard = {
+  id: "11111111-1111-4111-8111-111111111111",
+  url: "https://bad.ai/x",
+  domain: "bad.ai",
+  reporterId: "7",
+  memo: "@everyone [여기](https://evil.ai) 먹튀",
+};
+
+function problemStore(rows: ProblemReportForCard[], cardedLastHour = 0) {
+  const claimed: string[] = [];
+  return {
+    claimed,
+    released: [] as string[],
+    messages: [] as string[],
+    async cardsInLastHour() {
+      return cardedLastHour + claimed.length;
+    },
+    async problemReportsForCards() {
+      return rows;
+    },
+    async claimProblemCard(id: string) {
+      claimed.push(id);
+      return true;
+    },
+    async releaseProblemCard(id: string) {
+      this.released.push(id);
+    },
+    async saveProblemCardMessage(_id: string, messageId: string) {
+      this.messages.push(messageId);
+    },
+  };
+}
+
+function discord(t: TestContext, answer = () => new Response('{"id":"900"}')) {
+  const sent: Array<{
+    url: string;
+    embeds: Array<{
+      title: string;
+      url: string;
+      description: string;
+      color: number;
+      author: { name: string };
+    }>;
+    components: Array<{
+      components: Array<{ label: string; custom_id?: string; url?: string }>;
+    }>;
+    allowed_mentions: unknown;
+  }> = [];
+  t.mock.method(
+    globalThis,
+    "fetch",
+    async (url: string, init?: RequestInit) => {
+      sent.push({ ...JSON.parse(init!.body as string), url });
+      return answer();
+    },
+  );
+  return { sent, delivery: new DiscordDeliveryAdapter("token") };
+}
+
+test("a problem card names the domain, link and memo, safely, with two buttons", async (t) => {
+  const store = problemStore([problem]);
+  const { sent, delivery } = discord(t);
+  assert.deepEqual(
+    await sendProblemCards({ store, delivery, channelId: "100" }),
+    [],
+  );
+  const [message] = sent;
+  assert.equal(
+    message!.url,
+    "https://discord.com/api/v10/channels/100/messages",
+  );
+  assert.deepEqual(message!.allowed_mentions, { parse: [] });
+  const [embed] = message!.embeds;
+  assert.equal(embed!.author.name, "문제 제보");
+  assert.equal(embed!.url, "https://bad.ai/x");
+  assert.equal(embed!.title, "bad\\.ai");
+  assert.match(embed!.description, /링크: bad\\\.ai\/x/);
+  assert.match(embed!.description, /메모: \\@everyone \\\[여기\\\]/);
+  assert.doesNotMatch(embed!.description, /https:\/\/|(?<!\\)@everyone/);
+  assert.match(embed!.description, /<@7>/);
+  assert.deepEqual(
+    message!.components.flatMap((row) =>
+      row.components.map((button) => [button.label, button.custom_id]),
+    ),
+    [
+      ["원문 보기", undefined],
+      ["빨강으로 정함", `problem_red:${problem.id}`],
+      ["문제 없음", `problem_clear:${problem.id}`],
+    ],
+  );
+  assert.deepEqual(store.messages, ["900"]);
+});
+
+test("problem cards share the channel's five an hour", async (t) => {
+  const { sent, delivery } = discord(t);
+  await sendProblemCards({
+    store: problemStore([problem], 5),
+    delivery,
+    channelId: "100",
+  });
+  assert.equal(sent.length, 0);
+  const second = { ...problem, id: "second" };
+  await sendProblemCards({
+    store: problemStore([problem, second], 4),
+    delivery,
+    channelId: "100",
+  });
+  assert.equal(sent.length, 1);
+});
+
+test("a refused problem card is released for the next run", async (t) => {
+  const store = problemStore([problem]);
+  const { delivery } = discord(t, () => new Response("", { status: 403 }));
+  const failures = await sendProblemCards({
+    store,
+    delivery,
+    channelId: "100",
+  });
+  assert.equal(failures.length, 1);
+  assert.deepEqual(store.released, [problem.id]);
+});
+
+function reviewStore(
+  decided: {
+    turnedRed: number;
+    alreadyPublished: number;
+  } | null,
+) {
+  const calls: unknown[][] = [];
+  return {
+    calls,
+    async decideProblemReport(...args: unknown[]) {
+      calls.push(args);
+      return (
+        decided && { url: problem.url, domain: problem.domain, ...decided }
+      );
+    },
+  };
+}
+const RED = `problem_red:${problem.id}`;
+const CLEAR = `problem_clear:${problem.id}`;
+const OWNER = { userId: "1", guildId: "g", channelId: "100" };
+
+test("only the owner in the review channel can decide", async () => {
+  const store = reviewStore({ turnedRed: 1, alreadyPublished: 0 });
+  const input = { store, ownerIds: ["1"], reviewChannelId: "100" };
+  const refused = async (
+    review:
+      | typeof input
+      | { store: typeof store; ownerIds: string[]; reviewChannelId: undefined },
+    identity: typeof OWNER,
+    pattern: RegExp,
+  ) => {
+    const reply = (await problemCardButton(review, identity, RED)) as {
+      type: number;
+      data: { content: string; flags: number };
+    };
+    assert.equal(reply.type, 4);
+    assert.equal(reply.data.flags, 64);
+    assert.match(reply.data.content, pattern);
+  };
+  await refused(input, { ...OWNER, userId: "7" }, /소유자만/);
+  await refused(input, { ...OWNER, channelId: "200" }, /검토 채널/);
+  await refused({ ...input, reviewChannelId: undefined }, OWNER, /검토 채널/);
+  assert.deepEqual(store.calls, []);
+});
+
+test("[빨강으로 정함] records who decided and keeps only the link", async () => {
+  const store = reviewStore({ turnedRed: 3, alreadyPublished: 1 });
+  const reply = (await problemCardButton(
+    { store, ownerIds: ["1"], reviewChannelId: "100" },
+    OWNER,
+    RED,
+  )) as {
+    type: number;
+    data: {
+      content: string;
+      components: Array<{ components: Array<{ url?: string; label: string }> }>;
+      allowed_mentions: unknown;
+    };
+  };
+  assert.deepEqual(store.calls, [[problem.id, "red", "1"]]);
+  assert.equal(reply.type, 7);
+  assert.match(reply.data.content, /bad\.ai을 빨강으로/);
+  assert.match(reply.data.content, /3건/);
+  assert.match(reply.data.content, /이미 공개 채널에 나간 1건/);
+  assert.deepEqual(reply.data.allowed_mentions, { parse: [] });
+  assert.deepEqual(reply.data.components, [
+    {
+      type: 1,
+      components: [{ type: 2, style: 5, label: "원문 보기", url: problem.url }],
+    },
+  ]);
+});
+
+test("[문제 없음] changes no band and a second press is refused", async () => {
+  const store = reviewStore({ turnedRed: 0, alreadyPublished: 0 });
+  const input = { store, ownerIds: ["1"], reviewChannelId: "100" };
+  const reply = (await problemCardButton(input, OWNER, CLEAR)) as {
+    data: { content: string };
+  };
+  assert.deepEqual(store.calls, [[problem.id, "no_problem", "1"]]);
+  assert.match(reply.data.content, /문제 없음/);
+
+  const again = (await problemCardButton(
+    { ...input, store: reviewStore(null) },
+    OWNER,
+    CLEAR,
+  )) as { type: number; data: { content: string } };
+  assert.equal(again.type, 4);
+  assert.match(again.data.content, /이미 처리한/);
+});
+
+test("a database failure on a press gets an answer", async (t) => {
+  t.mock.method(process.stderr, "write", () => true);
+  const reply = (await problemCardButton(
+    {
+      store: {
+        decideProblemReport: async () => {
+          throw new Error("database gone");
+        },
+      },
+      ownerIds: ["1"],
+      reviewChannelId: "100",
+    },
+    OWNER,
+    RED,
+  )) as { type: number; data: { content: string } };
+  assert.equal(reply.type, 4);
+  assert.match(reply.data.content, /다시 눌러/);
 });

@@ -10,6 +10,8 @@ import {
   DISCOUNT_MODAL_PREFIX,
   DISCOUNT_PUBLISH_PREFIX,
   DiscordCommandService,
+  PROBLEM_CLEAR_PREFIX,
+  PROBLEM_RED_PREFIX,
   type DiscordCommand,
   type DiscountPublishResult,
 } from "@rapi/agent";
@@ -212,6 +214,9 @@ export function createDiscordInteractionServer(
         deadline: string,
       ) => Promise<DiscountPublishResult>;
     };
+    problemCards?: {
+      button: (identity: DiscordIdentity, customId: string) => Promise<unknown>;
+    };
   },
 ) {
   return createServer(async (request, response) => {
@@ -298,6 +303,17 @@ export function createDiscordInteractionServer(
           response,
           200,
           await discountCards.button(identity, customId),
+        );
+      if (
+        interaction.type === 3 &&
+        integrations?.problemCards &&
+        (customId.startsWith(PROBLEM_RED_PREFIX) ||
+          customId.startsWith(PROBLEM_CLEAR_PREFIX))
+      )
+        return json(
+          response,
+          200,
+          await integrations.problemCards.button(identity, customId),
         );
       // Sending can take longer than Discord waits, so this is answered first.
       if (

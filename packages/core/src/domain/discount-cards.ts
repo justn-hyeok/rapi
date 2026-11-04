@@ -8,7 +8,7 @@ import {
   type DiscountCandidateKind,
   type DiscountCandidateRoute,
 } from "./discount-candidates.js";
-import { clip, type DiscordCard } from "./discord-card.js";
+import { CARD_COLOR, clip, type DiscordCard } from "./discord-card.js";
 
 export interface CandidateForCard {
   id: string;
@@ -182,18 +182,39 @@ export function discountCard(
   };
 }
 
+const memoLine = (memo: string) => `메모: ${escapeMarkdown(plainLine(memo))}`;
+
 /** The card as the owner sees it: a report's memo is for reviewing, not publishing. */
 export function reviewCard(candidate: CandidateForCard): DiscordCard {
   const card = discountCard(candidate);
   return candidate.memo
     ? {
         ...card,
-        description: [
-          card.description,
-          `메모: ${escapeMarkdown(plainLine(candidate.memo))}`,
-        ]
+        description: [card.description, memoLine(candidate.memo)]
           .filter(Boolean)
           .join("\n"),
       }
     : card;
+}
+
+/**
+ * A claim about a service, for the owner alone. It names the reporter so the owner
+ * can weigh it; a mention inside an embed shows the name and pings nobody.
+ */
+export function problemCard(report: ProblemReportForCard): DiscordCard {
+  const link = cardLink(report.url);
+  return {
+    author: "문제 제보",
+    title: escapeMarkdown(plainLine(report.domain)),
+    ...(link ? { url: link } : {}),
+    description: [
+      `링크: ${escapeMarkdown(plainLine(report.url))}`,
+      report.memo ? memoLine(report.memo) : "",
+      `제보자: <@${report.reporterId}>`,
+      "누르기 전에는 아무것도 바뀌지 않습니다.",
+    ]
+      .filter(Boolean)
+      .join("\n"),
+    color: CARD_COLOR.warn,
+  };
 }

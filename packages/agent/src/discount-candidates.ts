@@ -15,6 +15,7 @@ import {
   discordEmbed,
   discountCard,
   knownOperator,
+  problemCard,
   reviewCard,
   shouldCardCandidate,
   verifyCandidate,
@@ -22,6 +23,7 @@ import {
   type DeliveryAdapter,
   type DeliveryPayload,
   type DiscountCandidateRoute,
+  type ProblemReportForCard,
   type KnownOperator,
 } from "@rapi/core";
 import type { PostgresStore } from "@rapi/db";
@@ -194,6 +196,8 @@ const CARD_ATTEMPTS_PER_RUN = 20;
 
 export const DISCOUNT_PUBLISH_PREFIX = "discount_publish:";
 export const DISCOUNT_DISCARD_PREFIX = "discount_discard:";
+export const PROBLEM_RED_PREFIX = "problem_red:";
+export const PROBLEM_CLEAR_PREFIX = "problem_clear:";
 
 /** One card as one message with its link, and nothing the reader could press to decide. */
 export function cardPayloadFor(
@@ -343,5 +347,79 @@ export async function sendDiscountCards(input: {
       store.saveCandidateCardMessage(id, messageId),
     payload: reviewPayloadFor,
     deliveryKey: "discount-card",
+  });
+}
+
+type ProblemCardStore = Pick<
+  PostgresStore,
+  | "cardsInLastHour"
+  | "problemReportsForCards"
+  | "claimProblemCard"
+  | "releaseProblemCard"
+  | "saveProblemCardMessage"
+>;
+
+function problemPayloadFor(report: ProblemReportForCard): DeliveryPayload {
+  const message = messageBody([discordEmbed(problemCard(report))]);
+  return {
+    subject: report.domain,
+    text: report.domain,
+    html: "",
+    itemIds: [],
+    discord: {
+      ...message,
+      components: [
+        ...(message.components ?? []),
+        {
+          type: 1,
+          components: [
+            {
+              type: 2,
+              style: 4,
+              label: "빨강으로 정함",
+              custom_id: `${PROBLEM_RED_PREFIX}${report.id}`,
+            },
+            {
+              type: 2,
+              style: 2,
+              label: "문제 없음",
+              custom_id: `${PROBLEM_CLEAR_PREFIX}${report.id}`,
+            },
+          ],
+        },
+      ],
+    },
+  };
+}
+
+/**
+ * Problem reports, ahead of the other cards when run first. They share the
+ * channel's hourly limit, so many of them cannot flood the owner.
+ */
+export async function sendProblemCards(input: {
+  store: ProblemCardStore;
+  delivery: Pick<DeliveryAdapter, "send">;
+  channelId: string;
+}): Promise<string[]> {
+  const { store, delivery, channelId } = input;
+  let budget: number;
+  let rows: ProblemReportForCard[];
+  try {
+    budget = CARDS_PER_HOUR - (await store.cardsInLastHour());
+    if (budget <= 0) return [];
+    rows = await store.problemReportsForCards(CARD_ATTEMPTS_PER_RUN);
+  } catch (error) {
+    return [failureText("problem cards", error)];
+  }
+  return sendClaimedCards({
+    rows,
+    budget,
+    delivery,
+    channelId,
+    claim: (id) => store.claimProblemCard(id),
+    release: (id) => store.releaseProblemCard(id),
+    saveMessage: (id, messageId) => store.saveProblemCardMessage(id, messageId),
+    payload: problemPayloadFor,
+    deliveryKey: "problem-card",
   });
 }

@@ -18,9 +18,11 @@ import {
   createCommunityFeeds,
   discountCardButton,
   loadDiscountSources,
+  problemCardButton,
   publishDiscountCard,
   receiveReport,
   sendDiscountCards,
+  sendProblemCards,
   verifyDiscountCandidates,
   verifyReports,
 } from "@rapi/agent";
@@ -266,14 +268,17 @@ async function checkReports(): Promise<string[]> {
 // still go out and a report does not wait a day. Without a channel nothing is sent.
 async function sendCards(): Promise<void> {
   const failures = await checkReports();
-  if (config.DISCOUNT_REVIEW_CHANNEL_ID)
+  if (config.DISCOUNT_REVIEW_CHANNEL_ID) {
+    const target = {
+      store,
+      delivery: discord,
+      channelId: config.DISCOUNT_REVIEW_CHANNEL_ID,
+    };
     failures.push(
-      ...(await sendDiscountCards({
-        store,
-        delivery: discord,
-        channelId: config.DISCOUNT_REVIEW_CHANNEL_ID,
-      })),
+      ...(await sendProblemCards(target)),
+      ...(await sendDiscountCards(target)),
     );
+  }
   if (failures.length)
     throw new Error(`Discount cards failed: ${failures.join("; ")}`);
 }
@@ -296,6 +301,10 @@ const server = createDiscordInteractionServer(
         discountCardButton(discountApproval, identity, customId),
       publish: (identity, customId, deadline) =>
         publishDiscountCard(discountApproval, identity, customId, deadline),
+    },
+    problemCards: {
+      button: (identity, customId) =>
+        problemCardButton(discountApproval, identity, customId),
     },
     component: async (identity, customId) => {
       if (!identity.guildId)

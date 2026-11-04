@@ -37,6 +37,12 @@ async function setup(
           return publish();
         },
       },
+      problemCards: {
+        button: async (identity, customId) => {
+          calls.push({ identity, customId });
+          return { type: 7, data: { content: "decided" } };
+        },
+      },
       component: async () => "other",
     },
   );
@@ -310,4 +316,25 @@ test("/제보 is answered privately with its options, and with mentions off", as
     },
     { link: "https://new.ai/", kind: "problem", memo: "m" },
   );
+});
+
+test("a problem card's buttons go to their own handler with the signed user", async (t) => {
+  const app = await setup(t, async () => ({}));
+  for (const customId of ["problem_red:row", "problem_clear:row"]) {
+    const reply = await app.post({ type: 3, data: { custom_id: customId } });
+    assert.deepEqual(reply, {
+      status: 200,
+      body: { type: 7, data: { content: "decided" } },
+    });
+  }
+  assert.deepEqual(app.calls, [
+    {
+      identity: { userId: "1", guildId: "g", channelId: "100", roleIds: [] },
+      customId: "problem_red:row",
+    },
+    {
+      identity: { userId: "1", guildId: "g", channelId: "100", roleIds: [] },
+      customId: "problem_clear:row",
+    },
+  ]);
 });
