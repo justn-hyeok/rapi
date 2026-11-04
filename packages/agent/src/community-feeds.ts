@@ -79,10 +79,19 @@ const FREE_CATALOG_PROVIDERS: Array<FreeProvider & { id: string }> = [
     caution: "체험용이에요. 사용 기록이 남으니 개인정보나 기밀은 넣지 마세요.",
   },
 ];
-const FREE_MODEL_LIST_LIMIT = 25;
-// Discord rejects a message whose embeds add up to more than 6000 characters.
-const AI_BLOG_MESSAGE_CHARS = 5_600;
-const AI_BLOG_CARD_CHARS = 3_900;
+/** A channel gets this many cards at a time, so a long queue never floods it. */
+const CARDS_PER_BATCH = 5;
+const CARD_BATCH_INTERVAL = 3_600_000;
+/** Cards wait under this key prefix and go out in batches. */
+const CARD_PREFIX = "card:";
+/** The colour bar says how far to trust what a card offers. */
+export const CARD_COLORS = {
+  safe: 0x2ecc71,
+  ambiguous: 0xf1c40f,
+  risky: 0xe74c3c,
+  neutral: 0x80848e,
+} as const;
+const LEGEND_KEY = "free-tokens:legend";
 // More than the card shows: the model drops some before the per-source cap.
 const AI_BLOG_CANDIDATES_PER_SOURCE = 8;
 const HANGUL = /[가-힣]/;
@@ -105,12 +114,55 @@ function usableSummary(summary: string, title: string): string {
     : "";
 }
 
-/** Keeps a list's line breaks and cuts it between lines. */
-const clipLines = (lines: string[], limit: number) => {
-  const text = lines.join("\n");
-  if (text.length <= limit) return text;
-  return text.slice(0, text.lastIndexOf("\n", limit));
-};
+/** One item in one Discord embed: source, linked title, details, then tags. */
+function card(input: {
+  source?: string;
+  title: string;
+  url?: string;
+  lines: string[];
+  tags?: string[];
+  footer?: string;
+  color: number;
+}): Embed {
+  return {
+    ...(input.source ? { author: { name: clip(input.source, 200) } } : {}),
+    title: clip(input.title, 240),
+    ...(input.url ? { url: input.url } : {}),
+    description: [
+      ...input.lines,
+      ...(input.tags?.length ? [input.tags.join(" ")] : []),
+    ]
+      .filter(Boolean)
+      .join("\n")
+      .slice(0, 3900),
+    ...(input.footer ? { footer: { text: input.footer } } : {}),
+    color: input.color,
+  };
+}
+
+const contextSize = (tokens: number) =>
+  tokens >= 1_000_000
+    ? `${Math.round(tokens / 100_000) / 10}M`
+    : `${Math.round(tokens / 1000)}K`;
+
+/** The Discord request body; a one-card message gets a button to its source. */
+export function messageBody(embeds: Embed[]): Record<string, unknown> {
+  const url = embeds.length === 1 ? embeds[0]!.url : undefined;
+  return {
+    embeds,
+    ...(typeof url === "string" && url.length <= 512
+      ? {
+          components: [
+            {
+              type: 1,
+              components: [{ type: 2, style: 5, label: "원문 보기", url }],
+            },
+          ],
+        }
+      : {}),
+    allowed_mentions: { parse: [] },
+  };
+}
 
 export const CURATION_FEED_LABELS: Record<Feed, string> = {
   projects: "프로젝트 소식",
@@ -133,6 +185,8 @@ export interface CommunityFeedOptions {
   guildTargets?: () => Promise<FeedGuildTarget[]>;
   /** Posts one Discord message and returns its id. */
   post(channelId: string, embeds: Embed[]): Promise<string>;
+  /** Pins a message; failing is only a missing convenience. */
+  pin?(channelId: string, messageId: string): Promise<void>;
   getJson?: (url: string, accept?: string) => Promise<unknown>;
   getText?: (url: string, accept?: string) => Promise<string>;
 }
@@ -267,6 +321,80 @@ export class CommunityFeeds {
     return true;
   }
 
+  /** Saves one card to go out with a later batch, once per key. */
+  private async enqueue(feed: Feed, key: string, embed: Embed): Promise<void> {
+    await this.store.saveCommunityDraft({
+      key: `${CARD_PREFIX}${key}`,
+      feed,
+      title: typeof embed.title === "string" ? embed.title : key,
+      embeds: [embed],
+    });
+  }
+
+  /** Says once, in the pinned message, what the colour bar means. */
+  private async postLegend(now: Date): Promise<void> {
+    if (await this.store.communityPostExists(LEGEND_KEY)) return;
+    const channelId = await this.channel("free-tokens");
+    if (!channelId) return;
+    const embeds = [
+      card({
+        title: "띠 색깔 보는 법",
+        lines: [
+          "🟢 운영 주체 확인됨",
+          "🟡 재판매 또는 출처 불분명",
+          "🔴 문제 확인됨",
+        ],
+        color: CARD_COLORS.neutral,
+      }),
+    ];
+    const messageId = await this.options.post(channelId, embeds);
+    await this.store.recordCommunityPost({
+      key: LEGEND_KEY,
+      feed: "free-tokens",
+      channelId,
+      messageId,
+      data: {},
+    });
+    await this.fanOut("free-tokens", LEGEND_KEY, embeds, now);
+    try {
+      await this.options.pin?.(channelId, messageId);
+    } catch (error) {
+      process.stderr.write(
+        `Legend pin failed: ${error instanceof Error ? error.message.slice(0, 200) : "unknown"}\n`,
+      );
+    }
+  }
+
+  /**
+   * Sends the oldest waiting cards of each automatic feed, a batch an hour. A
+   * card Discord refuses stays queued without holding back the ones after it.
+   */
+  async sendQueuedCards(now: Date): Promise<void> {
+    const failures: string[] = [];
+    for (const feed of Object.keys(CURATION_CHANNELS) as Feed[]) {
+      if (!this.options.autoPost?.[feed]) continue;
+      const keys = await this.store.communityCardQueue(
+        feed,
+        CARD_PREFIX,
+        CARDS_PER_BATCH,
+      );
+      if (!keys.length) continue;
+      if (!(await this.due(feed, CARD_BATCH_INTERVAL, now, `${feed}:cards:`)))
+        continue;
+      if (feed === "free-tokens") await this.postLegend(now);
+      for (const key of keys) {
+        try {
+          await this.sendDraft(key);
+        } catch (error) {
+          failures.push(
+            `${key}: ${error instanceof Error ? error.message : "failed"}`,
+          );
+        }
+      }
+    }
+    if (failures.length) throw new Error(failures.join("; "));
+  }
+
   async drafts(): Promise<
     Array<{
       key: string;
@@ -276,7 +404,13 @@ export class CommunityFeeds {
       preview: string;
     }>
   > {
-    return (await this.store.communityDrafts()).map((draft) => {
+    const reviewed = (await this.store.communityDrafts()).filter(
+      // Waiting cards of an automatic feed go out by themselves.
+      (draft) =>
+        !draft.key.startsWith(CARD_PREFIX) ||
+        !this.options.autoPost?.[draft.feed as Feed],
+    );
+    return reviewed.map((draft) => {
       const embed = (draft.embeds[0] ?? {}) as Embed;
       return {
         key: draft.key,
@@ -344,6 +478,7 @@ export class CommunityFeeds {
       await run("free-catalog", () => this.freeCatalogModels());
     }
     if (kstReached(now, 9, 5)) await run("free-news", () => this.freeNews(now));
+    await run("cards", () => this.sendQueuedCards(now));
     return failures;
   }
 
@@ -594,49 +729,32 @@ export class CommunityFeeds {
     const chosen = selectBlogItems(
       curated ? candidates.filter((item) => curated.has(item.id)) : candidates,
     );
-    if (!chosen.length) {
-      // Every post was judged off-topic: nothing to send, and no new model call today.
-      await this.markChecked("ai-blogs", key);
-      return;
-    }
-    // One card per source, so a day with eight posts reads as three short lists.
-    const bySource = new Map<string, typeof official>();
-    for (const item of chosen)
-      bySource.set(item.source, [...(bySource.get(item.source) ?? []), item]);
-    let room = AI_BLOG_MESSAGE_CHARS;
-    const embeds: Embed[] = [];
-    for (const [source, items] of [...bySource.entries()].slice(0, 10)) {
-      const blocks: string[] = [];
-      let used = 40;
-      for (const item of items) {
-        const cited = findCitations(item, others).slice(0, 3);
-        const title = clip(plainText(item.title, 300) || item.title, 110);
-        const summary =
-          curated?.get(item.id) ?? usableSummary(item.summary, title);
-        const block = [
-          `**[${title.replace(/[[\]]/g, "")}](${item.url})**`,
-          ...(summary ? [summary] : []),
-          ...(cited.length
-            ? [
-                `-# 다룬 곳 ${cited.length} · ${cited
+    for (const item of chosen) {
+      const cited = findCitations(item, others).slice(0, 3);
+      const title = clip(plainText(item.title, 300) || item.title, 110);
+      const summary =
+        curated?.get(item.id) ?? usableSummary(item.summary, title);
+      await this.enqueue(
+        "ai-blogs",
+        `ai-blog:${item.id}`,
+        card({
+          source: item.source,
+          title,
+          url: item.url,
+          lines: [
+            summary,
+            cited.length
+              ? `-# 다룬 곳 ${cited.length} · ${cited
                   .map((c) => `[${clip(c.source, 24)}](${c.url})`)
-                  .join(" · ")}`,
-              ]
-            : []),
-        ].join("\n");
-        if (used + block.length + 2 > Math.min(room, AI_BLOG_CARD_CHARS)) break;
-        blocks.push(block);
-        used += block.length + 2;
-      }
-      if (!blocks.length) continue;
-      room -= used;
-      embeds.push({
-        title: clip(`${source} · ${blocks.length}건`, 40),
-        description: blocks.join("\n\n"),
-        color: 0x365d46,
-      });
+                  .join(" · ")}`
+              : "",
+          ],
+          color: CARD_COLORS.neutral,
+        }),
+      );
     }
-    await this.publish("ai-blogs", key, embeds);
+    // Settled even when every post was judged off-topic: no new model call today.
+    await this.markChecked("ai-blogs", key);
   }
 
   async freeModels(): Promise<void> {
@@ -747,11 +865,34 @@ export class CommunityFeeds {
       });
     const usable = free.filter((m) => m.tools);
     const fresh = usable.filter((m) => !seen.has(m.id));
-    for (const model of fresh)
+    for (const model of fresh) {
+      await this.enqueue(
+        "free-tokens",
+        `free-model:${scope}${model.id}`,
+        card({
+          source: provider.label,
+          title: model.name ?? model.id,
+          url: provider.url,
+          lines: [
+            [
+              ...(model.context_length
+                ? [`컨텍스트 ${contextSize(model.context_length)}`]
+                : []),
+              ...(model.expires ? [`${model.expires}까지 무료`] : []),
+            ].join(" · "),
+            `사용법: ${provider.use}`,
+            `-# \`${model.id}\``,
+          ],
+          tags: ["#무료"],
+          footer: provider.caution,
+          color: CARD_COLORS.safe,
+        }),
+      );
       await mark(
         `${first && provider.id ? "free-seen" : "free-model"}:${scope}${model.id}`,
         model.name ?? model.id,
       );
+    }
     const current = new Set(free.map((m) => m.id));
     const reported = new Set(await ids(`free-model-ended:${scope}`));
     const missing = new Set(await ids(`free-model-missing:${scope}`));
@@ -772,61 +913,20 @@ export class CommunityFeeds {
     const ended = gone.filter((id) => missing.has(id));
     for (const id of gone)
       if (!missing.has(id)) await mark(`free-model-missing:${scope}${id}`, id);
-    for (const id of ended) await mark(`free-model-ended:${scope}${id}`, id);
-    if (!fresh.length && !ended.length) return;
-    const lines = (items: string[]) => [
-      ...items.slice(0, FREE_MODEL_LIST_LIMIT),
-      ...(items.length > FREE_MODEL_LIST_LIMIT
-        ? [`- 외 ${items.length - FREE_MODEL_LIST_LIMIT}개`]
-        : []),
-    ];
-    const added = lines(
-      fresh.map((m) =>
-        [
-          `- **${m.name ?? m.id}** \`${m.id}\``,
-          ...(m.context_length
-            ? [`컨텍스트 ${Math.round(m.context_length / 1000)}K`]
-            : []),
-          ...(m.expires ? [`${m.expires}까지 무료`] : []),
-        ].join(" · "),
-      ),
-    );
-    const endedLines = lines(ended.map((id) => `- \`${id}\``));
-    const title = first
-      ? `${provider.label}에서 지금 무료인 모델 ${usable.length}개`
-      : !ended.length
-        ? `${provider.label} 새 무료 모델 ${fresh.length}개`
-        : !fresh.length
-          ? `${provider.label} 무료 종료 ${ended.length}개`
-          : `${provider.label} 새 무료 모델 ${fresh.length}개 · 무료 종료 ${ended.length}개`;
-    await this.publish(
-      "free-tokens",
-      `free-models-post:${createHash("sha256")
-        .update([scope, ...fresh.map((m) => m.id), "ended", ...ended].join(","))
-        .digest("hex")
-        .slice(0, 16)}`,
-      [
-        {
-          title,
+    for (const id of ended) {
+      await this.enqueue(
+        "free-tokens",
+        `free-ended:${scope}${id}:${kstDateKey(new Date())}`,
+        card({
+          source: provider.label,
+          title: `${id} 무료 종료`,
           url: provider.url,
-          description: clipLines(
-            [
-              `사용법: ${provider.use}`,
-              "도구 호출이 되는 모델만 모았어요.",
-              "",
-              ...added,
-              ...(added.length && endedLines.length ? [""] : []),
-              ...(endedLines.length
-                ? ["**더 이상 무료 아님**", ...endedLines]
-                : []),
-            ],
-            3900,
-          ),
-          footer: { text: provider.caution },
-          color: 0x365d46,
-        },
-      ],
-    );
+          lines: ["더 이상 무료로 쓸 수 없어요."],
+          color: CARD_COLORS.neutral,
+        }),
+      );
+      await mark(`free-model-ended:${scope}${id}`, id);
+    }
   }
 
   async freeNews(now: Date): Promise<void> {
@@ -853,23 +953,20 @@ export class CommunityFeeds {
     const items = curated
       ? matches.filter((item) => curated.has(item.id))
       : matches;
-    if (!items.length) {
-      await this.markChecked("free-tokens", key);
-      return;
-    }
-    await this.publish("free-tokens", key, [
-      {
-        title: `무료 크레딧·무료 티어 소식 ${items.length}건`,
-        description: clipLines(
-          items.slice(0, 10).map((i) => {
-            const summary = curated?.get(i.id);
-            return `- [${clip(plainText(i.title, 200) || i.title, 90)}](${i.url}) · ${i.source}${summary ? `\n  ${summary}` : ""}`;
-          }),
-          3900,
-        ),
-        color: 0x365d46,
-      },
-    ]);
+    for (const item of items.slice(0, 10))
+      await this.enqueue(
+        "free-tokens",
+        `free-news:${item.id}`,
+        card({
+          source: item.source,
+          title: plainText(item.title, 200) || item.title,
+          url: item.url,
+          lines: [curated?.get(item.id) ?? ""],
+          tags: ["#무료"],
+          color: CARD_COLORS.neutral,
+        }),
+      );
+    await this.markChecked("free-tokens", key);
   }
 }
 
@@ -924,13 +1021,24 @@ export async function createCommunityFeeds(input: {
             authorization: `Bot ${input.botToken}`,
             "content-type": "application/json",
           },
-          body: JSON.stringify({ embeds, allowed_mentions: { parse: [] } }),
+          body: JSON.stringify(messageBody(embeds)),
           signal: AbortSignal.timeout(15_000),
         },
       );
       if (!response.ok) throw new Error(`Discord returned ${response.status}`);
       const message = (await response.json()) as { id?: unknown };
       return typeof message.id === "string" ? message.id : "";
+    },
+    pin: async (channelId, messageId) => {
+      const response = await fetch(
+        `https://discord.com/api/v10/channels/${channelId}/messages/pins/${messageId}`,
+        {
+          method: "PUT",
+          headers: { authorization: `Bot ${input.botToken}` },
+          signal: AbortSignal.timeout(15_000),
+        },
+      );
+      if (!response.ok) throw new Error(`Discord returned ${response.status}`);
     },
   });
 }

@@ -659,6 +659,20 @@ test("new free models are summarised into one core item", async () => {
   assert.equal(items.length, 2);
 });
 
+test("single feed cards stay out of the newsletter", async () => {
+  const { store, experiment } = setup();
+  store.posts.push({
+    key: "card:free-model:opencode:a",
+    feed: "free-tokens",
+    title: "A",
+    embeds: [{ title: "A", url: "https://opencode.ai/docs/zen/" }],
+    data: {},
+  });
+  const before = (await experiment.buildItems(new Date(0))).length;
+  store.posts.pop();
+  assert.equal((await experiment.buildItems(new Date(0))).length, before);
+});
+
 const emailAddressStatus = (known: Set<string>) => ({
   async statusFor(userId: string) {
     return known.has(userId) ? { state: "verified" } : null;

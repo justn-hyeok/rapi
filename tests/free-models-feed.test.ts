@@ -1,12 +1,28 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { CommunityFeeds } from "../packages/agent/src/community-feeds.js";
+import {
+  CARD_COLORS,
+  CommunityFeeds,
+  messageBody,
+} from "../packages/agent/src/community-feeds.js";
 
-type Embed = { title: string; description: string; url?: string };
+type Embed = {
+  title: string;
+  description: string;
+  url?: string;
+  color: number;
+  author?: { name: string };
+};
 
 function harness(catalog: unknown, openRouter: unknown[] = []) {
   const keys = new Set<string>();
+  /** Every card saved, in order. */
   const posts: Embed[] = [];
+  const sent: string[] = [];
+  const pinned: string[] = [];
+  const waiting = new Map<string, { feed: string; embeds: Embed[] }>();
+  const refused = new Set<string>();
+  const marks = new Map<string, Date>();
   const state = { catalog, openRouter };
   const store = {
     communityPostKeys: async (prefix: string) =>
@@ -19,19 +35,51 @@ function harness(catalog: unknown, openRouter: unknown[] = []) {
       for (const key of gone) keys.delete(key);
     },
     managedDiscordResourceId: async () => "channel",
+    saveCommunityDraft: async (draft: {
+      key: string;
+      feed: string;
+      embeds: Embed[];
+    }) => {
+      if (keys.has(draft.key)) return;
+      keys.add(draft.key);
+      posts.push(draft.embeds[0]!);
+      waiting.set(draft.key, draft);
+    },
+    communityCardQueue: async (feed: string, prefix: string, limit: number) =>
+      [...waiting.entries()]
+        .filter(([key, d]) => d.feed === feed && key.startsWith(prefix))
+        .map(([key]) => key)
+        .slice(0, limit),
+    communityDraft: async (key: string) => {
+      const draft = waiting.get(key);
+      return draft ? { key, ...draft, created: new Date(0) } : null;
+    },
+    settleCommunityDraft: async (key: string) => waiting.delete(key),
+    lastCommunityPostAt: async (feed: string, prefix: string) => {
+      const last = [...keys]
+        .filter((key) => key.startsWith(prefix))
+        .map((key) => new Date(key.slice(prefix.length)).getTime())
+        .sort((a, b) => b - a)[0];
+      return last ? new Date(last) : null;
+    },
   };
   const feeds = new CommunityFeeds(store as never, undefined, {
     guildId: "g",
     owner: "o",
     autoPost: { "free-tokens": true },
     post: async (_channel, embeds) => {
-      posts.push(embeds[0] as Embed);
+      const title = (embeds[0] as Embed).title;
+      if (refused.has(title)) throw new Error("Discord returned 400");
+      sent.push(title);
       return "m";
+    },
+    pin: async (_channel, messageId) => {
+      pinned.push(messageId);
     },
     getJson: async (url) =>
       url.includes("openrouter") ? { data: state.openRouter } : state.catalog,
   });
-  return { feeds, keys, posts, state };
+  return { feeds, keys, posts, sent, pinned, refused, waiting, marks, state };
 }
 
 const model = (id: string, extra: Record<string, unknown> = {}) => ({
@@ -47,17 +95,19 @@ const zen = (...models: Array<ReturnType<typeof model>>) => ({
   },
 });
 
-test("a provider's first list is posted once and not counted as new for learners", async () => {
+test("each free model of a first list gets its own card, not new for learners", async () => {
   const { feeds, keys, posts } = harness(zen(model("a"), model("b")));
   await feeds.freeCatalogModels();
-  assert.equal(posts.length, 1);
-  assert.match(posts[0]!.title, /OpenCode Zen에서 지금 무료인 모델 2개/);
+  assert.deepEqual(posts.map((p) => p.title).sort(), ["A", "B"]);
+  assert.equal(posts[0]!.author?.name, "OpenCode Zen");
   assert.equal(posts[0]!.url, "https://opencode.ai/docs/zen/");
-  assert.match(posts[0]!.description, /^사용법: OpenCode/);
+  assert.equal(posts[0]!.color, CARD_COLORS.safe);
+  assert.match(posts[0]!.description, /사용법: OpenCode/);
+  assert.match(posts[0]!.description, /#무료$/);
   assert.ok(keys.has("free-seen:opencode:a"));
   assert.ok(![...keys].some((key) => key.startsWith("free-model:")));
   await feeds.freeCatalogModels();
-  assert.equal(posts.length, 1);
+  assert.equal(posts.length, 2);
 });
 
 test("paid, deprecated and tool-less models are not announced", async () => {
@@ -71,7 +121,7 @@ test("paid, deprecated and tool-less models are not announced", async () => {
     ),
   );
   await feeds.freeCatalogModels();
-  assert.match(posts[0]!.title, /모델 1개/);
+  assert.equal(posts.length, 1);
   assert.match(posts[0]!.description, /`keep`/);
 });
 
@@ -90,16 +140,18 @@ test("a later model is new for learners, and an ended one waits for a second che
   await feeds.freeCatalogModels();
   state.catalog = zen(model("a"), model("c"), model("d"));
   await feeds.freeCatalogModels();
-  assert.equal(posts.length, 2);
-  assert.match(posts[1]!.title, /새 무료 모델 1개$/);
+  assert.equal(posts.length, 4);
+  assert.equal(posts[3]!.title, "D");
   assert.ok(keys.has("free-model:opencode:d"));
   state.catalog = zen(model("a"), model("c"), model("d"), model("e"));
   await feeds.freeCatalogModels();
-  assert.equal(posts.length, 3);
-  assert.match(posts[2]!.title, /새 무료 모델 1개 · 무료 종료 1개/);
-  assert.match(posts[2]!.description, /더 이상 무료 아님\*\*\n- `b`/);
+  assert.deepEqual(
+    posts.slice(4).map((p) => p.title),
+    ["E", "b 무료 종료"],
+  );
+  assert.equal(posts[5]!.color, CARD_COLORS.neutral);
   await feeds.freeCatalogModels();
-  assert.equal(posts.length, 3);
+  assert.equal(posts.length, 6);
 });
 
 test("a list that collapses is treated as a catalog problem, not mass ending", async () => {
@@ -111,7 +163,7 @@ test("a list that collapses is treated as a catalog problem, not mass ending", a
   await feeds.freeCatalogModels();
   state.catalog = {};
   await feeds.freeCatalogModels();
-  assert.equal(posts.length, 1);
+  assert.equal(posts.length, 5);
 });
 
 test("OpenRouter's existing markers keep working next to catalog markers", async () => {
@@ -127,7 +179,9 @@ test("OpenRouter's existing markers keep working next to catalog markers", async
   assert.equal(posts.length, 0, "catalog markers must not read as ended");
   state.openRouter = [free("x/a:free"), free("x/b:free")];
   await feeds.freeModels();
-  assert.match(posts[0]!.title, /OpenRouter 새 무료 모델 1개/);
+  assert.equal(posts[0]!.author?.name, "OpenRouter");
+  assert.equal(posts[0]!.title, "x/b:free");
+  assert.ok(keys.has("free-model:x/b:free"));
 });
 
 test("OpenRouter cards say what a model can do and when it stops being free", async () => {
@@ -146,11 +200,10 @@ test("OpenRouter cards say what a model can do and when it stops being free", as
     },
   ]);
   await feeds.freeModels();
-  assert.match(
-    posts[0]!.description,
-    /\*\*A\*\* `x\/a:free` · 컨텍스트 262K · 2026-12-31까지 무료/,
-  );
-  assert.doesNotMatch(posts[0]!.description, /lyria/);
+  assert.equal(posts.length, 1);
+  assert.equal(posts[0]!.title, "A");
+  assert.match(posts[0]!.description, /컨텍스트 262K · 2026-12-31까지 무료/);
+  assert.match(posts[0]!.description, /`x\/a:free`/);
 });
 
 test("a known tool-less model still free is not reported as ended", async () => {
@@ -174,7 +227,7 @@ test("a model missing from one response only is never reported", async () => {
   await feeds.freeCatalogModels();
   state.catalog = zen(model("a"));
   await feeds.freeCatalogModels();
-  assert.equal(posts.length, 1, "two separate misses are not two in a row");
+  assert.equal(posts.length, 2, "two separate misses are not two in a row");
 });
 
 test("a model that came back can be reported as ended again", async () => {
@@ -186,5 +239,73 @@ test("a model that came back can be reported as ended again", async () => {
   state.catalog = zen(model("a"));
   await feeds.freeCatalogModels();
   await feeds.freeCatalogModels();
-  assert.match(posts.at(-1)!.title, /무료 종료 1개/);
+  assert.equal(posts.at(-1)!.title, "b 무료 종료");
+});
+
+const batch = (i: number) => new Date(Date.UTC(2026, 10, 4, i));
+
+test("a long queue goes out five cards an hour, oldest first", async () => {
+  const { feeds, sent, state } = harness({});
+  state.catalog = zen(...Array.from({ length: 7 }, (_, i) => model(`m${i}`)));
+  await feeds.freeCatalogModels();
+  await feeds.sendQueuedCards(batch(1));
+  const cards = sent.filter((title) => title !== "띠 색깔 보는 법");
+  assert.deepEqual(cards, ["M0", "M1", "M2", "M3", "M4"]);
+  await feeds.sendQueuedCards(new Date(batch(1).getTime() + 59 * 60_000));
+  assert.equal(sent.filter((t) => t !== "띠 색깔 보는 법").length, 5);
+  await feeds.sendQueuedCards(batch(2));
+  assert.equal(sent.filter((t) => t !== "띠 색깔 보는 법").length, 7);
+});
+
+test("the legend goes out once before the first batch and is pinned", async () => {
+  const { feeds, sent, pinned, state } = harness({});
+  state.catalog = zen(model("a"));
+  await feeds.freeCatalogModels();
+  await feeds.sendQueuedCards(batch(1));
+  assert.deepEqual(sent, ["띠 색깔 보는 법", "A"]);
+  assert.deepEqual(pinned, ["m"]);
+  state.catalog = zen(model("a"), model("b"));
+  await feeds.freeCatalogModels();
+  await feeds.sendQueuedCards(batch(2));
+  assert.deepEqual(sent, ["띠 색깔 보는 법", "A", "B"]);
+});
+
+test("a card Discord refuses stays queued and does not block the next", async () => {
+  const { feeds, sent, refused, waiting, state } = harness({});
+  state.catalog = zen(model("a"), model("b"));
+  refused.add("A");
+  await feeds.freeCatalogModels();
+  await assert.rejects(feeds.sendQueuedCards(batch(1)), /400/);
+  assert.ok(sent.includes("B"));
+  assert.deepEqual([...waiting.keys()], ["card:free-model:opencode:a"]);
+  refused.clear();
+  await feeds.sendQueuedCards(batch(2));
+  assert.ok(sent.includes("A"));
+  assert.equal(waiting.size, 0);
+});
+
+test("nothing waiting leaves no batch marker behind", async () => {
+  const { feeds, keys } = harness({});
+  await feeds.sendQueuedCards(batch(1));
+  assert.equal(keys.size, 0);
+});
+
+test("a single card gets a source button; a message of several does not", () => {
+  const body = messageBody([{ title: "t", url: "https://x.example/a" }]);
+  assert.deepEqual(body.components, [
+    {
+      type: 1,
+      components: [
+        { type: 2, style: 5, label: "원문 보기", url: "https://x.example/a" },
+      ],
+    },
+  ]);
+  assert.equal(
+    messageBody([
+      { url: "https://x.example/a" },
+      { url: "https://x.example/b" },
+    ]).components,
+    undefined,
+  );
+  assert.equal(messageBody([{ title: "no link" }]).components, undefined);
 });

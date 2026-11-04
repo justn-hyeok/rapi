@@ -929,6 +929,19 @@ export class PostgresStore {
     return result.rows as never;
   }
 
+  /** Oldest waiting cards of a feed. */
+  async communityCardQueue(
+    feed: string,
+    prefix: string,
+    limit: number,
+  ): Promise<string[]> {
+    const result = await this.pool.query<{ key: string }>(
+      `SELECT key FROM community_posts WHERE state='draft' AND feed=$1 AND starts_with(key,$2) ORDER BY posted_at, key LIMIT $3`,
+      [feed, prefix, limit],
+    );
+    return result.rows.map((row) => row.key);
+  }
+
   async communityDraft(key: string): Promise<{
     key: string;
     feed: string;

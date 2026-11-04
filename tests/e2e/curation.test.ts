@@ -176,8 +176,10 @@ describe("curation feeds", () => {
       ]);
       assert.equal(byChannel("c-ai").length, 1);
       assert.match(JSON.stringify(byChannel("c-ai")[0]!.embeds), /다룬 곳 1/);
-      assert.equal(byChannel("c-free").length, 2);
-      assert.match(JSON.stringify(byChannel("c-free")), /지금 무료인 모델 1개/);
+      // The legend, one free model, and one piece of free news: a card each.
+      assert.equal(byChannel("c-free").length, 3);
+      assert.match(JSON.stringify(byChannel("c-free")), /띠 색깔 보는 법/);
+      assert.match(JSON.stringify(byChannel("c-free")), /"title":"A"/);
 
       const intro = drafts.find((d) => d.title.includes("새 프로젝트 · brgr"))!;
       assert.deepEqual(await feeds.sendDraft(intro.key), {
@@ -206,9 +208,23 @@ describe("curation feeds", () => {
         "DELETE FROM community_posts WHERE starts_with(key,'free-models:') OR starts_with(key,'projects:check:')",
       );
       await feeds.runOnce(morning);
+      // The new card waits for the next hourly batch.
+      assert.equal(posts.length, before);
+      await store.pool.query(
+        "DELETE FROM community_posts WHERE starts_with(key,'free-tokens:cards:')",
+      );
+      await feeds.runOnce(morning);
       const fresh = posts.slice(before);
       assert.equal(fresh.length, 1);
-      assert.match(JSON.stringify(fresh[0]!.embeds), /새 무료 모델 1개/);
+      assert.match(JSON.stringify(fresh[0]!.embeds), /"title":"B"/);
+      assert.equal(
+        (
+          await store.pool.query(
+            "SELECT 1 FROM community_posts WHERE state='draft' AND starts_with(key,'card:')",
+          )
+        ).rowCount,
+        0,
+      );
     } finally {
       await store.close();
     }

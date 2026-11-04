@@ -285,6 +285,8 @@ export class LearnerExperiment {
         freeModelsKey ||= post.key;
         continue;
       }
+      // Single cards are counted above or stay in Discord: only whole posts go out.
+      if (post.key.startsWith("card:")) continue;
       const item = learnerItemFromPost(post);
       if (item) items.push(item);
     }
