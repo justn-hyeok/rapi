@@ -23,6 +23,8 @@ export interface CandidateForCard {
   operator: string | null;
   priceCheck: CandidatePriceCheck | null;
   termsNote: CandidateTermsNote | null;
+  // What a reporter wrote. Only the owner's review card shows it, never a public one.
+  memo?: string | null;
 }
 
 export interface CandidateForDecision extends CandidateForCard {
@@ -34,6 +36,7 @@ const ROUTE_LABEL: Record<DiscountCandidateRoute, string> = {
   changelog: "공식 변경로그",
   pull_request: "PR",
   code_search: "코드 검색",
+  report: "제보",
 };
 const DETAIL_MAX_CHARS = 300;
 // The longest URL Discord accepts on a link button.
@@ -81,11 +84,13 @@ export function cardLink(value: string): string | null {
  * Whether this row becomes a card. Red is the owner's "do not post", a missing
  * band is not checked yet, and a changelog entry has to offer something: the
  * collector also keeps ordinary updates that merely mention a date or a credit.
+ * A report has no wording to judge, and a person chose to send it.
  */
 export function shouldCardCandidate(candidate: CandidateForCard): boolean {
   if (candidate.band !== "green" && candidate.band !== "yellow") return false;
   if (!cardLink(candidate.url)) return false;
-  if (candidate.kind === "new_service") return true;
+  if (candidate.kind === "new_service" || candidate.route === "report")
+    return true;
   if (POLICY_NOTICE.test(candidate.title)) return false;
   return (
     candidate.priceCheck === "below_list" ||
@@ -165,4 +170,20 @@ export function discountCard(
       .join("\n"),
     color: candidate.band === "green" ? BAND_COLOR.green : BAND_COLOR.yellow,
   };
+}
+
+/** The card as the owner sees it: a report's memo is for reviewing, not publishing. */
+export function reviewCard(candidate: CandidateForCard): DiscordCard {
+  const card = discountCard(candidate);
+  return candidate.memo
+    ? {
+        ...card,
+        description: [
+          card.description,
+          `메모: ${escapeMarkdown(plainLine(candidate.memo))}`,
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      }
+    : card;
 }

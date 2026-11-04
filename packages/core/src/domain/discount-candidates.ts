@@ -2,7 +2,8 @@ export type DiscountCandidateKind = "new_service" | "discount";
 export type DiscountCandidateRoute =
   | "code_search"
   | "pull_request"
-  | "changelog";
+  | "changelog"
+  | "report";
 
 export interface DiscountCandidate {
   kind: DiscountCandidateKind;
@@ -17,6 +18,7 @@ export interface DiscountCandidate {
 
 export const DISCOUNT_EVIDENCE_MAX_CHARS = 600;
 export const DISCOUNT_BODY_DEFAULT_CHARS = 600;
+export const REPORT_MEMO_MAX_CHARS = 200;
 
 export const MONTH =
   "(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\\.?";
