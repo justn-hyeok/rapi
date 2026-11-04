@@ -1,5 +1,4 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
-import type { ExternalItem } from "./sources.js";
 import { splitDiscordMessage } from "@rapi/core";
 
 function encryptionKey(value: string): Buffer {
@@ -61,77 +60,6 @@ export function parseDiscordWebhookUrl(value: string): {
   );
   if (!match) throw new Error("Invalid Discord webhook URL");
   return { id: match[1]!, token: match[2]! };
-}
-
-const supportedGitHubEvents = new Set([
-  "ping",
-  "push",
-  "issues",
-  "pull_request",
-  "release",
-]);
-
-function object(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object"
-    ? (value as Record<string, unknown>)
-    : {};
-}
-
-function string(value: unknown): string {
-  return typeof value === "string" || typeof value === "number"
-    ? String(value)
-    : "";
-}
-
-export function normalizeGitHubWebhook(
-  event: string,
-  payload: Record<string, unknown>,
-): ExternalItem {
-  if (!supportedGitHubEvents.has(event))
-    throw new Error(`Unsupported GitHub webhook event: ${event}`);
-  const repository = object(payload.repository);
-  const action = string(payload.action) || "received";
-  let entity: Record<string, unknown>;
-  if (event === "pull_request") entity = object(payload.pull_request);
-  else if (event === "issues") entity = object(payload.issue);
-  else if (event === "release") entity = object(payload.release);
-  else if (event === "push") entity = object(object(payload.head_commit));
-  else entity = repository;
-  const repositoryName = string(repository.full_name);
-  const id =
-    string(entity.id) ||
-    string(entity.node_id) ||
-    string(payload.after) ||
-    event;
-  const url =
-    string(entity.html_url) ||
-    string(entity.url) ||
-    string(repository.html_url) ||
-    (repositoryName
-      ? `https://github.com/${repositoryName}`
-      : "https://github.com");
-  const user = object(entity.user);
-  const sender = object(payload.sender);
-  return {
-    externalId: `${event}:${id}:${action}`,
-    url,
-    title:
-      string(entity.title) ||
-      string(entity.message) ||
-      `${repositoryName || "GitHub"}: ${event} ${action}`,
-    body:
-      string(entity.body) ||
-      string(entity.message) ||
-      string(payload.zen) ||
-      `${event} ${action}`,
-    author: string(user.login) || string(sender.login) || null,
-    publishedAt:
-      string(entity.updated_at) ||
-      string(entity.created_at) ||
-      string(entity.timestamp) ||
-      null,
-    metadata: { eventType: event, action, repository: repositoryName },
-  };
 }
 
 export function webhookRetryDecision(

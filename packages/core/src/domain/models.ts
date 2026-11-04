@@ -31,43 +31,8 @@ export interface NormalizedItem {
 }
 
 export interface DeliveryTarget {
-  channel: "discord_dm" | "discord_channel" | "email";
+  channel: "discord_dm" | "discord_channel";
   recipientId: string;
-}
-
-export interface SubscriptionInput {
-  ownerId: string;
-  name: string;
-  sourceIds: string[];
-  categories: string[];
-  includeKeywords: string[];
-  excludeKeywords: string[];
-  cadence: "immediate" | "daily" | "weekly";
-  timezone: string;
-  channels: DeliveryTarget[];
-  maxItems: number;
-}
-
-export interface BriefingItem {
-  id: string;
-  title: string;
-  canonicalUrl: string;
-  summary: string;
-  categories: string[];
-  visibility: Visibility;
-  /** Items with the same key are rendered as one entry (e.g. one repository). */
-  groupKey?: string | null;
-}
-
-export interface FrozenBatch {
-  id: string;
-  subscriptionId: string;
-  periodStart: Date;
-  periodEnd: Date;
-  rendererVersion: string;
-  state: string;
-  targets: DeliveryTarget[];
-  items: BriefingItem[];
 }
 
 export interface DeliveryPayload {
@@ -75,8 +40,6 @@ export interface DeliveryPayload {
   text: string;
   html: string;
   itemIds: string[];
-  /** Extra email headers such as List-Unsubscribe; other adapters ignore them. */
-  emailHeaders?: Record<string, string>;
   /** A Discord message (embeds and link buttons) replacing the text split. */
   discord?: {
     embeds: unknown[];
