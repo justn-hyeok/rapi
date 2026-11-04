@@ -777,7 +777,7 @@ docker exec rapi-postgres-1 psql -U rapi -d rapi -c "UPDATE discount_candidates 
 
 ## 할인 카드 (0.0.5)
 
-`DISCOUNT_REVIEW_CHANNEL_ID`에 소유자만 보는 채널 ID를 넣으면 봇이 시작할 때와 그 뒤 10분마다 검증한 후보를 카드로 보낸다. 값이 없으면 아무것도 보내지 않고 봇은 그대로 뜬다. 봇에게 그 채널의 보기, 메시지 보내기, 링크 첨부 권한이 있어야 한다. 다른 채널로 내보내는 것은 0.0.6에서 한다. 형식은 [로드맵의 카드 규칙](../ROADMAP.md#정해진-카드-규칙)을 따른다.
+`DISCOUNT_REVIEW_CHANNEL_ID`에 소유자만 보는 채널 ID를 넣으면 봇이 시작할 때와 그 뒤 10분마다 검증한 후보를 카드로 보낸다. 값이 없으면 아무것도 보내지 않고 봇은 그대로 뜬다. 봇에게 그 채널의 보기, 메시지 보내기, 링크 첨부 권한이 있어야 한다. 다른 채널로 내보내는 방법은 [승인 버튼](#승인-버튼-006)에 있다. 형식은 [로드맵의 카드 규칙](../ROADMAP.md#정해진-카드-규칙)을 따른다.
 
 어떤 후보를 보내는가:
 
@@ -815,4 +815,46 @@ docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT id, carded_at, left(
 
 ```sh
 docker exec rapi-postgres-1 psql -U rapi -d rapi -c "UPDATE discount_candidates SET carded_at = NULL WHERE id = '행 ID' AND card_message_id IS NULL"
+```
+
+## 승인 버튼 (0.0.6)
+
+0.0.6부터 보내는 검토 카드에 [게시]와 [버리기]가 붙는다. 그 전에 보낸 카드는 버튼 없이 그대로 둔다.
+
+```sh
+DISCOUNT_PUBLIC_CHANNEL_ID=공개_채널_ID
+```
+
+이 값이나 `DISCOUNT_REVIEW_CHANNEL_ID`가 없으면 버튼은 이유를 알려 주고 아무것도 바꾸지 않으며, 봇은 그대로 뜬다. 봇에게 공개 채널의 보기, 메시지 보내기, 링크 첨부 권한이 있어야 한다. `.env`를 바꾸면 봇을 다시 시작해야 한다.
+
+소유자는 `DISCORD_ALLOWED_USER_IDS`와 `DISCORD_SUPERADMIN_USER_IDS`에 있는 사람이다. 권한 규칙에서 최고 권한으로 치는 두 목록을 그대로 쓴다. 누를 때마다 Discord가 서명한 사용자 ID와 채널을 확인하므로, 다른 사람이나 다른 채널에서 온 요청은 본인에게만 보이는 거절 메시지를 받고 아무것도 바뀌지 않는다. 버튼 ID에는 행 ID만 들어 있고 나머지는 매번 DB에서 다시 읽는다.
+
+- [게시]를 누르면 마감일 입력창이 열린다. 제목이나 근거에서 찾은 날짜를 미리 채운다. 끝을 뜻하는 표현(`until`, `through`, `까지` 등)이 붙은 날짜를 먼저 고르고, 없으면 처음 나온 날짜를 쓴다. 틀릴 수 있으니 소유자가 고치거나 지우고 확정한다. 비워 두면 마감일을 표시하지 않는다.
+- 입력창을 제출하면 검토 카드와 같은 형식으로 공개 채널에 한 건 보낸다. 승인 버튼은 없다. 검토 메시지에서는 승인 버튼이 사라지고 결과가 적히며, `원문 보기`는 남는다.
+- 공개 채널에는 최근 1시간에 5장까지 보낸다. 넘으면 언제 다시 누르면 되는지 알려 주고 후보는 그대로 둔다. 버리기는 세지 않는다.
+- `band`가 `red`인 행은 카드가 나간 뒤 빨강이 되었어도 게시되지 않는다. 버릴 수는 있다.
+
+중복을 막는 방식:
+
+- 보내기 전에 `status`를 `new`에서 `published`로 바꾸고 `decided_at`을 적는다. 그래서 두 번 누르거나 탭 두 개에서 제출해도 한 번만 간다. 보낸 뒤 `public_message_id`를 적는다.
+- Discord가 거절하면(403, 429 등) `new`로 되돌리고 소유자에게 알린다. 다시 누를 수 있다.
+- Discord 응답을 받지 못했거나 5xx를 받으면 갔는지 알 수 없다. 표시를 유지하고 소유자에게 알린다. 다시 보내지 않는다. 검토 카드와 달리 5xx도 되돌리지 않는 것은 공개 채널에 같은 글이 두 번 가는 쪽이 더 나쁘기 때문이다.
+- 보내는 도중 봇이 죽어도 같은 모양이 된다. `published`인데 `public_message_id`가 없는 행이다.
+
+결과를 볼 때:
+
+```sh
+docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT status, decided_at, public_message_id, band, domain, left(title, 50) AS title FROM discount_candidates WHERE status <> 'new' ORDER BY decided_at DESC LIMIT 20"
+```
+
+보냈는지 알 수 없는 행을 볼 때:
+
+```sh
+docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT id, decided_at, left(title, 60) AS title FROM discount_candidates WHERE status = 'published' AND public_message_id IS NULL"
+```
+
+공개 채널에 카드가 없는 것을 확인했으면 그 행을 되돌린다. 검토 메시지의 버튼은 이미 사라졌으니, 다시 내보내려면 `carded_at`도 지워 검토 카드를 새로 받는다.
+
+```sh
+docker exec rapi-postgres-1 psql -U rapi -d rapi -c "UPDATE discount_candidates SET status = 'new', decided_at = NULL, carded_at = NULL, card_message_id = NULL WHERE id = '행 ID' AND status = 'published' AND public_message_id IS NULL"
 ```
