@@ -15,6 +15,9 @@ export class PermanentDeliveryError extends Error {}
 /** Nothing was sent; the caller should stop asking for a while. */
 export class DiscordRateLimitError extends Error {}
 
+/** A 5xx: usually nothing was posted, but Discord did not say so. */
+export class DiscordServerError extends Error {}
+
 export class DiscordDeliveryAdapter implements DeliveryAdapter {
   constructor(private readonly botToken: string) {}
 
@@ -81,6 +84,8 @@ export class DiscordDeliveryAdapter implements DeliveryAdapter {
     }
     if (response.status === 429)
       throw new DiscordRateLimitError("Discord returned 429");
+    if (response.status >= 500)
+      throw new DiscordServerError(`Discord returned ${response.status}`);
     if (!response.ok) throw new Error(`Discord returned ${response.status}`);
     try {
       const message = (await response.json()) as Record<string, unknown>;
