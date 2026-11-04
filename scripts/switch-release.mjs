@@ -17,7 +17,7 @@ import { randomUUID } from "node:crypto";
 import { verifyRelease } from "./release-artifact.mjs";
 
 const execute = promisify(execFile);
-const ports = { bot: 3000, monitor: 3300 };
+const ports = { bot: 4000, monitor: 4300 };
 
 // A release is ready when the new revision is serving. External source
 // outages (a feed or crawl target failing) are reported by the monitor, but

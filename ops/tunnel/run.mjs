@@ -9,7 +9,7 @@ const tunnel = spawn(
   "/usr/bin/cloudflared",
   tunnelToken
     ? ["tunnel", "--no-autoupdate", "run", "--token", tunnelToken]
-    : ["tunnel", "--no-autoupdate", "--url", "http://127.0.0.1:3000"],
+    : ["tunnel", "--no-autoupdate", "--url", "http://127.0.0.1:4000"],
   { stdio: ["ignore", "pipe", "pipe"] },
 );
 

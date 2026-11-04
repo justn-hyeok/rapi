@@ -30,7 +30,7 @@ test("release verification reads every supported port override from the service 
     bot: 4100,
     monitor: 4103,
   });
-  assert.equal(configuredHealthPorts({}).bot, 3000);
+  assert.equal(configuredHealthPorts({}).bot, 4000);
   assert.throws(() => configuredHealthPorts({ PORT: "70000" }), /Invalid/);
   assert.throws(
     () => configuredHealthPorts({ MONITOR_PORT: "not-a-port" }),

@@ -10,7 +10,7 @@ if [[ ! "$backup_retention_days" =~ ^[1-9][0-9]*$ ]] || (( backup_retention_days
   exit 2
 fi
 mkdir -p "$backup_directory" "$(dirname "$backup_status_file")"
-DATABASE_URL=${DATABASE_URL:-postgresql://redhood:redhood-local-only@127.0.0.1:5432/redhood}
+DATABASE_URL=${DATABASE_URL:-postgresql://redhood:redhood-local-only@127.0.0.1:5433/redhood}
 export DATABASE_URL
 if [[ "${REDHOOD_BACKUP_LOCK_HELD:-}" != "1" ]]; then
   exec node scripts/backup-with-lock.mjs
@@ -45,7 +45,7 @@ trap cleanup EXIT
 trap record_failure ERR
 if command -v pg_dump >/dev/null 2>&1; then
   pg_dump --format=custom --no-owner --no-privileges --file="$temporary" "$DATABASE_URL"
-elif [[ "$DATABASE_URL" == "postgresql://redhood:redhood-local-only@127.0.0.1:5432/redhood" ]]; then
+elif [[ "$DATABASE_URL" == "postgresql://redhood:redhood-local-only@127.0.0.1:5433/redhood" ]]; then
   compose=(docker compose)
   if ! docker info >/dev/null 2>&1 && sudo -n docker info >/dev/null 2>&1; then
     compose=(sudo docker compose)

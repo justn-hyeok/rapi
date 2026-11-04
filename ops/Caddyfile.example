@@ -1,7 +1,7 @@
 redhood.example.com {
   @public path /health /interactions /webhooks/*
   handle @public {
-    reverse_proxy 127.0.0.1:3000
+    reverse_proxy 127.0.0.1:4000
   }
   respond 404
 }

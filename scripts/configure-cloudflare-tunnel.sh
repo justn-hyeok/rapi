@@ -33,10 +33,10 @@ config_file="${temporary}/config.yml"
 cat >"$config_file" <<EOF
 tunnel: ${tunnel_id}
 credentials-file: /var/lib/redhood/cloudflared/${tunnel_id}.json
-metrics: 127.0.0.1:3700
+metrics: 127.0.0.1:4700
 ingress:
   - hostname: ${hostname}
-    service: http://127.0.0.1:3600
+    service: http://127.0.0.1:4600
   - service: http_status:404
 EOF
 "${root[@]}" install -o justn -g justn -m 0600 "$config_file" /var/lib/redhood/cloudflared/config.yml

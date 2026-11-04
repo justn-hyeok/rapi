@@ -48,7 +48,7 @@ export const environmentSchema = z
     DISCORD_ALLOWED_GUILD_IDS: csvIds.optional(),
     DISCORD_HOME_GUILD_ID: z.string().regex(/^\d+$/).optional(),
     DISCORD_ALLOWED_CHANNEL_IDS: csvIds.optional(),
-    PORT: z.coerce.number().int().min(1).max(65535).default(3000),
+    PORT: z.coerce.number().int().min(1).max(65535).default(4000),
     WEBHOOK_ENCRYPTION_KEY: z
       .string()
       .refine((value) => {
@@ -66,9 +66,9 @@ export const environmentSchema = z
     MONITOR_STATE_FILE: z
       .string()
       .default("/var/lib/redhood/monitor-state.json"),
-    MONITOR_PORT: z.coerce.number().int().min(1).max(65535).default(3300),
-    PUBLIC_GATEWAY_READY_URL: z.url().default("http://127.0.0.1:3601/ready"),
-    CLOUDFLARE_TUNNEL_READY_URL: z.url().default("http://127.0.0.1:3700/ready"),
+    MONITOR_PORT: z.coerce.number().int().min(1).max(65535).default(4300),
+    PUBLIC_GATEWAY_READY_URL: z.url().default("http://127.0.0.1:4601/ready"),
+    CLOUDFLARE_TUNNEL_READY_URL: z.url().default("http://127.0.0.1:4700/ready"),
     DISCORD_LAYOUT_FILE: z
       .string()
       .default("/home/justn/redhood/config/discord-channels.yaml"),
@@ -81,7 +81,7 @@ export const environmentSchema = z
       .positive()
       .default(500_000_000),
     MONITOR_INTERVAL_SECONDS: z.coerce.number().int().min(5).default(30),
-    BOT_READY_URL: z.url().default("http://127.0.0.1:3000/ready"),
+    BOT_READY_URL: z.url().default("http://127.0.0.1:4000/ready"),
     BACKUP_STATUS_FILE: z.string().default("backups/backup-status.json"),
     GITHUB_READ_TOKEN: z.string().min(1).optional(),
     POLL_INTERVAL_SECONDS: z.coerce.number().int().min(30).default(300),

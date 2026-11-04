@@ -1,8 +1,8 @@
 import { createServer, request as httpRequest } from "node:http";
 
-const port = Number(process.env.REDHOOD_GATEWAY_PORT ?? "3600");
-const healthPort = Number(process.env.REDHOOD_GATEWAY_HEALTH_PORT ?? "3601");
-const targetPort = Number(process.env.PORT ?? "3000");
+const port = Number(process.env.REDHOOD_GATEWAY_PORT ?? "4600");
+const healthPort = Number(process.env.REDHOOD_GATEWAY_HEALTH_PORT ?? "4601");
+const targetPort = Number(process.env.PORT ?? "4000");
 function respond(response, status, body) {
   response.writeHead(status, {
     "content-type": "application/json",
