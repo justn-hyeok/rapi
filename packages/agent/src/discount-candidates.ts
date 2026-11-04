@@ -2,15 +2,28 @@ import { readFile } from "node:fs/promises";
 import {
   ChangelogRoute,
   CodeSearchRoute,
+  DiscordRateLimitError,
   PullRequestRoute,
   readServicePage,
+  UncertainDeliveryError,
   type CandidateResult,
   type ChangelogSource,
   type ResolveHostname,
   type SourceHttpOptions,
 } from "@rapi/adapters";
-import { knownOperator, verifyCandidate, type KnownOperator } from "@rapi/core";
+import {
+  discordEmbed,
+  discountCard,
+  knownOperator,
+  shouldCardCandidate,
+  verifyCandidate,
+  type CandidateForCard,
+  type DeliveryAdapter,
+  type DeliveryPayload,
+  type KnownOperator,
+} from "@rapi/core";
 import type { PostgresStore } from "@rapi/db";
+import { messageBody } from "./community-feeds.js";
 
 export interface DiscountSources {
   changelogs: ChangelogSource[];
@@ -150,6 +163,100 @@ export async function verifyDiscountCandidates(input: {
         `${candidate.domain ?? candidate.id}: ${error instanceof Error ? error.message : "failed"}`,
       );
     }
+  }
+  return failures;
+}
+
+type CardStore = Pick<
+  PostgresStore,
+  | "cardsInLastHour"
+  | "candidatesForCards"
+  | "claimCandidateCard"
+  | "releaseCandidateCard"
+  | "saveCandidateCardMessage"
+>;
+
+const CARDS_PER_HOUR = 5;
+// Most recent rows are noise, so look well past what can be sent.
+const CARD_ROWS_TO_READ = 500;
+// A channel that refuses everything is not asked about the whole backlog each run.
+const CARD_ATTEMPTS_PER_RUN = 20;
+
+function cardPayloadFor(candidate: CandidateForCard): DeliveryPayload {
+  return {
+    subject: candidate.title,
+    text: candidate.title,
+    html: "",
+    itemIds: [],
+    discord: messageBody([discordEmbed(discountCard(candidate))]),
+  };
+}
+
+const failureText = (id: string, error: unknown) =>
+  `${id}: ${error instanceof Error ? error.message : "failed"}`;
+
+/**
+ * Sends what the hourly limit allows; the rest stay unclaimed for a later run. A
+ * row is claimed before its send, so dying mid-send loses a card (the row shows
+ * it: carded_at without a message id) rather than sending it twice. Only a send
+ * Discord definitely refused is released and tried again. Returns the failures.
+ */
+export async function sendDiscountCards(input: {
+  store: CardStore;
+  delivery: Pick<DeliveryAdapter, "send">;
+  channelId: string;
+}): Promise<string[]> {
+  const { store, delivery, channelId } = input;
+  let budget: number;
+  let candidates: CandidateForCard[];
+  try {
+    budget = CARDS_PER_HOUR - (await store.cardsInLastHour());
+    if (budget <= 0) return [];
+    candidates = (await store.candidatesForCards(CARD_ROWS_TO_READ))
+      .filter(shouldCardCandidate)
+      .slice(0, CARD_ATTEMPTS_PER_RUN);
+  } catch (error) {
+    return [failureText("cards", error)];
+  }
+
+  const failures: string[] = [];
+  for (const candidate of candidates) {
+    if (budget <= 0) break;
+    try {
+      if (!(await store.claimCandidateCard(candidate.id))) continue;
+    } catch (error) {
+      failures.push(failureText(candidate.id, error));
+      continue;
+    }
+    let messageId: string;
+    try {
+      const sent = await delivery.send(
+        { channel: "discord_channel", recipientId: channelId },
+        cardPayloadFor(candidate),
+        `discount-card:${candidate.id}`,
+      );
+      messageId = sent.providerId;
+    } catch (error) {
+      failures.push(failureText(candidate.id, error));
+      // It may be in the channel already, so it keeps the claim and counts.
+      if (error instanceof UncertainDeliveryError) {
+        budget -= 1;
+        continue;
+      }
+      await store
+        .releaseCandidateCard(candidate.id)
+        .catch((releaseError: unknown) =>
+          failures.push(failureText(candidate.id, releaseError)),
+        );
+      if (error instanceof DiscordRateLimitError) break;
+      continue;
+    }
+    budget -= 1;
+    await store
+      .saveCandidateCardMessage(candidate.id, messageId)
+      .catch((saveError: unknown) =>
+        failures.push(failureText(candidate.id, saveError)),
+      );
   }
   return failures;
 }

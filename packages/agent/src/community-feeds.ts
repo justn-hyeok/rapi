@@ -140,7 +140,11 @@ const contextSize = (tokens: number) =>
     : `${Math.round(tokens / 1000)}K`;
 
 /** The Discord request body; a one-card message gets a button to its source. */
-export function messageBody(embeds: Embed[]): Record<string, unknown> {
+export function messageBody(embeds: Embed[]): {
+  embeds: Embed[];
+  components?: unknown[];
+  allowed_mentions: { parse: string[] };
+} {
   const url = embeds.length === 1 ? embeds[0]!.url : undefined;
   return {
     embeds,
