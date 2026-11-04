@@ -89,4 +89,73 @@ describe("discount candidates", () => {
       await store.close();
     }
   });
+
+  it("offers a recent checked row once, newest first, and keeps the claim", async () => {
+    const store = new PostgresStore(databaseUrl);
+    try {
+      await store.resetForTests();
+      const day = 24 * 60 * 60_000;
+      const ago = (days: number) => new Date(Date.now() - days * day);
+      const add = async (
+        dedupeKey: string,
+        band: string | null,
+        publishedAt: Date | null,
+      ) => {
+        await store.saveDiscountCandidate({
+          kind: "discount",
+          route: "changelog",
+          dedupeKey,
+          domain: "x.test",
+          title: dedupeKey,
+          url: `https://x.test/${dedupeKey}`,
+          evidence: "50% off",
+          publishedAt: publishedAt?.toISOString() ?? null,
+        });
+        await store.pool.query(
+          "UPDATE discount_candidates SET band = $2, price_check = 'below_list' WHERE dedupe_key = $1",
+          [dedupeKey, band],
+        );
+      };
+      await add("older", "green", ago(3));
+      await add("newer", "yellow", ago(1));
+      await add("undated", "green", null);
+      await add("old-news", "green", ago(30));
+      await add("red", "red", ago(1));
+      await add("unchecked", null, ago(1));
+
+      const rows = await store.candidatesForCards(10);
+      assert.deepEqual(
+        rows.map((row) => row.title),
+        ["undated", "newer", "older"],
+      );
+      assert.equal(rows[1]!.priceCheck, "below_list");
+      assert.equal(rows[1]!.termsNote, null);
+      const undated = rows[0]!;
+      assert.equal(await store.cardsInLastHour(), 0);
+
+      assert.equal(await store.claimCandidateCard(undated.id), true);
+      assert.equal(await store.claimCandidateCard(undated.id), false);
+      assert.equal(await store.cardsInLastHour(), 1);
+      assert.deepEqual(
+        (await store.candidatesForCards(10)).map((row) => row.title),
+        ["newer", "older"],
+      );
+
+      await store.releaseCandidateCard(undated.id);
+      assert.equal(await store.cardsInLastHour(), 0);
+      assert.equal(await store.claimCandidateCard(undated.id), true);
+      await store.saveCandidateCardMessage(undated.id, "123");
+      await store.releaseCandidateCard(undated.id);
+      assert.equal(await store.cardsInLastHour(), 1);
+
+      const older = rows[2]!;
+      await store.pool.query(
+        "UPDATE discount_candidates SET band = 'red' WHERE id = $1",
+        [older.id],
+      );
+      assert.equal(await store.claimCandidateCard(older.id), false);
+    } finally {
+      await store.close();
+    }
+  });
 });
