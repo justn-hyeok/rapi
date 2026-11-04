@@ -17,6 +17,7 @@ import {
   collectDiscountCandidates,
   createCommunityFeeds,
   loadDiscountSources,
+  verifyDiscountCandidates,
 } from "@rapi/agent";
 import {
   createGuildGate,
@@ -218,13 +219,21 @@ async function curate(): Promise<void> {
     throw new Error(`Curation feeds failed: ${failures.join("; ")}`);
 }
 
-// Recorded only; each source reports its own failures in /수집원.
+// Recorded only; each source reports its own failures in /수집원. A source failing
+// does not hold back checking the candidates already found.
 async function collectCandidates(): Promise<void> {
-  const failures = await collectDiscountCandidates({
-    store,
-    sources: await loadDiscountSources(process.cwd()),
-    githubToken: config.GITHUB_READ_TOKEN,
-  });
+  const sources = await loadDiscountSources(process.cwd());
+  const failures = [
+    ...(await collectDiscountCandidates({
+      store,
+      sources,
+      githubToken: config.GITHUB_READ_TOKEN,
+    })),
+    ...(await verifyDiscountCandidates({
+      store,
+      operators: sources.operators,
+    })),
+  ];
   if (failures.length)
     throw new Error(`Candidate sources failed: ${failures.join("; ")}`);
 }
