@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { ChangelogRoute } from "@rapi/adapters";
+import {
+  addsProvider,
+  apiAddress,
+  ChangelogRoute,
+  CodeSearchRoute,
+  PullRequestRoute,
+} from "@rapi/adapters";
 import { discountEvidence } from "@rapi/core";
 
 const now = () => new Date("2026-11-05T00:00:00Z");
@@ -182,4 +188,151 @@ test("a news list fetches only the newest articles and keeps them when one fails
     ["credit"],
   );
   assert.match(result.problem ?? "", /news\/broken: Source returned 404/);
+});
+
+const githubReply = (
+  payload: unknown,
+  seen: Array<{ url: string; auth?: string }> = [],
+) =>
+  (async (url: string, init?: RequestInit) => {
+    const headers = init?.headers as Record<string, string> | undefined;
+    seen.push({ url, ...(headers ? { auth: headers.Authorization! } : {}) });
+    return new Response(JSON.stringify(payload));
+  }) as typeof fetch;
+
+test("unmerged PRs are recorded only when they add a provider", async () => {
+  for (const title of [
+    "feat(providers): add PingCode AI",
+    "Add Infersia provider",
+    "Add initial TheRouter provider metadata",
+    "feat(inference-coop): add Inference Cooperative provider with 10 models",
+    "Add CheapestToken provider (OpenAI-compatible gateway, 19 models)",
+  ])
+    assert.ok(addsProvider(title), title);
+  for (const title of [
+    "Feat/add model",
+    "feat(liquid): add six open models and fix Auto metadata",
+    "chore(sync): update OpenRouter model catalog",
+    "feat(bothub): update provider URLs/prices and add Gemini",
+    "fix(providers): point OpenRouter at its own module",
+    "provider(vivgrid): remove retired models",
+    "chore(gmicloud): sync provider model catalog from /v1/models (17 -> 86)",
+  ])
+    assert.equal(addsProvider(title), false, title);
+
+  const seen: Array<{ url: string; auth?: string }> = [];
+  const route = new PullRequestRoute("read-token", {
+    fetch: githubReply(
+      [
+        {
+          number: 7,
+          title: "Add Infersia provider",
+          html_url: "https://github.com/a/b/pull/7",
+          created_at: "2026-11-04T04:48:11Z",
+          user: { login: "infersia" },
+          body: "my api key is sk-should-not-be-kept",
+        },
+        {
+          number: 8,
+          title: "Feat/add model",
+          html_url: "https://github.com/a/b/pull/8",
+          created_at: "2026-11-04T04:33:09Z",
+        },
+      ],
+      seen,
+    ),
+  });
+  const { candidates } = await route.collect("a/b");
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0]!.auth, "Bearer read-token");
+  assert.deepEqual(candidates, [
+    {
+      kind: "new_service",
+      route: "pull_request",
+      dedupeKey: "pull_request:a/b#7",
+      domain: null,
+      title: "Add Infersia provider",
+      url: "https://github.com/a/b/pull/7",
+      evidence: "a/b PR #7, infersia",
+      publishedAt: "2026-11-04T04:48:11.000Z",
+    },
+  ]);
+});
+
+test("API addresses keep nothing a key could hide in", () => {
+  const denylist = ["openai.com", "x.ai"];
+  const address = (raw: string) => apiAddress(raw, denylist)?.address ?? null;
+  assert.equal(address("https://api.hive.dev/v1/"), "https://api.hive.dev/v1");
+  assert.equal(
+    address("https://relay.io:8443/compatible-mode/v1"),
+    "https://relay.io:8443/compatible-mode/v1",
+  );
+  assert.equal(
+    address("https://user:sk-secret@relay.io/v1?key=sk-secret#a"),
+    "https://relay.io/v1",
+  );
+  assert.equal(
+    address("https://relay.io/sk-A1b2C3d4E5/v1"),
+    "https://relay.io",
+  );
+  for (const raw of [
+    "https://api.openai.com/v1",
+    "https://eu.api.x.ai/v1",
+    "https://localhost:3000/v1",
+    "http://127.0.0.1:8080/v1",
+    "https://api.example.com/v1",
+    "https://gateway.example/v1",
+    "https://your-domain.com/v1",
+    "https://relay.agentrouter.internal/v1",
+    "not a url",
+  ])
+    assert.equal(address(raw), null, raw);
+  assert.equal(apiAddress("https://xai.dev", denylist)?.domain, "xai.dev");
+});
+
+test("code search stores only the address, the repository and the file", async () => {
+  const seen: Array<{ url: string; auth?: string }> = [];
+  const route = new CodeSearchRoute("read-token", ["openai.com"], {
+    fetch: githubReply(
+      {
+        items: [
+          {
+            html_url: "https://github.com/o/r/blob/abc/config.ts",
+            repository: { html_url: "https://github.com/o/r" },
+            text_matches: [
+              {
+                fragment: `model: "gpt-6.1-sol",\n  apiKey: "sk-live-secret",\n  baseURL: "https://user:sk-url-secret@api.relay.io/v1?token=sk-query-secret",\n  other: "https://notes.relay.io/page"`,
+              },
+              { fragment: 'base_url = "https://api.openai.com/v1"' },
+            ],
+          },
+          {
+            html_url: "https://github.com/p/q/blob/def/a.py",
+            repository: { html_url: "https://github.com/p/q" },
+            text_matches: [
+              { fragment: 'BASE_URL="https://api.relay.io/v1"' },
+              { fragment: "see https://other.relay.io/v1 for details" },
+            ],
+          },
+        ],
+      },
+      seen,
+    ),
+  });
+  const { candidates } = await route.collect('"gpt-6.1-sol" baseURL');
+  assert.deepEqual(candidates, [
+    {
+      kind: "new_service",
+      route: "code_search",
+      dedupeKey: "code_search:api.relay.io",
+      domain: "api.relay.io",
+      title: "https://api.relay.io/v1",
+      url: "https://github.com/o/r/blob/abc/config.ts",
+      evidence: "https://github.com/o/r",
+      publishedAt: null,
+    },
+  ]);
+  assert.doesNotMatch(JSON.stringify(candidates), /secret|gpt-6|apiKey/);
+  assert.equal(seen.length, 1);
+  assert.match(seen[0]!.url, /search\/code\?q=%22gpt-6\.1-sol%22%20baseURL/);
 });
