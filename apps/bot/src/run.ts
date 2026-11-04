@@ -109,6 +109,10 @@ const guildGate = createGuildGate({
   homeGuildId,
   load: loadApprovedGuilds,
 });
+if (!homeGuildId)
+  process.stderr.write(
+    "guilds: no home or allowed guild configured, every server is refused\n",
+  );
 const allowlists = {
   userIds: config.DISCORD_ALLOWED_USER_IDS,
   ...(config.DISCORD_SUPERADMIN_USER_IDS
@@ -335,6 +339,7 @@ const server = createDiscordInteractionServer(
   commands,
   config.DISCORD_PUBLIC_KEY,
   {
+    guildGate,
     discountCards: {
       button: (identity, customId) =>
         discountCardButton(discountApproval, identity, customId),

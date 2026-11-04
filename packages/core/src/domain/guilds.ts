@@ -1,6 +1,10 @@
-/** Shown to anyone using Rapi in a guild the operator has not approved yet. */
+/** Shown to anyone using Rapi in a guild the operator has not approved. */
 export const GUILD_NOT_ALLOWED_MESSAGE =
-  "아직 허용되지 않은 서버입니다. 라피 운영자의 승인을 기다리는 중이에요. 서버 주인이 라피 운영자에게 허용을 요청해 주세요.";
+  "승인되지 않은 서버입니다. 서버 관리 권한이 있는 분이 /서버신청으로 라피 운영자에게 승인을 요청할 수 있어요.";
+
+/** Shown when the allowed guilds could not be read: nothing passes until they can. */
+export const GUILD_CHECK_FAILED_MESSAGE =
+  "이 서버가 승인됐는지 확인하지 못했습니다. 잠시 뒤 다시 시도해 주세요.";
 
 export const GUILD_REQUEST_COMMAND = "서버신청";
 export const GUILD_REQUEST_REASON_MAX_CHARS = 100;
@@ -16,26 +20,27 @@ export function resolveHomeGuildId(
 
 /**
  * Guilds the bot answers in: the env list, approved guilds and the home guild.
- * Undefined means nothing is configured, which keeps the old open behavior.
+ * This is a public bot, so with nothing configured it answers in no guild at all.
  */
 export function allowedGuildIds(
   envIds: readonly string[] | undefined,
   approvedIds: readonly string[],
   homeGuildId?: string,
-): string[] | undefined {
-  const ids = new Set([
-    ...(envIds ?? []),
-    ...approvedIds,
-    ...(homeGuildId ? [homeGuildId] : []),
-  ]);
-  return ids.size ? [...ids] : undefined;
+): string[] {
+  return [
+    ...new Set([
+      ...(envIds ?? []),
+      ...approvedIds,
+      ...(homeGuildId ? [homeGuildId] : []),
+    ]),
+  ];
 }
 
 export function isGuildAllowed(
   guildId: string,
-  allowed: readonly string[] | undefined,
+  allowed: readonly string[],
 ): boolean {
-  return allowed === undefined || allowed.includes(guildId);
+  return allowed.includes(guildId);
 }
 
 export interface FeedGuildTarget {
@@ -72,12 +77,12 @@ export function createGuildGate(options: {
   ttlMs?: number;
   now?: () => number;
 }): {
-  allowed(): Promise<string[] | undefined>;
+  allowed(): Promise<string[]>;
   invalidate(): void;
 } {
   const ttl = options.ttlMs ?? 15_000;
   const now = options.now ?? Date.now;
-  let cached: { at: number; ids: string[] | undefined } | undefined;
+  let cached: { at: number; ids: string[] } | undefined;
   return {
     async allowed() {
       if (cached && now() - cached.at < ttl) return cached.ids;

@@ -113,8 +113,8 @@ export class DiscordCommandService {
         identity: DiscordIdentity,
         options: ReportOptions,
       ) => Promise<string>;
-      /** Guilds the bot answers in; undefined means no restriction. */
-      guildAllowlist?: () => Promise<readonly string[] | undefined>;
+      /** Guilds the bot answers in. */
+      guildAllowlist?: () => Promise<readonly string[]>;
       guildFeatures?: GuildFeatureSwitch;
     },
   ) {}

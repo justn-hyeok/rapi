@@ -139,7 +139,7 @@ describe("commands by scope", () => {
         { userId: "owner", guildId: "stranger" },
         { name: "status", options: {} },
       ),
-      /아직 허용되지 않은 서버입니다.*승인을 기다리는 중.*서버 주인이 라피 운영자에게 허용을 요청/,
+      /승인되지 않은 서버입니다.*서버 관리 권한이 있는 분이 \/서버신청/,
     );
   });
 });
@@ -156,15 +156,23 @@ describe("guild allowlist decisions", () => {
   });
 
   it("unions env, approved and home guilds", () => {
-    assert.deepEqual(allowedGuildIds(["a"], ["b", "a"], "h")?.sort(), [
+    assert.deepEqual(allowedGuildIds(["a"], ["b", "a"], "h").sort(), [
       "a",
       "b",
       "h",
     ]);
-    assert.equal(allowedGuildIds(undefined, [], undefined), undefined);
     assert.equal(isGuildAllowed("x", ["a"]), false);
     assert.equal(isGuildAllowed("a", ["a"]), true);
-    assert.equal(isGuildAllowed("x", undefined), true);
+  });
+
+  it("answers in no guild when nothing is configured", async () => {
+    assert.deepEqual(allowedGuildIds(undefined, [], undefined), []);
+    const gate = createGuildGate({
+      envIds: undefined,
+      homeGuildId: undefined,
+      load: async () => [],
+    });
+    assert.equal(isGuildAllowed("x", await gate.allowed()), false);
   });
 
   it("caches the approved guilds until invalidated", async () => {
