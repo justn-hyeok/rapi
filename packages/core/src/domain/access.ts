@@ -36,6 +36,16 @@ export function discordOwnerIds(allowlists: DiscordAllowlists): string[] {
   return [...allowlists.userIds, ...(allowlists.superadminUserIds ?? [])];
 }
 
+/** Manage Server or Administrator, from the signed request. Unreadable means no. */
+export function canManageGuild(permissions: string | undefined): boolean {
+  if (permissions === undefined) return false;
+  try {
+    return (BigInt(permissions) & ((1n << 5n) | (1n << 3n))) !== 0n;
+  } catch {
+    return false;
+  }
+}
+
 const rank: Record<DiscordAccessLevel, number> = {
   user: 1,
   admin: 2,

@@ -26,9 +26,10 @@ export const slashCommands = [
   "server_config",
   "report",
   "features",
+  "guilds",
 ] as const;
 
-/** The feature each command belongs to. /기능 has none: it has to stay reachable. */
+/** The feature each command belongs to. /기능 and /서버 have none: they have to stay reachable. */
 const commandFeatures: Record<
   (typeof slashCommands)[number],
   GuildFeature | undefined
@@ -38,6 +39,7 @@ const commandFeatures: Record<
   server_config: "server_config",
   report: "report",
   features: undefined,
+  guilds: undefined,
 };
 
 export interface DiscordCommand {
@@ -54,7 +56,9 @@ export function requiredCommandAccess(
   command: DiscordCommand["name"],
 ): DiscordAccessLevel {
   if (command === "report") return "user";
-  return command === "server_config" || command === "features"
+  return command === "server_config" ||
+    command === "features" ||
+    command === "guilds"
     ? "superadmin"
     : "admin";
 }
@@ -116,6 +120,11 @@ export class DiscordCommandService {
       /** Guilds the bot answers in. */
       guildAllowlist?: () => Promise<readonly string[]>;
       guildFeatures?: GuildFeatureSwitch;
+      changeGuild?: (
+        actorId: string,
+        action: string,
+        target: string,
+      ) => Promise<string>;
     },
   ) {}
 
@@ -158,6 +167,26 @@ export class DiscordCommandService {
     return { messages: [changed ? `${changed}\n\n${summary}` : summary] };
   }
 
+  // Owner only, like /기능. The target is named, so it works from any allowed server.
+  private async guilds(
+    identity: DiscordIdentity,
+    options: Record<string, unknown>,
+  ): Promise<DiscordCommandResult> {
+    if (!discordOwnerIds(this.allowlists).includes(identity.userId))
+      throw new Error("소유자만 쓸 수 있는 명령입니다.");
+    if (!this.operations?.changeGuild)
+      throw new Error("서버 승인 기능이 설정되지 않았습니다.");
+    return {
+      messages: [
+        await this.operations.changeGuild(
+          identity.userId,
+          requiredString(options, "action"),
+          requiredString(options, "target"),
+        ),
+      ],
+    };
+  }
+
   async execute(
     identity: DiscordIdentity,
     command: DiscordCommand,
@@ -173,6 +202,8 @@ export class DiscordCommandService {
     }
     if (command.name === "features")
       return this.features(identity, command.options);
+    if (command.name === "guilds")
+      return this.guilds(identity, command.options);
     const feature = commandFeatures[command.name];
     if (identity.guildId && feature)
       await this.assertGuildFeature(identity.guildId, feature);
