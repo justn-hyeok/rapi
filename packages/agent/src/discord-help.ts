@@ -1,11 +1,11 @@
-import { CARD_COLOR, discordEmbed, type DiscordCard } from "@redhood/core";
+import { CARD_COLOR, discordEmbed, type DiscordCard } from "@rapi/core";
 
-/** The pinned guide in #레드후드-도움말: what Redhood does and where to start. */
+/** The pinned guide in #라피-도움말: what Rapi does and where to start. */
 export function helpCards(): DiscordCard[] {
   return [
     {
-      title: "레드후드 사용 안내",
-      description: "레드후드는 AI·개발 소식을 모아 고르고, 카드로 올려 줍니다.",
+      title: "라피 사용 안내",
+      description: "라피는 AI·개발 소식을 모아 고르고, 카드로 올려 줍니다.",
       color: CARD_COLOR.info,
       fields: [
         {

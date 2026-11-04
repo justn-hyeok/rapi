@@ -20,7 +20,7 @@ import {
 import { releaseFileDigests } from "../scripts/release-artifact.mjs";
 
 test("isolated service switch verifies boot revision, rolls back failure and preserves an inactive monitor", async () => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "redhood-switch-")));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "rapi-switch-")));
   let child: ChildProcess | undefined;
   let port = 0;
   try {
@@ -277,7 +277,7 @@ test("a candidate may not fail more sources than the running release", async () 
 });
 
 test("a failed schema rollback still points back to the previous release and starts it", async () => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "redhood-switch-")));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "rapi-switch-")));
   try {
     async function stage(name: string, sha: string, migrations: string[]) {
       const path = join(root, name);

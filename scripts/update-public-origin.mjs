@@ -11,18 +11,16 @@ if (
   url.pathname !== "/" ||
   url.search ||
   url.hash ||
-  !/^redhood-[a-z0-9]{12}\.justn\.me$/.test(url.hostname)
+  url.hostname !== "rapi.justn.me"
 )
-  throw new Error(
-    "공개 주소는 redhood-<랜덤 12자>.justn.me 형식이어야 합니다.",
-  );
-const target = resolve(process.env.REDHOOD_ENV_FILE ?? ".env");
+  throw new Error("공개 주소는 https://rapi.justn.me 여야 합니다.");
+const target = resolve(process.env.RAPI_ENV_FILE ?? ".env");
 const info = await lstat(target);
 if (!info.isFile() || info.isSymbolicLink())
-  throw new Error("REDHOOD_ENV_FILE은 일반 파일이어야 합니다.");
+  throw new Error("RAPI_ENV_FILE은 일반 파일이어야 합니다.");
 const contents = replaceEnvironmentValue(
   await readFile(target, "utf8"),
-  "REDHOOD_PUBLIC_BASE_URL",
+  "RAPI_PUBLIC_BASE_URL",
   origin,
 );
 const temporary = `${target}.${process.pid}.tmp`;

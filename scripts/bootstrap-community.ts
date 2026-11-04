@@ -1,8 +1,8 @@
 import { readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { DiscordLayoutManager } from "@redhood/agent";
-import { loadEnvironment } from "@redhood/config";
-import { PostgresStore } from "@redhood/db";
+import { DiscordLayoutManager } from "@rapi/agent";
+import { loadEnvironment } from "@rapi/config";
+import { PostgresStore } from "@rapi/db";
 import { replaceEnvironmentValue } from "./update-discord-token.mjs";
 
 const officialFeeds = [
@@ -15,7 +15,7 @@ const officialFeeds = [
 async function updateEnvironment(
   values: Record<string, string>,
 ): Promise<void> {
-  const target = resolve(process.env.REDHOOD_ENV_FILE ?? ".env");
+  const target = resolve(process.env.RAPI_ENV_FILE ?? ".env");
   let contents = await readFile(target, "utf8");
   for (const [name, value] of Object.entries(values))
     contents = replaceEnvironmentValue(contents, name, value);
@@ -53,16 +53,14 @@ try {
     POLL_INTERVAL_SECONDS: "900",
     DISCORD_GUILD_MEMBERS_ARE_USERS: "false",
     DISCORD_USER_ROLE_IDS: await store
-      .managedDiscordResourceId(guildId, "role", "redhood_user")
+      .managedDiscordResourceId(guildId, "role", "rapi_user")
       .then(
-        (id) =>
-          id ?? Promise.reject(new Error("레드후드 USER 역할이 없습니다.")),
+        (id) => id ?? Promise.reject(new Error("라피 USER 역할이 없습니다.")),
       ),
     DISCORD_ADMIN_ROLE_IDS: await store
-      .managedDiscordResourceId(guildId, "role", "redhood_staff")
+      .managedDiscordResourceId(guildId, "role", "rapi_staff")
       .then(
-        (id) =>
-          id ?? Promise.reject(new Error("레드후드 운영진 역할이 없습니다.")),
+        (id) => id ?? Promise.reject(new Error("라피 운영진 역할이 없습니다.")),
       ),
     OPERATIONS_CHANNEL_ID: await layout.channelId(guildId, "operations_alerts"),
   });

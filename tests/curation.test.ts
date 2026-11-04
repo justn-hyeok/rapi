@@ -7,7 +7,7 @@ import {
   selectBlogItems,
   kstDateKey,
   kstReached,
-} from "@redhood/core";
+} from "@rapi/core";
 
 test("KST calendar helpers", () => {
   const now = new Date("2026-10-11T23:30:00Z"); // Mon 08:30 KST

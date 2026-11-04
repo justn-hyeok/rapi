@@ -1,8 +1,8 @@
-import { DiscordLayoutManager } from "@redhood/agent";
-import { loadEnvironment } from "@redhood/config";
-import { PostgresStore } from "@redhood/db";
+import { DiscordLayoutManager } from "@rapi/agent";
+import { loadEnvironment } from "@rapi/config";
+import { PostgresStore } from "@rapi/db";
 
-// Posts or refreshes the usage guide in #레드후드-도움말 without a layout apply.
+// Posts or refreshes the usage guide in #라피-도움말 without a layout apply.
 const config = loadEnvironment();
 const guildId =
   config.COMMUNITY_GUILD_ID ?? config.DISCORD_ALLOWED_GUILD_IDS?.[0];

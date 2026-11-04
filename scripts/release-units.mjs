@@ -35,7 +35,7 @@ export function releaseUnitContents({
   }
   return Object.fromEntries(
     Object.entries(paths).map(([name, source]) => [
-      `redhood-${name}.service`,
+      `rapi-${name}.service`,
       [
         "[Service]",
         `WorkingDirectory=${currentPath}`,
@@ -77,7 +77,7 @@ export async function installReleaseUnits({
   const targets = {};
   for (const unit of Object.keys(contents)) {
     const directory = join(unitRoot, `${unit}.d`);
-    const target = join(directory, "10-redhood-release.conf");
+    const target = join(directory, "10-rapi-release.conf");
     targets[unit] = target;
     try {
       if ((await lstat(directory)).isSymbolicLink())
@@ -135,9 +135,9 @@ if (
   import.meta.url === pathToFileURL(resolve(process.argv[1])).href
 ) {
   const options = {
-    currentPath: process.env.REDHOOD_CURRENT_RELEASE,
-    environmentPath: process.env.REDHOOD_SERVICE_ENV_FILE,
-    nodeBinary: process.env.REDHOOD_NODE_BINARY ?? "/usr/bin/node",
+    currentPath: process.env.RAPI_CURRENT_RELEASE,
+    environmentPath: process.env.RAPI_SERVICE_ENV_FILE,
+    nodeBinary: process.env.RAPI_NODE_BINARY ?? "/usr/bin/node",
   };
   const args = process.argv.slice(2);
   if (
@@ -151,14 +151,14 @@ if (
     );
   else {
     if (
-      process.env.REDHOOD_RELEASE_UNITS_APPROVED !== "true" ||
-      !process.env.REDHOOD_RELEASE_UNITS_RECEIPT
+      process.env.RAPI_RELEASE_UNITS_APPROVED !== "true" ||
+      !process.env.RAPI_RELEASE_UNITS_RECEIPT
     )
       throw new Error("Explicit approval and recovery receipt path required");
     await installReleaseUnits({
       ...options,
       unitRoot: "/etc/systemd/system",
-      receiptPath: process.env.REDHOOD_RELEASE_UNITS_RECEIPT,
+      receiptPath: process.env.RAPI_RELEASE_UNITS_RECEIPT,
       reload: () =>
         promisify(execFile)("systemctl", ["daemon-reload"], {
           timeout: 30_000,

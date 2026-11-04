@@ -8,7 +8,7 @@ import {
   HealthTransitionTracker,
   summarizeReadiness,
   type ComponentHealth,
-} from "@redhood/core";
+} from "@rapi/core";
 
 describe("operational health", () => {
   it("reports an immediate backup failure and stale successful backups", () => {

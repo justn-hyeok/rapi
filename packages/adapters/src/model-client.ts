@@ -3,7 +3,7 @@
  * Never backed by a subscription-login CLI: these calls may answer other people.
  */
 
-/** Which Redhood feature a call belongs to; used for metering and the monthly cap. */
+/** Which Rapi feature a call belongs to; used for metering and the monthly cap. */
 export type ModelFeature =
   | "summary"
   | "rewrite"

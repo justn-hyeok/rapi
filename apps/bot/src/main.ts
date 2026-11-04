@@ -1,4 +1,4 @@
-import { loadEnvironment, type Environment } from "@redhood/config";
+import { loadEnvironment, type Environment } from "@rapi/config";
 
 export interface BotRuntime {
   connect(config: Environment): Promise<void>;

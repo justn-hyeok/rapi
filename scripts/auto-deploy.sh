@@ -3,13 +3,13 @@
 # Runs from the current release, so each deploy also updates this script.
 set -euo pipefail
 
-REPO=${REDHOOD_SOURCE_CHECKOUT:-/home/justn/redhood}
-ROOT=${REDHOOD_RELEASE_ROOT:-/home/justn/redhood-releases}
-ENV_FILE=${REDHOOD_SERVICE_ENV_FILE:-/home/justn/redhood/.env}
+REPO=${RAPI_SOURCE_CHECKOUT:-/home/justn/rapi}
+ROOT=${RAPI_RELEASE_ROOT:-/home/justn/rapi-releases}
+ENV_FILE=${RAPI_SERVICE_ENV_FILE:-/home/justn/rapi/.env}
 # The repository is whatever origin points at, so moving it needs no change here.
-GITHUB_REPO=${REDHOOD_GITHUB_REPOSITORY:-$(git -C "$REPO" remote get-url origin |
+GITHUB_REPO=${RAPI_GITHUB_REPOSITORY:-$(git -C "$REPO" remote get-url origin |
   sed -E 's#^(https://github\.com/|git@github\.com:)##; s#\.git$##')}
-KEEP_RELEASES=${REDHOOD_KEEP_RELEASES:-6}
+KEEP_RELEASES=${RAPI_KEEP_RELEASES:-6}
 FAILED="$ROOT/.auto-deploy-failed"
 
 exec 9>"$ROOT/.auto-deploy.lock"
@@ -71,16 +71,16 @@ trap 'git -C "$REPO" worktree remove --force "$STAGE" 2>/dev/null || true' EXIT
 cd "$STAGE"
 
 # Children must not read this script's stdin.
-REDHOOD_CI_VERIFIED=true REDHOOD_RELEASE_SHA="$SHA" REDHOOD_RELEASE_ROOT="$ROOT" ./scripts/deploy-revision.sh </dev/null >"$ROOT/.auto-deploy-$SHORT.log" 2>&1 ||
+RAPI_CI_VERIFIED=true RAPI_RELEASE_SHA="$SHA" RAPI_RELEASE_ROOT="$ROOT" ./scripts/deploy-revision.sh </dev/null >"$ROOT/.auto-deploy-$SHORT.log" 2>&1 ||
   fail "검증 단계 실패 (로그: .auto-deploy-$SHORT.log)"
 # shellcheck disable=SC2012 # release directory names are generated, not user input
-candidate=$(ls -td "$ROOT"/redhood-"${SHA:0:12}"-* | head -1)
+candidate=$(ls -td "$ROOT"/rapi-"${SHA:0:12}"-* | head -1)
 receipt="$ROOT/switch-$SHORT-$(date -u +%Y%m%d%H%M).json"
 # shellcheck disable=SC2024 # the log is intentionally written as this user
-sudo -n env REDHOOD_SWITCH_APPROVED=true REDHOOD_SWITCH_APPLY_MIGRATIONS=true REDHOOD_CURRENT_RELEASE="$ROOT/current" \
-  REDHOOD_CANDIDATE_RELEASE="$candidate" REDHOOD_RELEASE_SHA="$SHA" \
-  REDHOOD_SWITCH_RECEIPT="$receipt" REDHOOD_SERVICE_ENV_FILE="$ENV_FILE" \
-  REDHOOD_SWITCH_SERVICES=bot,monitor \
+sudo -n env RAPI_SWITCH_APPROVED=true RAPI_SWITCH_APPLY_MIGRATIONS=true RAPI_CURRENT_RELEASE="$ROOT/current" \
+  RAPI_CANDIDATE_RELEASE="$candidate" RAPI_RELEASE_SHA="$SHA" \
+  RAPI_SWITCH_RECEIPT="$receipt" RAPI_SERVICE_ENV_FILE="$ENV_FILE" \
+  RAPI_SWITCH_SERVICES=bot,monitor \
   "$(command -v node)" scripts/switch-release.mjs </dev/null >>"$ROOT/.auto-deploy-$SHORT.log" 2>&1 || true
 status=$(jq -r '.status // "missing"' "$receipt" 2>/dev/null || echo missing)
 [[ "$status" == "switched" ]] || fail "서비스 전환 실패 ($status)"
@@ -97,7 +97,7 @@ fi
 previous=$(jq -r '.previousPath // empty' "$receipt")
 current_path=$(readlink -f "$ROOT/current")
 # shellcheck disable=SC2012
-ls -td "$ROOT"/redhood-*/ 2>/dev/null | sed 's:/$::' | tail -n +$((KEEP_RELEASES + 1)) |
+ls -td "$ROOT"/rapi-*/ 2>/dev/null | sed 's:/$::' | tail -n +$((KEEP_RELEASES + 1)) |
   while read -r dir; do
     [[ "$dir" == "$current_path" || "$dir" == "$previous" ]] || rm -rf "$dir"
   done

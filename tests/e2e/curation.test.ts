@@ -1,16 +1,16 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { CommunityFeeds, RedhoodAgent } from "@redhood/agent";
-import { PostgresStore } from "@redhood/db";
+import { CommunityFeeds, RapiAgent } from "@rapi/agent";
+import { PostgresStore } from "@rapi/db";
 
 const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl || new URL(databaseUrl).pathname !== "/redhood_test")
-  throw new Error("Curation E2E requires redhood_test");
+if (!databaseUrl || new URL(databaseUrl).pathname !== "/rapi_test")
+  throw new Error("Curation E2E requires rapi_test");
 
 describe("curation feeds", () => {
   it("posts each feed once to its managed channel and skips missing channels", async () => {
     const store = new PostgresStore(databaseUrl);
-    const agent = new RedhoodAgent(store);
+    const agent = new RapiAgent(store);
     try {
       await store.resetForTests();
       await store.pool.query("DELETE FROM community_posts");

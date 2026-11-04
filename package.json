@@ -1,6 +1,6 @@
 {
-  "name": "redhood",
-  "version": "0.0.1",
+  "name": "rapi",
+  "version": "0.0.2",
   "private": true,
   "type": "module",
   "workspaces": [

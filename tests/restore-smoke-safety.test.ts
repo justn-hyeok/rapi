@@ -10,7 +10,7 @@ const script = fileURLToPath(
   new URL("../scripts/restore-smoke.sh", import.meta.url),
 );
 const unit = fileURLToPath(
-  new URL("../ops/systemd/redhood-restore-smoke.service", import.meta.url),
+  new URL("../ops/systemd/rapi-restore-smoke.service", import.meta.url),
 );
 
 describe("restore smoke target safety", () => {
@@ -19,8 +19,8 @@ describe("restore smoke target safety", () => {
       execFileAsync("bash", [script], {
         env: {
           PATH: "/usr/bin:/bin",
-          RESTORE_SMOKE_PROJECT: "redhood",
-          RESTORE_SMOKE_DATABASE: "redhood",
+          RESTORE_SMOKE_PROJECT: "rapi",
+          RESTORE_SMOKE_DATABASE: "rapi",
         },
       }),
       /RESTORE_SMOKE_PROJECT/,
@@ -32,8 +32,8 @@ describe("restore smoke target safety", () => {
       execFileAsync("bash", [script], {
         env: {
           PATH: "/usr/bin:/bin",
-          RESTORE_SMOKE_PROJECT: "redhood-restore-safe",
-          RESTORE_SMOKE_DATABASE: "redhood_restore_smoke_safe",
+          RESTORE_SMOKE_PROJECT: "rapi-restore-safe",
+          RESTORE_SMOKE_DATABASE: "rapi_restore_smoke_safe",
           RESTORE_SMOKE_ARTIFACT: "/tmp/unsafe.json",
         },
       }),
@@ -50,18 +50,18 @@ describe("restore smoke target safety", () => {
       /docker compose -p "\$restore_project" -f compose\.test\.yaml/,
     );
     assert.match(source, /"\$\{compose\[@\]\}" up -d --wait postgres/);
-    assert.doesNotMatch(source, /-d redhood_restore_smoke(?:\s|$)/);
+    assert.doesNotMatch(source, /-d rapi_restore_smoke(?:\s|$)/);
   });
 
   it("gives the weekly unit a target the script accepts", async () => {
     const source = await readFile(unit, "utf8");
     assert.match(
       source,
-      /^Environment=RESTORE_SMOKE_PROJECT=redhood-restore-[a-z0-9-]+$/m,
+      /^Environment=RESTORE_SMOKE_PROJECT=rapi-restore-[a-z0-9-]+$/m,
     );
     assert.match(
       source,
-      /^Environment=RESTORE_SMOKE_DATABASE=redhood_restore_smoke_[a-z0-9_]+$/m,
+      /^Environment=RESTORE_SMOKE_DATABASE=rapi_restore_smoke_[a-z0-9_]+$/m,
     );
   });
 

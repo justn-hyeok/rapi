@@ -138,16 +138,16 @@ if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(resolve(process.argv[1])).href
 ) {
-  if (process.env.REDHOOD_ADOPT_APPROVED !== "true")
+  if (process.env.RAPI_ADOPT_APPROVED !== "true")
     throw new Error("Explicit first-deployment approval required");
   const {
-    REDHOOD_CURRENT_RELEASE: currentPath,
-    REDHOOD_CANDIDATE_RELEASE: candidatePath,
-    REDHOOD_RELEASE_SHA: expectedSha,
-    REDHOOD_ADOPT_RECEIPT: receiptPath,
-    REDHOOD_SERVICE_ENV_FILE: environmentPath,
-    REDHOOD_LEGACY_APP_ROOT: legacyAppRoot,
-    REDHOOD_RELEASE_UNITS_RECEIPT: unitReceipt,
+    RAPI_CURRENT_RELEASE: currentPath,
+    RAPI_CANDIDATE_RELEASE: candidatePath,
+    RAPI_RELEASE_SHA: expectedSha,
+    RAPI_ADOPT_RECEIPT: receiptPath,
+    RAPI_SERVICE_ENV_FILE: environmentPath,
+    RAPI_LEGACY_APP_ROOT: legacyAppRoot,
+    RAPI_RELEASE_UNITS_RECEIPT: unitReceipt,
   } = process.env;
   if (
     ![
@@ -179,7 +179,7 @@ if (
           "systemctl",
           [
             "show",
-            `redhood-${name}.service`,
+            `rapi-${name}.service`,
             "--property=WorkingDirectory,MainPID",
           ],
           { timeout: 5000 },
@@ -256,7 +256,7 @@ if (
       await installReleaseUnits({
         currentPath,
         environmentPath,
-        nodeBinary: process.env.REDHOOD_NODE_BINARY ?? process.execPath,
+        nodeBinary: process.env.RAPI_NODE_BINARY ?? process.execPath,
         unitRoot: "/etc/systemd/system",
         receiptPath: unitReceipt,
         reload,
@@ -273,9 +273,9 @@ if (
       }
       if (receipt.attemptId !== attemptId) return;
       for (const [unit, content] of Object.entries(receipt.before)) {
-        if (!units.some((name) => unit === `redhood-${name}.service`))
+        if (!units.some((name) => unit === `rapi-${name}.service`))
           throw new Error("Unexpected rollback unit");
-        const target = `/etc/systemd/system/${unit}.d/10-redhood-release.conf`;
+        const target = `/etc/systemd/system/${unit}.d/10-rapi-release.conf`;
         if (receipt.targets[unit] !== target)
           throw new Error("Unexpected rollback path");
         if (content === null)

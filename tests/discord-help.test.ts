@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { DiscordLayoutManager } from "@redhood/agent";
-import type { PostgresStore } from "@redhood/db";
+import { DiscordLayoutManager } from "@rapi/agent";
+import type { PostgresStore } from "@rapi/db";
 
 function setup(existing: string | null) {
   const calls: Array<{ route: string; method: string; body: string }> = [];
   const saved: Array<{ key: string; discordId: string }> = [];
   const store = {
     async managedDiscordResourceId(_guild: string, type: string, key: string) {
-      if (type === "channel" && key === "redhood_help") return "help-channel";
+      if (type === "channel" && key === "rapi_help") return "help-channel";
       if (type === "message" && key === "help") return existing;
       return null;
     },
@@ -44,7 +44,7 @@ test("the usage guide is posted once and then edited in place", async () => {
   const body = JSON.parse(first.calls[0]!.body) as {
     embeds: Array<{ title: string; fields: unknown[] }>;
   };
-  assert.equal(body.embeds[0]!.title, "레드후드 사용 안내");
+  assert.equal(body.embeds[0]!.title, "라피 사용 안내");
   assert.ok(body.embeds[0]!.fields.length >= 1);
   assert.deepEqual(first.saved, [{ ...first.saved[0]!, key: "help" }]);
 

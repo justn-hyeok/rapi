@@ -5,7 +5,7 @@ import {
   assertDiscordAccess,
   canonicalizeUrl,
   splitDiscordMessage,
-} from "@redhood/core";
+} from "@rapi/core";
 import {
   slashCommandDefinitions,
   verifyDiscordRequest,

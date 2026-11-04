@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 test("records backup failure when the lock wrapper cannot connect before invoking pg_dump", async () => {
-  const root = await mkdtemp(join(tmpdir(), "redhood-backup-lock-"));
+  const root = await mkdtemp(join(tmpdir(), "rapi-backup-lock-"));
   const status = join(root, "status.json");
   try {
     await writeFile(status, "malformed prior status");
@@ -14,7 +14,7 @@ test("records backup failure when the lock wrapper cannot connect before invokin
       promisify(execFile)(process.execPath, ["scripts/backup-with-lock.mjs"], {
         env: {
           ...process.env,
-          DATABASE_URL: "postgresql://test:test@127.0.0.1:1/redhood_test",
+          DATABASE_URL: "postgresql://test:test@127.0.0.1:1/rapi_test",
           BACKUP_STATUS_FILE: status,
         },
         timeout: 5000,

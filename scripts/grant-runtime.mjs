@@ -3,15 +3,15 @@ import pg from "pg";
 
 const { Client } = pg;
 const connectionString = process.env.MIGRATION_DATABASE_URL;
-const role = process.env.REDHOOD_RUNTIME_DATABASE_ROLE;
+const role = process.env.RAPI_RUNTIME_DATABASE_ROLE;
 if (!connectionString) throw new Error("MIGRATION_DATABASE_URL is required");
 if (!role || !/^[a-z_][a-z0-9_]{0,62}$/.test(role))
   throw new Error(
-    "REDHOOD_RUNTIME_DATABASE_ROLE must be a simple PostgreSQL role name",
+    "RAPI_RUNTIME_DATABASE_ROLE must be a simple PostgreSQL role name",
   );
 const url = new URL(connectionString);
 if (
-  process.env.REDHOOD_ENV === "production" &&
+  process.env.RAPI_ENV === "production" &&
   !["verify-full", "verify-ca"].includes(url.searchParams.get("sslmode") ?? "")
 )
   throw new Error("Production database URL must verify TLS certificates");

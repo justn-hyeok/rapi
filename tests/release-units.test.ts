@@ -39,27 +39,27 @@ test("release verification reads every supported port override from the service 
 });
 
 test("release unit wiring starts the staged code with an external environment and restores failed configuration", async () => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "redhood-unit-")));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "rapi-unit-")));
   let child: ChildProcess | undefined;
   try {
     const stage = join(root, "release");
     await mkdir(join(stage, "apps/bot/src"), { recursive: true });
     await writeFile(
       join(stage, "apps/bot/src/run.ts"),
-      'process.stdout.write(JSON.stringify({cwd:process.cwd(),marker:process.env.REDHOOD_UNIT_MARKER})+"\\n");\n',
+      'process.stdout.write(JSON.stringify({cwd:process.cwd(),marker:process.env.RAPI_UNIT_MARKER})+"\\n");\n',
     );
     await symlink(resolve("node_modules"), join(stage, "node_modules"));
     const currentPath = join(root, "current");
     await symlink(stage, currentPath);
     const environmentPath = join(root, "service.env");
-    await writeFile(environmentPath, "REDHOOD_UNIT_MARKER=external-config\n");
+    await writeFile(environmentPath, "RAPI_UNIT_MARKER=external-config\n");
     const options = {
       currentPath,
       environmentPath,
       nodeBinary: process.execPath,
     };
     const contents = releaseUnitContents(options);
-    const bot = contents["redhood-bot.service"]!;
+    const bot = contents["rapi-bot.service"]!;
     const command = /^ExecStart=(.+)$/m.exec(bot)![1]!.split(" ");
     assert.ok(bot.includes("ExecStart=\n"));
     child = spawn(command[0]!, command.slice(1), {
@@ -79,11 +79,8 @@ test("release unit wiring starts the staged code with an external environment an
     });
 
     const unitRoot = join(root, "systemd");
-    const target = join(
-      unitRoot,
-      "redhood-bot.service.d/10-redhood-release.conf",
-    );
-    await mkdir(join(unitRoot, "redhood-bot.service.d"), { recursive: true });
+    const target = join(unitRoot, "rapi-bot.service.d/10-rapi-release.conf");
+    await mkdir(join(unitRoot, "rapi-bot.service.d"), { recursive: true });
     await writeFile(target, "previous drop-in\n");
     let reloads = 0;
     await assert.rejects(
@@ -159,8 +156,8 @@ test("monitor revision preflight tolerates a down contained worker while bot rea
 test("systemd driver restarts dependents that stopping bot took down", async () => {
   const calls: string[][] = [];
   const states: Record<string, string> = {
-    "redhood-public-gateway.service": "active",
-    "redhood-tunnel.service": "inactive",
+    "rapi-public-gateway.service": "active",
+    "rapi-tunnel.service": "inactive",
   };
   const driver = systemdDriver({ bot: 1 }, 1, async (args) => {
     calls.push(args);
@@ -170,13 +167,13 @@ test("systemd driver restarts dependents that stopping bot took down", async () 
   await driver.start(["bot", "worker"]);
   assert.deepEqual(calls.at(-2), [
     "stop",
-    "redhood-bot.service",
-    "redhood-worker.service",
+    "rapi-bot.service",
+    "rapi-worker.service",
   ]);
   assert.deepEqual(calls.at(-1), [
     "start",
-    "redhood-bot.service",
-    "redhood-worker.service",
-    "redhood-public-gateway.service",
+    "rapi-bot.service",
+    "rapi-worker.service",
+    "rapi-public-gateway.service",
   ]);
 });

@@ -1,7 +1,7 @@
 import { createServer, request as httpRequest } from "node:http";
 
-const port = Number(process.env.REDHOOD_GATEWAY_PORT ?? "4600");
-const healthPort = Number(process.env.REDHOOD_GATEWAY_HEALTH_PORT ?? "4601");
+const port = Number(process.env.RAPI_GATEWAY_PORT ?? "4600");
+const healthPort = Number(process.env.RAPI_GATEWAY_HEALTH_PORT ?? "4601");
 const targetPort = Number(process.env.PORT ?? "4000");
 function respond(response, status, body) {
   response.writeHead(status, {
@@ -47,7 +47,7 @@ const server = createServer((incoming, outgoing) => {
 
 server.listen(port, "127.0.0.1", () => {
   process.stdout.write(
-    `redhood public gateway listening on 127.0.0.1:${server.address().port}\n`,
+    `rapi public gateway listening on 127.0.0.1:${server.address().port}\n`,
   );
 });
 
