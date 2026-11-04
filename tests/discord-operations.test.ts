@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { DiscordCommandService, type RapiAgent } from "@rapi/agent";
+import { DiscordCommandService, type RedhoodAgent } from "@redhood/agent";
 
 describe("Discord operations commands", () => {
   it("restricts status to admins and server configuration to superadmins", async () => {
     const service = new DiscordCommandService(
-      {} as RapiAgent,
+      {} as RedhoodAgent,
       {
         userIds: ["owner"],
         adminUserIds: ["admin"],

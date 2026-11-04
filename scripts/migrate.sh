@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-export DATABASE_URL="${MIGRATION_DATABASE_URL:-${DATABASE_URL:-postgresql://rapi:rapi-local-only@127.0.0.1:5432/rapi}}"
+export DATABASE_URL="${MIGRATION_DATABASE_URL:-${DATABASE_URL:-postgresql://redhood:redhood-local-only@127.0.0.1:5432/redhood}}"
 exec node scripts/migrate.mjs

@@ -12,13 +12,13 @@ import {
   type ModelClient,
   type ModelUsageEntry,
   type ModelUsageLedger,
-} from "@rapi/adapters";
+} from "@redhood/adapters";
 import {
   budgetMonth,
   evaluateBudget,
   formatModelCostReport,
   microUsdFromUsd,
-} from "@rapi/core";
+} from "@redhood/core";
 
 const KEY = "sk-secret-key-123";
 const completion = (

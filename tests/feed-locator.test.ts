@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { redactUrlTokens, resolveFeedLocator } from "@rapi/agent";
+import { redactUrlTokens, resolveFeedLocator } from "@redhood/agent";
 
 test("resolves env feed locators from the service environment only", () => {
   const environment = {

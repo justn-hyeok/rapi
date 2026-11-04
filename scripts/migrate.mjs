@@ -11,7 +11,7 @@ if (!connectionString)
 
 const url = new URL(connectionString);
 if (
-  process.env.RAPI_ENV === "production" &&
+  process.env.REDHOOD_ENV === "production" &&
   !["verify-full", "verify-ca"].includes(url.searchParams.get("sslmode") ?? "")
 ) {
   throw new Error(
@@ -27,7 +27,7 @@ await client.connect();
 try {
   await client.query("SELECT pg_advisory_lock(731904227)");
   const migrationsDirectory = resolve(
-    process.env.RAPI_MIGRATIONS_DIRECTORY ?? "packages/db/migrations",
+    process.env.REDHOOD_MIGRATIONS_DIRECTORY ?? "packages/db/migrations",
   );
   const migrations = (await readdir(migrationsDirectory))
     .filter((name) => /^\d+.*\.sql$/.test(name))

@@ -9,7 +9,7 @@ export async function monitor({ origin, mode = "normal", api, notify, probe }) {
   if (url.protocol !== "https:" || url.username || url.password)
     throw new Error("Monitor origin must be an HTTPS origin");
   const namespace = mode === "normal" ? "production" : "self-test";
-  const marker = `<!-- rapi-external-monitor:${namespace}:v1 -->`;
+  const marker = `<!-- redhood-external-monitor:${namespace}:v1 -->`;
   const checks = await probe(
     mode === "self-test-fail" ? "http://127.0.0.1:65534" : url.origin,
   );
@@ -30,7 +30,7 @@ export async function monitor({ origin, mode = "normal", api, notify, probe }) {
   if (healthy && !issue) return { healthy, checks, transition: "none" };
   if (!issue) {
     issue = await api("POST", "/issues", {
-      title: `[Rapi monitor${namespace === "self-test" ? " self-test" : ""}] Public endpoint unavailable`,
+      title: `[Redhood monitor${namespace === "self-test" ? " self-test" : ""}] Public endpoint unavailable`,
       body: `${marker}\n${JSON.stringify({ phase: "down-pending", origin: url.origin, startedAt: new Date().toISOString(), checks })}`,
     });
   }
@@ -47,7 +47,7 @@ export async function monitor({ origin, mode = "normal", api, notify, probe }) {
   if (phase === "down-pending") {
     // Never print the webhook URL, token, response body, or a raw fetch error.
     const receipt = await notify(
-      `[라피 외부 장애${namespace === "self-test" ? " · 감시 테스트" : ""}] ${url.origin}\n${issue.html_url}\n${checks.map((check) => `${check.name}: ${check.ok ? "OK" : "FAILED"}`).join("\n")}`,
+      `[레드후드 외부 장애${namespace === "self-test" ? " · 감시 테스트" : ""}] ${url.origin}\n${issue.html_url}\n${checks.map((check) => `${check.name}: ${check.ok ? "OK" : "FAILED"}`).join("\n")}`,
     );
     await api("PATCH", `/issues/${issue.number}`, {
       body: `${marker}\n${JSON.stringify({ ...(state ?? {}), phase: "down-sent", origin: url.origin, checks, alertId: receipt.id, startedAt: state?.startedAt ?? new Date().toISOString() })}`,
@@ -55,7 +55,7 @@ export async function monitor({ origin, mode = "normal", api, notify, probe }) {
   }
   if (healthy) {
     const receipt = await notify(
-      `[라피 외부 복구${namespace === "self-test" ? " · 감시 테스트" : ""}] ${url.origin}\n${issue.html_url}`,
+      `[레드후드 외부 복구${namespace === "self-test" ? " · 감시 테스트" : ""}] ${url.origin}\n${issue.html_url}`,
     );
     await api("PATCH", `/issues/${issue.number}`, {
       body: `${marker}\n${JSON.stringify({ phase: "recovery-sent", origin: url.origin, checks, recoveryAlertId: receipt.id, recoveredAt: new Date().toISOString() })}`,
@@ -116,7 +116,7 @@ async function main() {
   if (!/^[\w.-]+\/[\w.-]+$/.test(repository ?? ""))
     throw new Error("Invalid repository");
   const token = process.env.GITHUB_TOKEN;
-  const webhook = new URL(process.env.RAPI_MONITOR_ALERT_WEBHOOK_URL ?? "");
+  const webhook = new URL(process.env.REDHOOD_MONITOR_ALERT_WEBHOOK_URL ?? "");
   if (
     !token ||
     webhook.origin !== "https://discord.com" ||
@@ -154,8 +154,8 @@ async function main() {
     return response.json();
   };
   const result = await monitor({
-    origin: process.env.RAPI_MONITOR_ORIGIN,
-    mode: process.env.RAPI_MONITOR_MODE ?? "normal",
+    origin: process.env.REDHOOD_MONITOR_ORIGIN,
+    mode: process.env.REDHOOD_MONITOR_MODE ?? "normal",
     api,
     notify,
     probe: probeOrigin,

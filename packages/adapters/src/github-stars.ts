@@ -164,7 +164,7 @@ export class GitHubStarRecommender {
           `https://api.github.com/${path}`,
           {
             Accept: "application/vnd.github.star+json",
-            "User-Agent": "rapi-agent",
+            "User-Agent": "redhood",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           options,

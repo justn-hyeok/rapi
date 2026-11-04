@@ -1,5 +1,5 @@
-import { loadEnvironment } from "@rapi/config";
-import { resolveHomeGuildId } from "@rapi/core";
+import { loadEnvironment } from "@redhood/config";
+import { resolveHomeGuildId } from "@redhood/core";
 import { registerSlashCommands } from "../apps/bot/src/discord-http.js";
 
 const config = loadEnvironment();

@@ -7,16 +7,13 @@ import {
   DiscordLayoutManager,
   parseDiscordLayout,
   planDiscordLayout,
-} from "@rapi/agent";
-import type { PostgresStore } from "@rapi/db";
+} from "@redhood/agent";
+import type { PostgresStore } from "@redhood/db";
 
 test("layout admission resolves the real bot ID and checks desired role hierarchy", async () => {
-  const root = await mkdtemp(join(tmpdir(), "rapi-layout-"));
+  const root = await mkdtemp(join(tmpdir(), "redhood-layout-"));
   const source = await readFile(
-    new URL(
-      "../config/discord-community-1545832299671847013.yaml",
-      import.meta.url,
-    ),
+    new URL("../config/discord-community.yaml", import.meta.url),
     "utf8",
   );
   const layoutFile = join(root, "layout.yaml");
@@ -35,7 +32,12 @@ test("layout admission resolves the real bot ID and checks desired role hierarch
     { id: "guild", name: "@everyone", permissions: "0", position: 0 },
     { id: "bot-role", name: "bot", permissions: "8", position: 10 },
     { id: "staff", name: "ADMIN", permissions: "8", position: 5 },
-    { id: "user", name: "라피 USER", permissions: "0", position: userPosition },
+    {
+      id: "user",
+      name: "레드후드 USER",
+      permissions: "0",
+      position: userPosition,
+    },
   ];
   const manager = new DiscordLayoutManager(store, {
     botToken: "fixture",
@@ -57,7 +59,10 @@ test("layout admission resolves the real bot ID and checks desired role hierarch
     assert.ok(calls.includes("/guilds/guild/members/bot-id"));
     assert.ok(!calls.includes("/guilds/guild/members/@me"));
     userPosition = 11;
-    await assert.rejects(manager.preview("guild", "owner"), /라피 USER.*위에/);
+    await assert.rejects(
+      manager.preview("guild", "owner"),
+      /레드후드 USER.*위에/,
+    );
     const layout = parseDiscordLayout(source);
     const plan = planDiscordLayout(
       layout,
@@ -77,7 +82,8 @@ test("layout admission resolves the real bot ID and checks desired role hierarch
     );
     assert.ok(
       plan.adopted.some(
-        (resource) => resource.key === "rapi_staff" && resource.id === "staff",
+        (resource) =>
+          resource.key === "redhood_staff" && resource.id === "staff",
       ),
     );
   } finally {

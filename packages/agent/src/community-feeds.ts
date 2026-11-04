@@ -4,7 +4,7 @@ import {
   type CurationChannel,
   type ItemSummarizer,
   type SummaryInput,
-} from "@rapi/adapters";
+} from "@redhood/adapters";
 import {
   findCitations,
   isFreeTokenNews,
@@ -16,8 +16,8 @@ import {
   selectFeedTargets,
   type CitationCandidate,
   type FeedGuildTarget,
-} from "@rapi/core";
-import type { PostgresStore } from "@rapi/db";
+} from "@redhood/core";
+import type { PostgresStore } from "@redhood/db";
 
 type Feed = "ai-blogs" | "free-tokens";
 type Embed = Record<string, unknown>;
@@ -189,7 +189,7 @@ export class CommunityFeeds {
           await readSource(
             url,
             {
-              "User-Agent": "rapi-agent",
+              "User-Agent": "redhood",
               Accept: accept,
             },
             url === MODEL_CATALOG_URL

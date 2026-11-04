@@ -7,7 +7,7 @@ async function unit(name: string): Promise<string> {
 }
 
 test("Discord services cap persistent crash restart loops", async () => {
-  for (const name of ["rapi-bot.service"]) {
+  for (const name of ["redhood-bot.service"]) {
     const contents = await unit(name);
     assert.match(contents, /^StartLimitIntervalSec=10min$/m, name);
     assert.match(contents, /^StartLimitBurst=10$/m, name);
@@ -16,19 +16,19 @@ test("Discord services cap persistent crash restart loops", async () => {
 });
 
 test("HTTP bot startup does not require the optional runtime socket path", async () => {
-  const bot = await unit("rapi-bot.service");
+  const bot = await unit("redhood-bot.service");
 
-  assert.doesNotMatch(bot, /^ReadWritePaths=.*\/run\/rapi-public-agent/m);
+  assert.doesNotMatch(bot, /^ReadWritePaths=.*\/run\/redhood-public-agent/m);
 });
 
 test("auto deploy runs CI-verified main without production secrets", async () => {
-  const service = await unit("rapi-auto-deploy.service");
-  const timer = await unit("rapi-auto-deploy.timer");
+  const service = await unit("redhood-auto-deploy.service");
+  const timer = await unit("redhood-auto-deploy.timer");
   assert.doesNotMatch(service, /^EnvironmentFile=/m);
   assert.match(service, /^User=justn$/m);
   assert.match(
     service,
-    /^ExecStart=\/bin\/bash \/home\/justn\/rapi-releases\/current\/scripts\/auto-deploy\.sh$/m,
+    /^ExecStart=\/bin\/bash \/home\/justn\/redhood-releases\/current\/scripts\/auto-deploy\.sh$/m,
   );
   assert.match(timer, /^OnUnitInactiveSec=5min$/m);
   const script = await readFile(
@@ -41,7 +41,7 @@ test("auto deploy runs CI-verified main without production secrets", async () =>
 });
 
 test("Codex-backed services can write Codex state under a read-only home", async () => {
-  for (const name of ["rapi-bot"]) {
+  for (const name of ["redhood-bot"]) {
     assert.match(await unit(`${name}.service`), /^ProtectHome=read-only$/m);
     assert.match(
       await unit(`${name}.service.d/30-codex.conf`),

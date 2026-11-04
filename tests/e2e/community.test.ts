@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { PostgresStore } from "@rapi/db";
+import { PostgresStore } from "@redhood/db";
 
 const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl || new URL(databaseUrl).pathname !== "/rapi_test")
-  throw new Error("Community E2E requires rapi_test");
+if (!databaseUrl || new URL(databaseUrl).pathname !== "/redhood_test")
+  throw new Error("Community E2E requires redhood_test");
 
 describe("community persistence", () => {
   it("stores one-use Discord layout plans and stable resource keys", async () => {

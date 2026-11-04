@@ -9,7 +9,7 @@ import {
 } from "../scripts/release-artifact.mjs";
 
 async function release(gates: string[]): Promise<string> {
-  const path = await realpath(await mkdtemp(join(tmpdir(), "rapi-gates-")));
+  const path = await realpath(await mkdtemp(join(tmpdir(), "redhood-gates-")));
   await mkdir(join(path, "packages/db/migrations"), { recursive: true });
   await writeFile(
     join(path, "packages/db/migrations/0001_a.sql"),

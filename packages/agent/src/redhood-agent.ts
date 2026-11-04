@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-export { DEFAULT_CODEX_MODEL as DEFAULT_SUMMARY_MODEL } from "@rapi/contracts";
-import type { Visibility } from "@rapi/core";
+export { DEFAULT_CODEX_MODEL as DEFAULT_SUMMARY_MODEL } from "@redhood/contracts";
+import type { Visibility } from "@redhood/core";
 import {
   canonicalizeUrl,
   parseHtmlSourcePolicy,
@@ -8,7 +8,7 @@ import {
   classify,
   contentFingerprint,
   summarize,
-} from "@rapi/core";
+} from "@redhood/core";
 import {
   FeedSourceAdapter,
   HtmlSourceAdapter,
@@ -19,8 +19,8 @@ import {
   parseGitHubEvent,
   type ExternalItem,
   type SourcePayload,
-} from "@rapi/adapters";
-import { PostgresStore } from "@rapi/db";
+} from "@redhood/adapters";
+import { PostgresStore } from "@redhood/db";
 import type { PoolClient } from "pg";
 
 // A feed URL that embeds a credential (e.g. GitHub's private dashboard feed)
@@ -47,7 +47,7 @@ export function redactUrlTokens(body: string): string {
   );
 }
 
-export class RapiAgent {
+export class RedhoodAgent {
   constructor(readonly store: PostgresStore) {}
 
   createSource(

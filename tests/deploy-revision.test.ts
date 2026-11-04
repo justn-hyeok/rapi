@@ -19,7 +19,7 @@ const script = fileURLToPath(
 );
 
 test("release staging validates a clean SHA and keeps production DB inputs away from smoke gates", () => {
-  const root = mkdtempSync(join(tmpdir(), "rapi-release-test-"));
+  const root = mkdtempSync(join(tmpdir(), "redhood-release-test-"));
   try {
     const repo = join(root, "repo");
     const stageRoot = join(root, "stage");
@@ -46,7 +46,7 @@ test("release staging validates a clean SHA and keeps production DB inputs away 
     const calls = join(root, "npm-calls.txt");
     writeFileSync(
       join(bin, "npm"),
-      '#!/bin/sh\n[ -z "${DATABASE_URL:-}" ] || exit 83\n[ -z "${BACKUP_FILE:-}" ] || exit 84\n[ -z "${MIGRATION_DATABASE_URL:-}" ] || exit 85\n[ "$RAPI_ENV" = test ] || exit 86\nprintf "%s\\n" "$*" >> "$RAPI_FAKE_NPM_LOG"\n',
+      '#!/bin/sh\n[ -z "${DATABASE_URL:-}" ] || exit 83\n[ -z "${BACKUP_FILE:-}" ] || exit 84\n[ -z "${MIGRATION_DATABASE_URL:-}" ] || exit 85\n[ "$REDHOOD_ENV" = test ] || exit 86\nprintf "%s\\n" "$*" >> "$REDHOOD_FAKE_NPM_LOG"\n',
       { mode: 0o755 },
     );
     execFileSync("git", ["init", "-q", repo]);
@@ -70,11 +70,11 @@ test("release staging validates a clean SHA and keeps production DB inputs away 
       PATH: `${bin}:${process.env.PATH ?? ""}`,
       DATABASE_URL: "postgresql://production.invalid/db",
       MIGRATION_DATABASE_URL: "postgresql://production.invalid/migration_db",
-      RAPI_ENV: "production",
+      REDHOOD_ENV: "production",
       BACKUP_FILE: "/production.dump",
-      RAPI_FAKE_NPM_LOG: calls,
-      RAPI_RELEASE_SHA: sha,
-      RAPI_RELEASE_ROOT: stageRoot,
+      REDHOOD_FAKE_NPM_LOG: calls,
+      REDHOOD_RELEASE_SHA: sha,
+      REDHOOD_RELEASE_ROOT: stageRoot,
     };
     const run = spawnSync("bash", ["scripts/deploy-revision.sh"], {
       cwd: repo,

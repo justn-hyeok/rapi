@@ -1,5 +1,5 @@
 import { XMLParser } from "fast-xml-parser";
-import { type HtmlSourcePolicy } from "@rapi/core";
+import { type HtmlSourcePolicy } from "@redhood/core";
 
 export interface SourceHttpOptions {
   timeoutMs?: number;
@@ -553,7 +553,7 @@ export class GitHubSourceAdapter {
       `https://api.github.com/repos/${owner}/${repository}/events`,
       {
         Accept: "application/vnd.github+json",
-        "User-Agent": "rapi-agent",
+        "User-Agent": "redhood",
         ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
         ...(etag ? { "If-None-Match": etag } : {}),
       },
@@ -611,7 +611,7 @@ export class HtmlSourceAdapter {
       url,
       {
         Accept: "text/html",
-        "User-Agent": "rapi-agent",
+        "User-Agent": "redhood",
         ...(etag ? { "If-None-Match": etag } : {}),
       },
       this.options,

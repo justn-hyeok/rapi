@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { microUsdFromUsd } from "@rapi/core";
+import { microUsdFromUsd } from "@redhood/core";
 import type { ModelClient, ModelFeature } from "./model-client.js";
 import {
   MeteredModelClient,

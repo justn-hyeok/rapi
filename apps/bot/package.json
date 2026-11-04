@@ -1,13 +1,13 @@
 {
-  "name": "@rapi/bot",
+  "name": "@redhood/bot",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "dependencies": {
-    "@rapi/adapters": "0.1.0",
-    "@rapi/agent": "0.1.0",
-    "@rapi/config": "0.1.0",
-    "@rapi/core": "0.1.0",
-    "@rapi/db": "0.1.0"
+    "@redhood/adapters": "0.1.0",
+    "@redhood/agent": "0.1.0",
+    "@redhood/config": "0.1.0",
+    "@redhood/core": "0.1.0",
+    "@redhood/db": "0.1.0"
   }
 }
