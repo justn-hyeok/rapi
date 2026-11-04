@@ -82,6 +82,57 @@ GitHub 읽기와 쓰기 자격 증명은 분리한다. 평상시 수집 프로�
 프로세스는 전용 OS 사용자로 실행하고 자동 재시작, resource limit, health check를
 설정한다. DB와 공개 웹 포트를 제외한 내부 서비스는 외부에 노출하지 않는다.
 
+## VM에 처음 올리기
+
+Redhood는 라피와 같은 VM에서 돈다. 아래 절차는 라피의 서비스, 경로, DB를 건드리지 않는다.
+
+| 항목 | 라피 | Redhood |
+| --- | --- | --- |
+| systemd 유닛 | `rapi-*` | `redhood-*` |
+| 소스, 릴리스 | `/home/justn/rapi-agent`, `rapi-releases` | `/home/justn/redhood`, `redhood-releases` |
+| 상태 파일 | `/var/lib/rapi` | `/var/lib/redhood` |
+| PostgreSQL | Compose 프로젝트 `rapi-agent`, 5432 | Compose 프로젝트 `redhood`, 5433 |
+| 봇, 모니터 | 3000, 3300 | 4000, 4300 |
+| 게이트웨이, 터널 지표 | 3600, 3601, 3700 | 4600, 4601, 4700 |
+| Discord 앱 | 라피 앱 | 새 앱 |
+
+소유자가 할 일은 Discord Developer Portal에서 새 앱과 봇을 만드는 것이다. 토큰은 VM의
+`/home/justn/redhood/.env`에 직접 넣고 채팅이나 Git에는 남기지 않는다.
+
+```bash
+# 1. 소스와 상태 디렉터리
+git clone https://github.com/justn-hyeok/redhood.git /home/justn/redhood
+sudo groupadd --system redhood && sudo usermod -aG redhood justn
+sudo install -d -o justn -g justn -m 0700 /var/lib/redhood
+install -d -m 0700 /home/justn/redhood-releases /home/justn/redhood/backups
+
+# 2. 환경 파일: .env.example을 복사해 값을 채운다. 권한은 0600.
+#    REDHOOD_ENV=production, PORT=4000, MONITOR_PORT=4300
+#    DATABASE_URL=postgresql://redhood:redhood-local-only@127.0.0.1:5433/redhood
+
+# 3. 유닛 설치와 DB
+sudo install -m 0644 ops/systemd/redhood-* /etc/systemd/system/
+sudo cp -r ops/systemd/redhood-bot.service.d /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now redhood-postgres.service
+
+# 4. 첫 릴리스: 검증한 뒤 current를 직접 만들고 유닛을 연결한다.
+sha=$(git rev-parse HEAD)
+REDHOOD_RELEASE_SHA=$sha REDHOOD_RELEASE_ROOT=/home/justn/redhood-releases ./scripts/deploy-revision.sh
+ln -s "$(ls -td /home/justn/redhood-releases/redhood-"${sha:0:12}"-* | head -1)" /home/justn/redhood-releases/current
+sudo env REDHOOD_RELEASE_UNITS_APPROVED=true REDHOOD_RELEASE_UNITS_RECEIPT=/home/justn/redhood-releases/unit-wiring.json \
+  REDHOOD_CURRENT_RELEASE=/home/justn/redhood-releases/current \
+  REDHOOD_SERVICE_ENV_FILE=/home/justn/redhood/.env \
+  REDHOOD_NODE_BINARY="$(command -v node)" node scripts/release-units.mjs --apply
+sudo systemctl enable --now redhood-bot.service redhood-monitor.service
+
+# 5. 이후 배포는 CI를 통과한 main을 5분마다 따라간다.
+sudo systemctl enable --now redhood-auto-deploy.timer
+```
+
+확인: `curl -s 127.0.0.1:4000/ready`의 `revision`이 배포한 SHA와 같고, 라피의
+`curl -s 127.0.0.1:3000/ready`가 그대로 응답해야 한다.
+
 ## 6. 배포 절차
 
 릴리스 후보를 서비스 전환 없이 준비할 때는 깨끗한 후보 checkout에서 전체 SHA와
