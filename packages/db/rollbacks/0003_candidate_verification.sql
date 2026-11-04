@@ -1,0 +1,8 @@
+ALTER TABLE discount_candidates
+  DROP COLUMN IF EXISTS band,
+  DROP COLUMN IF EXISTS tags,
+  DROP COLUMN IF EXISTS operator,
+  DROP COLUMN IF EXISTS price_check,
+  DROP COLUMN IF EXISTS terms_url,
+  DROP COLUMN IF EXISTS terms_note,
+  DROP COLUMN IF EXISTS verified_at;

@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { Pool, type PoolClient } from "pg";
-import type { DiscountCandidate, NormalizedItem, Visibility } from "@rapi/core";
+import type {
+  CandidateToVerify,
+  CandidateVerification,
+  DiscountCandidate,
+  NormalizedItem,
+  Visibility,
+} from "@rapi/core";
 import { parseHtmlSourcePolicy, validateHtmlSourceLocator } from "@rapi/core";
 
 interface RawEventResult {
@@ -195,6 +201,40 @@ export class PostgresStore {
       ],
     );
     return result.rowCount === 1;
+  }
+
+  /** Oldest first. A row with a band has been decided, by the rules or the owner. */
+  async unverifiedDiscountCandidates(
+    limit: number,
+  ): Promise<CandidateToVerify[]> {
+    const { rows } = await this.pool.query<CandidateToVerify>(
+      `SELECT id, kind, route, domain, title, evidence FROM discount_candidates
+       WHERE band IS NULL ORDER BY first_seen_at, id LIMIT $1`,
+      [limit],
+    );
+    return rows;
+  }
+
+  /** Never overwrites a band, so a red set by hand stays red. */
+  async saveCandidateVerification(
+    id: string,
+    verification: CandidateVerification,
+  ): Promise<void> {
+    await this.pool.query(
+      `UPDATE discount_candidates
+       SET band = $2, tags = $3, operator = $4, price_check = $5,
+           terms_url = $6, terms_note = $7, verified_at = now()
+       WHERE id = $1 AND band IS NULL`,
+      [
+        id,
+        verification.band,
+        verification.tags,
+        verification.operator,
+        verification.priceCheck,
+        verification.termsUrl,
+        verification.termsNote,
+      ],
+    );
   }
 
   async saveItem(
