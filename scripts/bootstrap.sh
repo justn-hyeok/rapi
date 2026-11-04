@@ -27,4 +27,4 @@ npm run restart:smoke
 npm run restore:smoke
 npm run audit:prod
 
-echo "redhood development environment is ready."
+echo "rapi development environment is ready."

@@ -8,13 +8,13 @@ import {
 describe("Discord token rotation", () => {
   it("replaces the token once while preserving unrelated settings", () => {
     const updated = replaceEnvironmentValue(
-      "DATABASE_URL=postgresql://localhost/redhood\nDISCORD_BOT_TOKEN=old\nPORT=3000\nDISCORD_BOT_TOKEN=duplicate\n",
+      "DATABASE_URL=postgresql://localhost/rapi\nDISCORD_BOT_TOKEN=old\nPORT=3000\nDISCORD_BOT_TOKEN=duplicate\n",
       "DISCORD_BOT_TOKEN",
       "new.token_value",
     );
     assert.equal(
       updated,
-      "DATABASE_URL=postgresql://localhost/redhood\nDISCORD_BOT_TOKEN=new.token_value\nPORT=3000\n",
+      "DATABASE_URL=postgresql://localhost/rapi\nDISCORD_BOT_TOKEN=new.token_value\nPORT=3000\n",
     );
   });
 

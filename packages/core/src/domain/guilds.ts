@@ -1,6 +1,6 @@
-/** Shown to anyone using Redhood in a guild the operator has not approved yet. */
+/** Shown to anyone using Rapi in a guild the operator has not approved yet. */
 export const GUILD_NOT_ALLOWED_MESSAGE =
-  "아직 허용되지 않은 서버입니다. 레드후드 운영자의 승인을 기다리는 중이에요. 서버 주인이 레드후드 운영자에게 허용을 요청해 주세요.";
+  "아직 허용되지 않은 서버입니다. 라피 운영자의 승인을 기다리는 중이에요. 서버 주인이 라피 운영자에게 허용을 요청해 주세요.";
 
 /** Home guild: explicit setting, then the community guild, then the first allowed guild. */
 export function resolveHomeGuildId(

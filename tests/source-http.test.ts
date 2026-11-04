@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { test } from "node:test";
 import { once } from "node:events";
-import { FeedSourceAdapter, type SourcePayload } from "@redhood/adapters";
+import { FeedSourceAdapter, type SourcePayload } from "@rapi/adapters";
 
 test("source deadlines cover both headers and body, and preserve malformed raw responses", async () => {
   const xml =

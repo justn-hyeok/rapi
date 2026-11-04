@@ -6,7 +6,7 @@ import { test } from "node:test";
 import { resolveCodexBinary } from "../scripts/resolve-codex-binary.mjs";
 
 test("public installation copies the native executable instead of a dependency-bearing npm wrapper", async () => {
-  const root = await mkdtemp(join(tmpdir(), "redhood-native-"));
+  const root = await mkdtemp(join(tmpdir(), "rapi-native-"));
   try {
     const wrapper = join(root, "bin/codex.js");
     await mkdir(join(root, "bin"));

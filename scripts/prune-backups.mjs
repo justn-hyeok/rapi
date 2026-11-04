@@ -13,9 +13,7 @@ export function expiredBackups(names, now, days = 30) {
   return names
     .filter((name) => {
       const match =
-        /^redhood-(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z\.dump$/.exec(
-          name,
-        );
+        /^rapi-(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z\.dump$/.exec(name);
       if (!match) return false;
       const date = new Date(
         `${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${match[6]}Z`,
@@ -23,7 +21,7 @@ export function expiredBackups(names, now, days = 30) {
       if (
         !Number.isFinite(date.getTime()) ||
         date.toISOString().replace(/[-:]/g, "").replace(".000", "") !==
-          name.slice("redhood-".length, -".dump".length)
+          name.slice("rapi-".length, -".dump".length)
       )
         return false;
       return date.getTime() < now.getTime() - days * 86_400_000;

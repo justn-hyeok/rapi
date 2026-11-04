@@ -72,10 +72,10 @@ GitHub 읽기와 쓰기 자격 증명은 분리한다. 평상시 수집 프로�
 
 초기 단일 VM 배치는 다음 프로세스로 충분하다.
 
-- `redhood-bot`: Discord Gateway와 명령 처리
-- `redhood-worker`: 수집, 분류·요약, 발송 worker
-- `redhood-scheduler`: cron/예약 작업 enqueue
-- `redhood-blog`: 정적 빌드 또는 웹 서버
+- `rapi-bot`: Discord Gateway와 명령 처리
+- `rapi-worker`: 수집, 분류·요약, 발송 worker
+- `rapi-scheduler`: cron/예약 작업 enqueue
+- `rapi-blog`: 정적 빌드 또는 웹 서버
 - PostgreSQL: 같은 VM 또는 관리형 서비스
 - reverse proxy: HTTPS와 공개 webhook/blog endpoint
 
@@ -84,56 +84,55 @@ GitHub 읽기와 쓰기 자격 증명은 분리한다. 평상시 수집 프로�
 
 ## VM에 처음 올리기
 
-Redhood는 라피와 같은 VM에서 돈다. 아래 절차는 라피의 서비스, 경로, DB를 건드리지 않는다.
+옛 라피는 `/home/justn/archive/purple-rapi`로 보관했다. 아래 절차는 보관본을 건드리지 않는다.
 
-| 항목 | 라피 | Redhood |
-| --- | --- | --- |
-| systemd 유닛 | `rapi-*` | `redhood-*` |
-| 소스, 릴리스 | `/home/justn/rapi-agent`, `rapi-releases` | `/home/justn/redhood`, `redhood-releases` |
-| 상태 파일 | `/var/lib/rapi` | `/var/lib/redhood` |
-| PostgreSQL | Compose 프로젝트 `rapi-agent`, 5432 | Compose 프로젝트 `redhood`, 5433 |
-| 봇, 모니터 | 3000, 3300 | 4000, 4300 |
-| 게이트웨이, 터널 지표 | 3600, 3601, 3700 | 4600, 4601, 4700 |
-| Discord 앱 | 라피 앱 | 새 앱 |
+| 항목 | 값 |
+| --- | --- |
+| systemd 유닛 | `rapi-*` |
+| 소스, 릴리스 | `/home/justn/rapi`, `rapi-releases` |
+| 상태 파일 | `/var/lib/rapi` |
+| PostgreSQL | Compose 프로젝트 `rapi`, 5433 |
+| 봇, 모니터 | 4000, 4300 |
+| 게이트웨이, 터널 지표 | 4600, 4601, 4700 |
+| 공개 주소 | `https://rapi.justn.me` |
 
 소유자가 할 일은 Discord Developer Portal에서 새 앱과 봇을 만드는 것이다. 토큰은 VM의
-`/home/justn/redhood/.env`에 직접 넣고 채팅이나 Git에는 남기지 않는다.
+`/home/justn/rapi/.env`에 직접 넣고 채팅이나 Git에는 남기지 않는다.
 
 ```bash
 # 1. 소스와 상태 디렉터리
-git clone https://github.com/justn-hyeok/redhood.git /home/justn/redhood
-sudo groupadd --system redhood && sudo usermod -aG redhood justn
-sudo install -d -o justn -g justn -m 0700 /var/lib/redhood
-install -d -m 0700 /home/justn/redhood-releases /home/justn/redhood/backups
+git clone https://github.com/justn-hyeok/rapi.git /home/justn/rapi
+sudo groupadd --system rapi && sudo usermod -aG rapi justn
+sudo install -d -o justn -g justn -m 0700 /var/lib/rapi
+install -d -m 0700 /home/justn/rapi-releases /home/justn/rapi/backups
 
 # 2. 환경 파일: .env.example을 복사해 값을 채운다. 권한은 0600.
-#    REDHOOD_ENV=production, PORT=4000, MONITOR_PORT=4300
-#    DATABASE_URL=postgresql://redhood:redhood-local-only@127.0.0.1:5433/redhood
+#    RAPI_ENV=production, PORT=4000, MONITOR_PORT=4300
+#    DATABASE_URL=postgresql://rapi:rapi-local-only@127.0.0.1:5433/rapi
 
 # 3. 유닛 설치와 DB
-sudo install -m 0644 ops/systemd/redhood-*.service ops/systemd/redhood-*.timer /etc/systemd/system/
-sudo cp -r ops/systemd/redhood-bot.service.d /etc/systemd/system/
+sudo install -m 0644 ops/systemd/rapi-*.service ops/systemd/rapi-*.timer /etc/systemd/system/
+sudo cp -r ops/systemd/rapi-bot.service.d /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now redhood-postgres.service
+sudo systemctl enable --now rapi-postgres.service
 npm ci
-DATABASE_URL=postgresql://redhood:redhood-local-only@127.0.0.1:5433/redhood ./scripts/migrate.sh
+DATABASE_URL=postgresql://rapi:rapi-local-only@127.0.0.1:5433/rapi ./scripts/migrate.sh
 
 # 4. 첫 릴리스: 검증한 뒤 current를 직접 만들고 유닛을 연결한다.
 sha=$(git rev-parse HEAD)
-REDHOOD_RELEASE_SHA=$sha REDHOOD_RELEASE_ROOT=/home/justn/redhood-releases ./scripts/deploy-revision.sh
-ln -s "$(ls -td /home/justn/redhood-releases/redhood-"${sha:0:12}"-* | head -1)" /home/justn/redhood-releases/current
-sudo env REDHOOD_RELEASE_UNITS_APPROVED=true REDHOOD_RELEASE_UNITS_RECEIPT=/home/justn/redhood-releases/unit-wiring.json \
-  REDHOOD_CURRENT_RELEASE=/home/justn/redhood-releases/current \
-  REDHOOD_SERVICE_ENV_FILE=/home/justn/redhood/.env \
-  REDHOOD_NODE_BINARY="$(command -v node)" node scripts/release-units.mjs --apply
-sudo systemctl enable --now redhood-bot.service redhood-monitor.service
+RAPI_RELEASE_SHA=$sha RAPI_RELEASE_ROOT=/home/justn/rapi-releases ./scripts/deploy-revision.sh
+ln -s "$(ls -td /home/justn/rapi-releases/rapi-"${sha:0:12}"-* | head -1)" /home/justn/rapi-releases/current
+sudo env RAPI_RELEASE_UNITS_APPROVED=true RAPI_RELEASE_UNITS_RECEIPT=/home/justn/rapi-releases/unit-wiring.json \
+  RAPI_CURRENT_RELEASE=/home/justn/rapi-releases/current \
+  RAPI_SERVICE_ENV_FILE=/home/justn/rapi/.env \
+  RAPI_NODE_BINARY="$(command -v node)" node scripts/release-units.mjs --apply
+sudo systemctl enable --now rapi-bot.service rapi-monitor.service
 
 # 5. 이후 배포는 CI를 통과한 main을 5분마다 따라간다.
-sudo systemctl enable --now redhood-auto-deploy.timer
+sudo systemctl enable --now rapi-auto-deploy.timer
 ```
 
-확인: `curl -s 127.0.0.1:4000/ready`의 `revision`이 배포한 SHA와 같고, 라피의
-`curl -s 127.0.0.1:3000/ready`가 그대로 응답해야 한다.
+확인: `curl -s 127.0.0.1:4000/ready`의 `revision`이 배포한 SHA와 같아야 한다.
 
 ## 6. 배포 절차
 
@@ -145,8 +144,8 @@ sudo systemctl enable --now redhood-auto-deploy.timer
 이 단계는 서비스를 교체하거나 worker를 재시작하지 않는다.
 
 ```bash
-REDHOOD_RELEASE_SHA="$(git rev-parse HEAD)" \
-REDHOOD_RELEASE_ROOT=/absolute/existing/staging-directory \
+RAPI_RELEASE_SHA="$(git rev-parse HEAD)" \
+RAPI_RELEASE_ROOT=/absolute/existing/staging-directory \
   ./scripts/deploy-revision.sh
 ```
 
@@ -162,15 +161,15 @@ unit 연결안을 확인한다. `--apply`는 기존 drop-in을 receipt에 보존
 서비스를 재시작하지 않는다.
 
 ```bash
-REDHOOD_CURRENT_RELEASE=/home/justn/redhood-releases/current \
-REDHOOD_SERVICE_ENV_FILE=/home/justn/redhood/.env \
+RAPI_CURRENT_RELEASE=/home/justn/rapi-releases/current \
+RAPI_SERVICE_ENV_FILE=/home/justn/rapi/.env \
   node scripts/release-units.mjs --preview
 
 # 운영 승인 후 root 권한으로 실행한다.
-REDHOOD_RELEASE_UNITS_APPROVED=true \
-REDHOOD_RELEASE_UNITS_RECEIPT=/absolute/evidence/unit-wiring.json \
-REDHOOD_CURRENT_RELEASE=/home/justn/redhood-releases/current \
-REDHOOD_SERVICE_ENV_FILE=/home/justn/redhood/.env \
+RAPI_RELEASE_UNITS_APPROVED=true \
+RAPI_RELEASE_UNITS_RECEIPT=/absolute/evidence/unit-wiring.json \
+RAPI_CURRENT_RELEASE=/home/justn/rapi-releases/current \
+RAPI_SERVICE_ENV_FILE=/home/justn/rapi/.env \
   node scripts/release-units.mjs --apply
 ```
 
@@ -179,13 +178,13 @@ monitor는 중지된 worker의 경고를 계속 보고하므로, 배포 전환�
 검사한다. monitor 경고를 지우거나 중지된 worker를 켜서 검사를 통과시키지 않는다.
 
 ```bash
-REDHOOD_SWITCH_APPROVED=true \
-REDHOOD_CURRENT_RELEASE=/absolute/releases/current \
-REDHOOD_CANDIDATE_RELEASE=/absolute/releases/candidate-directory \
-REDHOOD_RELEASE_SHA=full-40-character-candidate-sha \
-REDHOOD_SWITCH_RECEIPT=/absolute/evidence/switch-receipt.json \
-REDHOOD_SERVICE_ENV_FILE=/home/justn/redhood/.env \
-REDHOOD_SWITCH_SERVICES=bot,chat,monitor,worker \
+RAPI_SWITCH_APPROVED=true \
+RAPI_CURRENT_RELEASE=/absolute/releases/current \
+RAPI_CANDIDATE_RELEASE=/absolute/releases/candidate-directory \
+RAPI_RELEASE_SHA=full-40-character-candidate-sha \
+RAPI_SWITCH_RECEIPT=/absolute/evidence/switch-receipt.json \
+RAPI_SERVICE_ENV_FILE=/home/justn/rapi/.env \
+RAPI_SWITCH_SERVICES=bot,chat,monitor,worker \
   node scripts/switch-release.mjs
 ```
 
@@ -198,7 +197,7 @@ ExecStart가 별도 보관한 운영 환경 파일을 읽도록 사전 설정해
 
 ### 자동 배포
 
-`redhood-auto-deploy.timer`가 5분마다 `scripts/auto-deploy.sh`를 실행한다. origin/main의
+`rapi-auto-deploy.timer`가 5분마다 `scripts/auto-deploy.sh`를 실행한다. origin/main의
 새 SHA에 대한 GitHub check run이 모두 성공하면, 그 SHA의 임시 worktree에서 위의
 `deploy-revision.sh` 검증과 `switch-release.mjs` 전환을 그대로 수행하고 결과를
 `OPERATIONS_CHANNEL_ID`로 알린다. CI나 검증·전환이 실패한 SHA는
@@ -223,7 +222,7 @@ COMMUNITY_GUILD_ID=1545832299671847013 \
   node --env-file=.env --import tsx scripts/configure-public-community.ts --preview
 
 # 운영 승인 후 역할/채널 ID를 환경 파일에 반영한다.
-REDHOOD_COMMUNITY_APPROVED=true COMMUNITY_GUILD_ID=1545832299671847013 \
+RAPI_COMMUNITY_APPROVED=true COMMUNITY_GUILD_ID=1545832299671847013 \
   node --env-file=.env --import tsx scripts/configure-public-community.ts --apply
 ```
 
@@ -232,9 +231,9 @@ REDHOOD_COMMUNITY_APPROVED=true COMMUNITY_GUILD_ID=1545832299671847013 \
 USER/ADMIN/SUPERADMIN의 허용·거부 흐름을 각각 확인한다.
 
 ```bash
-sudo -u redhood-public env HOME=/var/lib/redhood-public \
-  CODEX_HOME=/var/lib/redhood-public/codex \
-  /opt/redhood-public-agent/codex login --device-auth
+sudo -u rapi-public env HOME=/var/lib/rapi-public \
+  CODEX_HOME=/var/lib/rapi-public/codex \
+  /opt/rapi-public-agent/codex login --device-auth
 ```
 
 1. CI가 typecheck, lint, unit/integration test, migration 검사를 수행한다.
@@ -335,21 +334,21 @@ npm run backup          # 원자적 custom-format dump와 최근 7개 보존
 ```
 
 서비스 프로세스는 reverse proxy 뒤에서 실행하며 `/health`를 readiness 확인에 쓴다.
-Docker volume `redhood-postgres`는 애플리케이션 컨테이너 교체와 분리해 보존한다.
+Docker volume `rapi-postgres`는 애플리케이션 컨테이너 교체와 분리해 보존한다.
 
 ## 자연어 ChatOps 운영 정책 (D-008)
 
 허용된 소유자의 명확한 자연어 변경·배포 요청은 그 자체로 실행 권한이며 반복
 승인을 요구하지 않는다. 이는 위 승인 초안의 자연어 ChatOps 경로를 대체한다.
 `/작업`·`/승인`은 기존 동작을 유지한다. 배포 시 기존 `npm run db:migrate`가
-0004를 적용한 뒤 기존 `redhood-chat.service`를 사용한다. 이번 구현 작업에서는
+0004를 적용한 뒤 기존 `rapi-chat.service`를 사용한다. 이번 구현 작업에서는
 운영 전환은 [커뮤니티 운영 전환](operations-webhooks.md)의 drain, 백업, readiness
 rollback 절차를 따른다.
 
 `npm run test:e2e`는 `compose.test.yaml`의 임시 PostgreSQL을 임의 로컬 포트에
-기동하고 **redhood_test만** 사용한다. migration 재적용도 검사하며 EXIT trap으로
+기동하고 **rapi_test만** 사용한다. migration 재적용도 검사하며 EXIT trap으로
 컨테이너·네트워크를 정리한다. 운영 Compose 또는 DB에는 연결하지 않는다.
-테스트를 직접 실행할 때도 정확히 `redhood_test` 이름이 아니면 거부한다.
+테스트를 직접 실행할 때도 정확히 `rapi_test` 이름이 아니면 거부한다.
 상태 조회, 실제 취소, interrupted 복구와 알려진 한계는
 [운영 상세](chatops-capabilities.md)를 참고한다.
 
@@ -363,17 +362,17 @@ senpi는 소유자 실행 전용 두 번째 하니스다(동작은 [ChatOps 기�
 참고). 고정 버전은 `ops/harness-versions.json`이다.
 
 ```bash
-# 1. VM에서 설치: 릴리스 tarball을 받아 sha256 확인 뒤 /opt/redhood-senpi/<버전>에
+# 1. VM에서 설치: 릴리스 tarball을 받아 sha256 확인 뒤 /opt/rapi-senpi/<버전>에
 #    풀고 /usr/local/bin/senpi를 연결한다. 전용 설정(텔레메트리 끔, 프로젝트 신뢰
-#    never)을 SENPI_HOME(기본 /var/lib/redhood/senpi)/agent/settings.json에 쓴다.
+#    never)을 SENPI_HOME(기본 /var/lib/rapi/senpi)/agent/settings.json에 쓴다.
 #    다시 실행해도 안전하다. gh 로그인이 필요하다.
 scripts/install-senpi.sh
 
 # 2. 소유자가 서비스 계정(justn)으로 공급자 로그인(브라우저/기기 인증이 필요하다).
-PI_CODING_AGENT_DIR=/var/lib/redhood/senpi/agent senpi   # 대화창에서 /login
+PI_CODING_AGENT_DIR=/var/lib/rapi/senpi/agent senpi   # 대화창에서 /login
 
 # 3. 같은 요청을 Codex와 `센파이로 …`로 몇 번 나란히 돌려 본 뒤에만 기본값을 바꾼다.
-#    .env에 CHATOPS_HARNESS=senpi 를 쓰고 redhood-chat을 재시작한다.
+#    .env에 CHATOPS_HARNESS=senpi 를 쓰고 rapi-chat을 재시작한다.
 ```
 
 `curl -s localhost:3100/ready`의 `senpi` 항목이 `ok`면 바이너리와 설정 파일이 있다는
@@ -403,11 +402,11 @@ DM을 보낸다. 버튼은 `[반영]` `[건너뛰기]` `[나중에]`(24시간 �
 - 모든 단계는 `harness_updates`, `harness_update_events`에 남는다.
 - 스모크 프롬프트는 `SENPI_HOME/agent`의 로그인 파일(설정 제외)을 임시 디렉터리에
   복사해 실행하고 끝나면 지운다.
-- 워커와 봇 둘 다 같은 환경변수를 읽으므로 워커와 `redhood-bot`을 재시작한다.
+- 워커와 봇 둘 다 같은 환경변수를 읽으므로 워커와 `rapi-bot`을 재시작한다.
 
 ## LiteLLM 켜기 (선택)
 
-레드후드 내부 모델 호출(요약 등)은 `packages/adapters`의 `OpenAiCompatibleModelClient` 하나를
+라피 내부 모델 호출(요약 등)은 `packages/adapters`의 `OpenAiCompatibleModelClient` 하나를
 거친다. 이 클라이언트는 LiteLLM, OpenAI, Anthropic의 OpenAI 호환 엔드포인트 어디든
 가리킬 수 있고, `MeteredModelClient`가 모든 호출을 `model_usage`에 기록하며 월 상한을
 적용한다. `MODEL_API_BASE_URL`과 `MODEL_API_KEY`가 모두 없으면 꺼져 있고(코드는
@@ -415,16 +414,16 @@ DM을 보낸다. 버튼은 `[반영]` `[건너뛰기]` `[나중에]`(24시간 �
 
 소유자만 할 수 있는 일:
 
-1. VM에 LiteLLM 설치: `python3 -m venv /opt/redhood-litellm && /opt/redhood-litellm/bin/pip
+1. VM에 LiteLLM 설치: `python3 -m venv /opt/rapi-litellm && /opt/rapi-litellm/bin/pip
    install 'litellm[proxy]'`.
-2. `ops/litellm/config.example.yaml`을 `/etc/redhood/litellm.yaml`로 복사해 모델 목록을 고른다.
-3. `/etc/redhood/litellm.env`(chmod 600)에 `LITELLM_MASTER_KEY`(임의의 긴 값)와 공급자
+2. `ops/litellm/config.example.yaml`을 `/etc/rapi/litellm.yaml`로 복사해 모델 목록을 고른다.
+3. `/etc/rapi/litellm.env`(chmod 600)에 `LITELLM_MASTER_KEY`(임의의 긴 값)와 공급자
    키(`OPENAI_API_KEY` 등)를 넣는다. 저장소에는 넣지 않는다.
-4. `ops/systemd/redhood-litellm.service.example`을 `/etc/systemd/system/redhood-litellm.service`로
-   복사하고 `systemctl enable --now redhood-litellm`. 바인드는 `127.0.0.1:4000`이다.
-5. `.env`에 설정하고 워커와 `redhood-bot`을 재시작한다:
+4. `ops/systemd/rapi-litellm.service.example`을 `/etc/systemd/system/rapi-litellm.service`로
+   복사하고 `systemctl enable --now rapi-litellm`. 바인드는 `127.0.0.1:4000`이다.
+5. `.env`에 설정하고 워커와 `rapi-bot`을 재시작한다:
    `MODEL_API_BASE_URL=http://127.0.0.1:4000/v1`, `MODEL_API_KEY=<LITELLM_MASTER_KEY>`,
-   `MODEL_DEFAULT=redhood-default`, 선택으로 `MODEL_FOR_PUBLIC_QA` 등 기능별 모델과
+   `MODEL_DEFAULT=rapi-default`, 선택으로 `MODEL_FOR_PUBLIC_QA` 등 기능별 모델과
    `MODEL_MONTHLY_BUDGET_USD`.
 6. 요약을 API로 돌리려면 `SUMMARIZER_BACKEND=api`(기본은 `codex`). 이 값은
    위 변수가 모두 있어야 설정 검증을 통과한다.
@@ -471,7 +470,7 @@ public-agent는 DB·키 접근이 없는 격리 프로세스라 이 클라이언
      시작하고, 리포트에서 SPF/DKIM 정렬이 확인되면 `p=quarantine`으로 올린다.
    - 업체 화면에서 도메인이 "Verified"가 된 것을 확인한 뒤 진행한다.
 3. 업체에서 발급한 서버 API 키를 `EMAIL_API_KEY`에 넣는다(채팅·Git에 남기지 않는다).
-4. 웹훅을 등록한다. URL은 `https://<REDHOOD_PUBLIC_BASE_URL의 도메인>/e/webhook/<resend|postmark>`.
+4. 웹훅을 등록한다. URL은 `https://<RAPI_PUBLIC_BASE_URL의 도메인>/e/webhook/<resend|postmark>`.
    - Resend: 이벤트 `email.bounced`, `email.complained`를 선택하고, 발급된 서명 비밀값
      (`whsec_...`)을 `EMAIL_WEBHOOK_SECRET`에 넣는다. 서명(svix)과 5분 시각 허용 오차를 검증한다.
    - Postmark: 서명을 제공하지 않으므로 웹훅 URL에 Basic 인증을 건다. 임의의 `user:password`를
@@ -503,7 +502,7 @@ public-agent는 DB·키 접근이 없는 격리 프로세스라 이 클라이언
   보여 주고, 등록은 디스코드 모달과 같은 서비스(확인 메일, 10분 간격 제한)를 거치며 CSRF 토큰이
   필요하다. 하드 바운스·스팸 신고된 주소는 삭제해도 행이 남아 차단이 유지된다. 게이트웨이는
   `POST /me/email`을 새로 연다.
-- 웹 매직 링크 로그인: `verifyEmailToken()`(`@redhood/core`)이 토큰 검증을 제공한다. 웹 로그인은
+- 웹 매직 링크 로그인: `verifyEmailToken()`(`@rapi/core`)이 토큰 검증을 제공한다. 웹 로그인은
   Discord OAuth만 쓰므로 메일 링크 로그인은 연결하지 않았다. 필요하면 `login` 목적(purpose)을 추가하고
   `/e/login/<토큰>` 라우트와 게이트웨이 정규식을 더한다.
 - 끄려면 `EMAIL_ENABLED=false`로 되돌리고 봇을 재시작한다. 저장된 주소는 남는다
@@ -534,7 +533,7 @@ public-agent는 DB·키 접근이 없는 격리 프로세스라 이 클라이언
 
 | 변수 | 뜻 |
 | --- | --- |
-| `BILLING_ENABLED` | 기본 false. 켜려면 `WEB_ENABLED`, `REDHOOD_PUBLIC_BASE_URL`, 아래 두 키가 모두 필요하다. |
+| `BILLING_ENABLED` | 기본 false. 켜려면 `WEB_ENABLED`, `RAPI_PUBLIC_BASE_URL`, 아래 두 키가 모두 필요하다. |
 | `TOSS_CLIENT_KEY`, `TOSS_SECRET_KEY` | Toss 개발자센터의 키. 시크릿 키는 `.env`에만 둔다. |
 | `BILLING_LIVE` | 기본 false. false면 `test_`로 시작하지 않는 키는 설정 검증이 거부해서 실수로 실결제가 일어나지 않는다. 사업자 등록 뒤에만 true로 한다. |
 | `BILLING_PLANS_FILE` | 플랜 파일 절대 경로(기본 `ops/billing-plans.json`). |
@@ -557,7 +556,7 @@ Toss는 계정 없이 테스트 환경에서 쓸 수 있는 문서용 키를 공
    `packages/agent/src/web-billing.ts`의 `TOSS_ALLOW`에 추가한다. 이 허용 목록은 실제 브라우저로 확인하지
    못했다(테스트는 헤더 문자열만 검사한다).
 
-웹훅 URL은 `${REDHOOD_PUBLIC_BASE_URL}/billing/webhook/toss`다. Toss 일반 결제 웹훅에는 서명이 없어서, 레드후드는 본문을
+웹훅 URL은 `${RAPI_PUBLIC_BASE_URL}/billing/webhook/toss`다. Toss 일반 결제 웹훅에는 서명이 없어서, 라피는 본문을
 힌트로만 쓰고 `paymentKey`로 Toss에 다시 조회한 결과로만 주문을 바꾼다. 조회가 실패하면 503을 돌려 Toss가 다시
 보내게 한다. 승인 요청 도중 네트워크가 끊겨 주문이 `pending`으로 남은 경우도 이 웹훅이 정리한다.
 
@@ -588,13 +587,13 @@ Toss는 계정 없이 테스트 환경에서 쓸 수 있는 문서용 키를 공
 
 ## OMP 제거
 
-2026-10-24부터 코드 실행 경로는 ChatOps(Codex 직접 실행) 하나다. `redhood-omp` 서비스,
+2026-10-24부터 코드 실행 경로는 ChatOps(Codex 직접 실행) 하나다. `rapi-omp` 서비스,
 `/작업`·`/승인` 슬래시 명령, `/omp/callback`, `OMP_*` 설정은 제거됐다. 기존 task 행은
 DB에 남고 보존 정책을 따른다. 배포 뒤 VM에서 한 번 정리한다.
 
 ```bash
-sudo systemctl stop redhood-omp && sudo systemctl disable redhood-omp
-sudo rm -f /etc/systemd/system/redhood-omp.service*
+sudo systemctl stop rapi-omp && sudo systemctl disable rapi-omp
+sudo rm -f /etc/systemd/system/rapi-omp.service*
 sudo systemctl daemon-reload
 npm run discord:register-commands   # 슬래시 명령 재등록: /작업, /승인 제거
 ```
@@ -604,7 +603,7 @@ VM `.env`의 `OMP_*`와 `COMMAND_CODE_API_KEY`는 더 이상 읽지 않으므로
 
 ## GitHub App 만들기 (선택)
 
-소유자 본인 레포에서 `@redhood`로 일을 시키고(반응형), 매주 월요일 09:00(Asia/Seoul)에 레포
+소유자 본인 레포에서 `@rapi`로 일을 시키고(반응형), 매주 월요일 09:00(Asia/Seoul)에 레포
 요약을 받는(능동형) 기능이다. 기본은 꺼져 있다. `GITHUB_APP_ENABLED=true`를 쓰기 전에는
 봇이 `/github/webhook`을 열지 않고 404로 답한다(게이트웨이는 경로만 전달한다).
 
@@ -613,7 +612,7 @@ VM `.env`의 `OMP_*`와 `COMMAND_CODE_API_KEY`는 더 이상 읽지 않으므로
 Settings → Developer settings → GitHub Apps → New GitHub App.
 
 - **Homepage URL**: 아무 주소(레포 주소 등).
-- **Webhook URL**: `<REDHOOD_PUBLIC_BASE_URL>/github/webhook` (Cloudflare Tunnel 뒤의 공개 게이트웨이가
+- **Webhook URL**: `<RAPI_PUBLIC_BASE_URL>/github/webhook` (Cloudflare Tunnel 뒤의 공개 게이트웨이가
   이 경로만 `POST`로 봇에 전달한다).
 - **Webhook secret**: 16자 이상 임의 문자열. `.env`의 `GITHUB_APP_WEBHOOK_SECRET`과 같아야 한다.
 - **Repository permissions**: Contents **Read & write**, Pull requests **Read & write**,
@@ -628,18 +627,18 @@ Settings → Developer settings → GitHub Apps → New GitHub App.
 ```bash
 # 개인 키: 서비스 계정만 읽도록 (레포 밖, Git에 넣지 않는다)
 sudo install -d -m 700 -o justn -g justn /home/justn/secrets
-install -m 600 redhood-github-app.pem /home/justn/secrets/redhood-github-app.pem
+install -m 600 rapi-github-app.pem /home/justn/secrets/rapi-github-app.pem
 ```
 
-`.env`에 추가하고 `redhood-bot`, `redhood-chat`, `redhood-worker`를 재시작한다.
+`.env`에 추가하고 `rapi-bot`, `rapi-chat`, `rapi-worker`를 재시작한다.
 
 ```bash
 GITHUB_APP_ENABLED=true
 GITHUB_APP_ID=<App ID>
-GITHUB_APP_PRIVATE_KEY_PATH=/home/justn/secrets/redhood-github-app.pem
+GITHUB_APP_PRIVATE_KEY_PATH=/home/justn/secrets/rapi-github-app.pem
 GITHUB_APP_WEBHOOK_SECRET=<위 웹훅 시크릿>
 GITHUB_APP_ALLOWED_OWNERS=<설치 계정 로그인, 쉼표 구분>
-GITHUB_APP_OWNER_LOGINS=<@redhood를 부를 수 있는 로그인, 쉼표 구분>
+GITHUB_APP_OWNER_LOGINS=<@rapi를 부를 수 있는 로그인, 쉼표 구분>
 # 선택: 리포트를 레포 이슈에도 남기려면 issue
 GITHUB_REPORT_TARGET=dm
 ```
@@ -651,11 +650,11 @@ GITHUB_REPORT_TARGET=dm
 
 - 웹훅은 `X-Hub-Signature-256`을 상수 시간으로 검증하고 `X-GitHub-Delivery`로 중복을 거른다.
   설치 계정이 `GITHUB_APP_ALLOWED_OWNERS`에 없으면 403이다.
-- `@redhood`를 부른 사람이 `GITHUB_APP_OWNER_LOGINS`에 없으면 조용히 무시한다(공개 레포에서 낯선
+- `@rapi`를 부른 사람이 `GITHUB_APP_OWNER_LOGINS`에 없으면 조용히 무시한다(공개 레포에서 낯선
   사람이 App의 댓글을 유발하지 못하게 답글도 달지 않는다).
 - 요청은 Discord와 같은 ChatOps 엔진·같은 실행 기록(`chatops_runs`)으로 처리된다. 수신 즉시 👀
-  반응이 붙고 진행·결과가 같은 스레드 댓글로 올라오며 작업 ID가 함께 표시된다. `@redhood 멈춰`로 중단한다.
-- 변경 요청은 새 클론에서 실행하고, 하네스에는 토큰이 전달되지 않는다. 레드후드가 `redhood/<작업ID>`
+  반응이 붙고 진행·결과가 같은 스레드 댓글로 올라오며 작업 ID가 함께 표시된다. `@rapi 멈춰`로 중단한다.
+- 변경 요청은 새 클론에서 실행하고, 하네스에는 토큰이 전달되지 않는다. 라피가 `rapi/<작업ID>`
   브랜치만 푸시하고 PR을 연다. 기본 브랜치에는 푸시하지 않는다(코드에서 거부). 질문은 PR 없이
   댓글로 답한다.
 - 설치 토큰은 해당 레포 하나로 한정되고 만료 직전까지만 캐시한다.
@@ -667,7 +666,7 @@ GITHUB_REPORT_TARGET=dm
 
 ```bash
 # 웹훅 전달: App 설정 → Advanced → Recent Deliveries에서 202(접수) 또는 200(무시/중복)
-# 레포 이슈에 "@redhood 이 레포 구조를 설명해줘" 댓글 → 👀 → 답 댓글
+# 레포 이슈에 "@rapi 이 레포 구조를 설명해줘" 댓글 → 👀 → 답 댓글
 ```
 
 끄려면 `GITHUB_APP_ENABLED=false`로 되돌리고 서비스를 재시작한다. App 설치 자체를 지우면 GitHub 쪽에서도
@@ -682,15 +681,15 @@ GITHUB_REPORT_TARGET=dm
 | 순서 | 플래그 | 필요한 것 | 소유자 작업 | 자세히 |
 | --- | --- | --- | --- | --- |
 | 1 | `MODEL_API_BASE_URL` + `MODEL_API_KEY` (플래그 없음) | `MODEL_DEFAULT`, 선택 `MODEL_MONTHLY_BUDGET_USD`, 마이그레이션 `0026` | LiteLLM 설치와 공급자 키, 가격표 확인 | [LiteLLM 켜기](#litellm-켜기-선택) |
-| 2 | `LEARNER_EXPERIMENT_ENABLED` | `WEBHOOK_ENCRYPTION_KEY`, `REDHOOD_PUBLIC_BASE_URL`, `DISCORD_SUPERADMIN_USER_IDS`, `0019`, `0027`(재알림) | 없음(Discord 안에서 소유자 승인으로 발송) | `.env.example` |
-| 3 | `WEB_ENABLED` | `DISCORD_OAUTH_CLIENT_ID/SECRET`, `REDHOOD_PUBLIC_BASE_URL`, `WEBHOOK_ENCRYPTION_KEY`, `0021`(구독 폼은 2번이 켜져야 작동) | Discord 개발자 포털에 `${REDHOOD_PUBLIC_BASE_URL}/auth/discord/callback` redirect 등록, 게이트웨이 재시작 | README, `docs/ux-notes/w1-web.md` |
-| 4 | `BLOG_PUBLISH_ENABLED`, `BLOG_DRAFTS_ENABLED` | `DISCORD_SUPERADMIN_USER_IDS`, `0022`, `0027`(상태 전이·재알림), 초안은 1번 | VM의 `gh` 로그인, 블로그 PR 병합, `REDHOOD_BLOG_WITHDRAWALS_FILE` 쓰기 권한 | `docs/ux-notes/m2-blog.md` |
+| 2 | `LEARNER_EXPERIMENT_ENABLED` | `WEBHOOK_ENCRYPTION_KEY`, `RAPI_PUBLIC_BASE_URL`, `DISCORD_SUPERADMIN_USER_IDS`, `0019`, `0027`(재알림) | 없음(Discord 안에서 소유자 승인으로 발송) | `.env.example` |
+| 3 | `WEB_ENABLED` | `DISCORD_OAUTH_CLIENT_ID/SECRET`, `RAPI_PUBLIC_BASE_URL`, `WEBHOOK_ENCRYPTION_KEY`, `0021`(구독 폼은 2번이 켜져야 작동) | Discord 개발자 포털에 `${RAPI_PUBLIC_BASE_URL}/auth/discord/callback` redirect 등록, 게이트웨이 재시작 | README, `docs/ux-notes/w1-web.md` |
+| 4 | `BLOG_PUBLISH_ENABLED`, `BLOG_DRAFTS_ENABLED` | `DISCORD_SUPERADMIN_USER_IDS`, `0022`, `0027`(상태 전이·재알림), 초안은 1번 | VM의 `gh` 로그인, 블로그 PR 병합, `RAPI_BLOG_WITHDRAWALS_FILE` 쓰기 권한 | `docs/ux-notes/m2-blog.md` |
 | 5 | `EMAIL_ENABLED` | 2번, `EMAIL_PROVIDER`, `EMAIL_API_KEY`, `EMAIL_FROM`, `EMAIL_WEBHOOK_SECRET`, `0023` | 발송 도메인 SPF/DKIM/DMARC, 업체 웹훅 등록, 게이트웨이 재시작 | [메일 켜기](#메일-켜기-선택) |
-| 6 | `PUBLIC_AGENT_ENABLED` + `PUBLIC_AGENT_BACKEND=api` | 실행기 쪽 `PUBLIC_AGENT_API_KEY/MODEL`(1번과 별개). 월 상한·가격표는 봇 `.env`의 `MODEL_MONTHLY_BUDGET_USD`와 `ops/model-prices.json` | `/etc/redhood-public-agent.env`에 같은 백엔드·키 설정, 배포 뒤 실행기 재시작(안 하면 사용량 기록이 오지 않는다) | 위 LiteLLM 절 |
-| 7 | `CHATBOT_ENABLED`, `CHATBOT_L2_ENABLED` | 6번, `0025`, 블로그 색인은 `REDHOOD_PUBLIC_BASE_URL`(https) | 봇 `.env`와 실행기 env 둘 다 `api`인지 확인 | `docs/ux-notes/q5-chatbot.md` |
+| 6 | `PUBLIC_AGENT_ENABLED` + `PUBLIC_AGENT_BACKEND=api` | 실행기 쪽 `PUBLIC_AGENT_API_KEY/MODEL`(1번과 별개). 월 상한·가격표는 봇 `.env`의 `MODEL_MONTHLY_BUDGET_USD`와 `ops/model-prices.json` | `/etc/rapi-public-agent.env`에 같은 백엔드·키 설정, 배포 뒤 실행기 재시작(안 하면 사용량 기록이 오지 않는다) | 위 LiteLLM 절 |
+| 7 | `CHATBOT_ENABLED`, `CHATBOT_L2_ENABLED` | 6번, `0025`, 블로그 색인은 `RAPI_PUBLIC_BASE_URL`(https) | 봇 `.env`와 실행기 env 둘 다 `api`인지 확인 | `docs/ux-notes/q5-chatbot.md` |
 | 8 | `GITHUB_APP_ENABLED` | `GITHUB_APP_ID/PRIVATE_KEY_PATH/WEBHOOK_SECRET/ALLOWED_OWNERS/OWNER_LOGINS`, `0024` | GitHub App 등록·설치·웹훅 URL | [GitHub App 만들기](#github-app-만들기-선택) |
 | 9 | `HARNESS_UPDATES_ENABLED` | `DISCORD_SUPERADMIN_USER_IDS`, `0020` | VM의 `gh` 로그인, 제안 PR 검토 | [하네스 버전 갱신](#하네스-버전-갱신-선택) |
-| 10 | `BILLING_ENABLED` (+ `BILLING_LIVE`) | 3번, `TOSS_CLIENT_KEY`, `TOSS_SECRET_KEY`, `REDHOOD_PUBLIC_BASE_URL`, `0028`. 사업자 등록 전에는 테스트 키만 | 사업자 등록(통신판매업 신고), Toss 가맹 계약·라이브 키, 웹훅 URL 등록, 법적 페이지, 게이트웨이 재시작 | [결제 (꺼짐)](#결제-꺼짐) |
+| 10 | `BILLING_ENABLED` (+ `BILLING_LIVE`) | 3번, `TOSS_CLIENT_KEY`, `TOSS_SECRET_KEY`, `RAPI_PUBLIC_BASE_URL`, `0028`. 사업자 등록 전에는 테스트 키만 | 사업자 등록(통신판매업 신고), Toss 가맹 계약·라이브 키, 웹훅 URL 등록, 법적 페이지, 게이트웨이 재시작 | [결제 (꺼짐)](#결제-꺼짐) |
 | 11 | `ARCHIVE_SOURCES_ENABLED`, `CHATBOT_RERANK_ENABLED`, `GRAPH_INDEX_ENABLED`, `CHATBOT_GRAPH_ENABLED`, `BLOG_GUIDE_GRAPH_ENABLED` | 7번, `0031`, `0032`, `MODEL_API_*`, `node scripts/graph-admin.mjs estimate` | 모델 비용(`/비용`), 그래프 `report` | [출처가 붙은 입문 가이드](guide-pipeline.md) |
 
 켜고 나서 한 번씩 확인할 것:
@@ -714,7 +713,7 @@ GITHUB_REPORT_TARGET=dm
 ## 크롤러 제거 후 정리 (0029)
 
 
-배포 뒤 VM에서: `redhood-crawler-controller`, `redhood-crawler-browser`, `redhood-crawler-auto-deploy.timer`를 stop·disable하고, `.env`에서 `CRAWLER_*`를 지우고, `redhood-crawler` 저장소를 보관(archive)한다.
-그다음 쌓인 응답 스냅샷을 서비스를 멈추지 않고 지운다: `node --env-file=/home/justn/redhood/.env scripts/cleanup-response-snapshots.mjs`(건수 확인) → `--apply` → `VACUUM (ANALYZE) raw_events`. 마이그레이션 안에서 지우면 3 GB 테이블에서 배포 전환이 몇 분 이상 멈춘다(2026-10-25 실제로 13분 중단).
+배포 뒤 VM에서: `rapi-crawler-controller`, `rapi-crawler-browser`, `rapi-crawler-auto-deploy.timer`를 stop·disable하고, `.env`에서 `CRAWLER_*`를 지우고, `rapi-crawler` 저장소를 보관(archive)한다.
+그다음 쌓인 응답 스냅샷을 서비스를 멈추지 않고 지운다: `node --env-file=/home/justn/rapi/.env scripts/cleanup-response-snapshots.mjs`(건수 확인) → `--apply` → `VACUUM (ANALYZE) raw_events`. 마이그레이션 안에서 지우면 3 GB 테이블에서 배포 전환이 몇 분 이상 멈춘다(2026-10-25 실제로 13분 중단).
 
 `html` 수집원은 `collection_policy.html`에 `linkPattern`(경로 정규식, 200자 미만), `maxItems`(기본 20), `exclude`(경로 정규식 목록)를 둔다. 추가는 `createSource("html", url, "public", { html: {...} })`로 하며, 현재 관리자 화면(`/수집원`, `/admin/sources`)에는 수집원 추가 기능이 없다(상태 조회만).

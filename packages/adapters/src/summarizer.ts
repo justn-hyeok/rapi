@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { plainText } from "@redhood/core";
+import { plainText } from "@rapi/core";
 import type { ModelClient } from "./model-client.js";
 
 export interface SummaryInput {
@@ -242,7 +242,7 @@ export class CodexSummarizer implements ItemSummarizer {
     channel: CurationChannel,
   ): Promise<Map<string, string>> {
     if (items.length === 0) return new Map();
-    const directory = await mkdtemp(join(tmpdir(), "redhood-curate-"));
+    const directory = await mkdtemp(join(tmpdir(), "rapi-curate-"));
     try {
       const schemaPath = join(directory, "schema.json");
       const outputPath = join(directory, "out.json");
@@ -278,7 +278,7 @@ export class CodexSummarizer implements ItemSummarizer {
 
   async summarize(items: SummaryInput[]): Promise<Map<string, string>> {
     if (items.length === 0) return new Map();
-    const directory = await mkdtemp(join(tmpdir(), "redhood-summary-"));
+    const directory = await mkdtemp(join(tmpdir(), "rapi-summary-"));
     try {
       const schemaPath = join(directory, "schema.json");
       const outputPath = join(directory, "out.json");

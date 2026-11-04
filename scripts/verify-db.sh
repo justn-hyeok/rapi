@@ -9,15 +9,15 @@ if ! docker info >/dev/null 2>&1 && sudo -n docker info >/dev/null 2>&1; then
 fi
 
 for _ in $(seq 1 60); do
-  if "${compose[@]}" exec -T postgres pg_isready -h 127.0.0.1 -p 5432 -U redhood -d redhood >/dev/null 2>&1; then
+  if "${compose[@]}" exec -T postgres pg_isready -h 127.0.0.1 -p 5432 -U rapi -d rapi >/dev/null 2>&1; then
     break
   fi
   sleep 1
 done
 
-"${compose[@]}" exec -T postgres pg_isready -h 127.0.0.1 -p 5432 -U redhood -d redhood >/dev/null
+"${compose[@]}" exec -T postgres pg_isready -h 127.0.0.1 -p 5432 -U rapi -d rapi >/dev/null
 
-table_count=$("${compose[@]}" exec -T postgres psql -U redhood -d redhood -Atc \
+table_count=$("${compose[@]}" exec -T postgres psql -U rapi -d rapi -Atc \
   "SELECT count(*) FROM pg_tables WHERE schemaname = 'public';")
 
 if [[ "$table_count" -lt 15 ]]; then
@@ -25,7 +25,7 @@ if [[ "$table_count" -lt 15 ]]; then
   exit 1
 fi
 
-index_count=$("${compose[@]}" exec -T postgres psql -U redhood -d redhood -Atc \
+index_count=$("${compose[@]}" exec -T postgres psql -U rapi -d rapi -Atc \
   "SELECT count(*) FROM pg_indexes WHERE schemaname = 'public' AND indexname IN ('raw_events_external_id_unique', 'raw_events_payload_hash_unique');")
 
 if [[ "$index_count" -ne 2 ]]; then

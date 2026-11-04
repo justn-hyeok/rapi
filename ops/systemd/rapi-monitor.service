@@ -1,12 +1,12 @@
 [Unit]
-Description=Redhood independent health monitor
+Description=Rapi independent health monitor
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
 User=justn
-WorkingDirectory=/home/justn/redhood
+WorkingDirectory=/home/justn/rapi
 ExecStart=/usr/local/bin/npm run start:monitor
 Restart=on-failure
 RestartSec=5
@@ -14,7 +14,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=/var/lib/redhood
+ReadWritePaths=/var/lib/rapi
 
 [Install]
 WantedBy=multi-user.target

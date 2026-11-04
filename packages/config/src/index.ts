@@ -13,12 +13,10 @@ const booleanString = z
 
 export const environmentSchema = z
   .object({
-    REDHOOD_ENV: z
+    RAPI_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
-    REDHOOD_LOG_LEVEL: z
-      .enum(["debug", "info", "warn", "error"])
-      .default("info"),
+    RAPI_LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
     DATABASE_URL: z.url().refine((url) => url.startsWith("postgresql://"), {
       message: "DATABASE_URL must use postgresql://",
     }),
@@ -59,19 +57,17 @@ export const environmentSchema = z
         }
       }, "WEBHOOK_ENCRYPTION_KEY must be 32 bytes encoded as base64")
       .optional(),
-    REDHOOD_PUBLIC_BASE_URL: z.url().optional(),
+    RAPI_PUBLIC_BASE_URL: z.url().optional(),
     PUBLIC_TUNNEL_VERIFIED_FILE: z
       .string()
-      .default("/var/lib/redhood/tunnel-verified.json"),
-    MONITOR_STATE_FILE: z
-      .string()
-      .default("/var/lib/redhood/monitor-state.json"),
+      .default("/var/lib/rapi/tunnel-verified.json"),
+    MONITOR_STATE_FILE: z.string().default("/var/lib/rapi/monitor-state.json"),
     MONITOR_PORT: z.coerce.number().int().min(1).max(65535).default(4300),
     PUBLIC_GATEWAY_READY_URL: z.url().default("http://127.0.0.1:4601/ready"),
     CLOUDFLARE_TUNNEL_READY_URL: z.url().default("http://127.0.0.1:4700/ready"),
     DISCORD_LAYOUT_FILE: z
       .string()
-      .default("/home/justn/redhood/config/discord-channels.yaml"),
+      .default("/home/justn/rapi/config/discord-channels.yaml"),
     OPERATIONS_CHANNEL_ID: z.string().regex(/^\d+$/).optional(),
     OPERATIONS_DISCORD_WEBHOOK_URL: z.url().optional(),
     OPERATIONS_DISCORD_WEBHOOK_CIPHERTEXT: z.string().min(1).optional(),
@@ -120,12 +116,12 @@ export const environmentSchema = z
         message:
           "SUMMARIZER_BACKEND=api requires MODEL_API_BASE_URL, MODEL_API_KEY and MODEL_DEFAULT (or MODEL_FOR_SUMMARY)",
       });
-    if (value.REDHOOD_PUBLIC_BASE_URL && !value.WEBHOOK_ENCRYPTION_KEY) {
+    if (value.RAPI_PUBLIC_BASE_URL && !value.WEBHOOK_ENCRYPTION_KEY) {
       context.addIssue({
         code: "custom",
         path: ["WEBHOOK_ENCRYPTION_KEY"],
         message:
-          "WEBHOOK_ENCRYPTION_KEY and REDHOOD_PUBLIC_BASE_URL must be configured together",
+          "WEBHOOK_ENCRYPTION_KEY and RAPI_PUBLIC_BASE_URL must be configured together",
       });
     }
     if (
@@ -139,16 +135,16 @@ export const environmentSchema = z
       });
     }
     if (
-      value.REDHOOD_PUBLIC_BASE_URL &&
-      !value.REDHOOD_PUBLIC_BASE_URL.startsWith("https://")
+      value.RAPI_PUBLIC_BASE_URL &&
+      !value.RAPI_PUBLIC_BASE_URL.startsWith("https://")
     ) {
       context.addIssue({
         code: "custom",
-        path: ["REDHOOD_PUBLIC_BASE_URL"],
-        message: "REDHOOD_PUBLIC_BASE_URL must use HTTPS",
+        path: ["RAPI_PUBLIC_BASE_URL"],
+        message: "RAPI_PUBLIC_BASE_URL must use HTTPS",
       });
     }
-    if (value.REDHOOD_ENV !== "production") return;
+    if (value.RAPI_ENV !== "production") return;
     try {
       const databaseUrl = new URL(value.DATABASE_URL);
       const isLoopback = ["localhost", "127.0.0.1", "[::1]"].includes(

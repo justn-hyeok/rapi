@@ -4,7 +4,7 @@ import {
   defaultCommunityLayout,
   parseDiscordLayout,
   planDiscordLayout,
-} from "@redhood/agent";
+} from "@rapi/agent";
 describe("Discord layout", () => {
   it("parses the default YAML-compatible layout", () => {
     const layout = parseDiscordLayout(JSON.stringify(defaultCommunityLayout));
@@ -26,7 +26,7 @@ describe("Discord layout", () => {
           { id: "guild", name: "@everyone", permissions: "0", position: 0 },
           {
             id: "user-role",
-            name: "레드후드 USER",
+            name: "라피 USER",
             permissions: "0",
             position: 1,
           },

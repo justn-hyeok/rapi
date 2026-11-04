@@ -13,10 +13,10 @@ const pairs =
     : input;
 if (pairs.length === 0 || pairs.length % 2 !== 0)
   throw new Error("NAME VALUE 쌍이 필요합니다.");
-const target = resolve(process.env.REDHOOD_ENV_FILE ?? ".env");
+const target = resolve(process.env.RAPI_ENV_FILE ?? ".env");
 const info = await lstat(target);
 if (!info.isFile() || info.isSymbolicLink())
-  throw new Error("REDHOOD_ENV_FILE은 일반 파일이어야 합니다.");
+  throw new Error("RAPI_ENV_FILE은 일반 파일이어야 합니다.");
 let contents = await readFile(target, "utf8");
 for (let index = 0; index < pairs.length; index += 2)
   contents = replaceEnvironmentValue(contents, pairs[index], pairs[index + 1]);

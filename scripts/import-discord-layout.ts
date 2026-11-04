@@ -1,6 +1,6 @@
 import { chmod, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { parseDiscordLayout, serializeDiscordLayout } from "@redhood/agent";
+import { parseDiscordLayout, serializeDiscordLayout } from "@rapi/agent";
 
 const source = process.argv[2];
 const target = resolve(

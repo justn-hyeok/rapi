@@ -9,8 +9,8 @@ import {
   type DiscordAccessScope,
   type DiscordAllowlists,
   type DiscordIdentity,
-} from "@redhood/core";
-import { RedhoodAgent } from "./redhood-agent.js";
+} from "@rapi/core";
+import { RapiAgent } from "./rapi-agent.js";
 
 export const slashCommands = ["sources", "status", "server_config"] as const;
 
@@ -37,7 +37,7 @@ const guildScopedCommands: ReadonlySet<DiscordCommand["name"]> = new Set([
 /** Slash names a guild-scoped admin can use in their own server. */
 const GUILD_ADMIN_COMMAND_LABELS = ["/서버구성"];
 
-/** Whether a command only changes the guild it runs in, or reaches all of Redhood. */
+/** Whether a command only changes the guild it runs in, or reaches all of Rapi. */
 export function commandScope(
   command: DiscordCommand["name"],
 ): DiscordAccessScope {
@@ -64,7 +64,7 @@ function optionalString(
 
 export class DiscordCommandService {
   constructor(
-    private readonly agent: RedhoodAgent,
+    private readonly agent: RapiAgent,
     private readonly allowlists: DiscordAllowlists,
     private readonly operations?: {
       status: () => Promise<string>;
@@ -100,7 +100,7 @@ export class DiscordCommandService {
     }
     const access = resolveDiscordAccess(identity, this.allowlists);
     const level = access.level;
-    // A guild-scoped admin may run guild settings but nothing that reaches all of Redhood.
+    // A guild-scoped admin may run guild settings but nothing that reaches all of Rapi.
     const guildAdmin =
       access.scope === "guild" && commandScope(command.name) === "guild";
     let required = requiredCommandAccess(command.name);

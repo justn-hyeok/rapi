@@ -15,7 +15,7 @@ import { adoptRelease, type LegacyDriver } from "../scripts/adopt-release.mjs";
 import { releaseFileDigests } from "../scripts/release-artifact.mjs";
 
 test("first deployment restores observed legacy runtime on failure and never starts its inactive worker", async () => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "redhood-adopt-")));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "rapi-adopt-")));
   try {
     const stage = join(root, "stage");
     await mkdir(join(stage, "packages/db/migrations"), { recursive: true });

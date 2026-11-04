@@ -5,7 +5,7 @@ import { once } from "node:events";
 import { generateKeyPairSync, sign } from "node:crypto";
 import { test } from "node:test";
 import { createDiscordInteractionServer } from "../apps/bot/src/discord-http.js";
-import { DiscordCommandService, type RedhoodAgent } from "@redhood/agent";
+import { DiscordCommandService, type RapiAgent } from "@rapi/agent";
 async function freePort(): Promise<number> {
   const server = createServer();
   server.listen(0, "127.0.0.1");
@@ -22,7 +22,7 @@ test("public gateway denies private routes, forwards signed interactions and fai
     .export({ format: "der", type: "spki" })
     .subarray(-32)
     .toString("hex");
-  const service = new DiscordCommandService({} as RedhoodAgent, {
+  const service = new DiscordCommandService({} as RapiAgent, {
     userIds: [],
   });
   let ready = true;
@@ -43,8 +43,8 @@ test("public gateway denies private routes, forwards signed interactions and fai
       env: {
         ...process.env,
         PORT: String(address.port),
-        REDHOOD_GATEWAY_PORT: String(port),
-        REDHOOD_GATEWAY_HEALTH_PORT: String(health),
+        RAPI_GATEWAY_PORT: String(port),
+        RAPI_GATEWAY_HEALTH_PORT: String(health),
       },
       stdio: ["ignore", "pipe", "pipe"],
     });

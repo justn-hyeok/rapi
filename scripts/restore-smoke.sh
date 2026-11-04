@@ -2,17 +2,17 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-unset MIGRATION_DATABASE_URL REDHOOD_MIGRATIONS_DIRECTORY
-export REDHOOD_ENV=test
+unset MIGRATION_DATABASE_URL RAPI_MIGRATIONS_DIRECTORY
+export RAPI_ENV=test
 
 restore_project=${RESTORE_SMOKE_PROJECT:-}
 restore_database=${RESTORE_SMOKE_DATABASE:-}
-if [[ ! "$restore_project" =~ ^redhood-restore-[a-z0-9-]+$ ]]; then
-  echo "RESTORE_SMOKE_PROJECT must be a disposable redhood-restore-* project." >&2
+if [[ ! "$restore_project" =~ ^rapi-restore-[a-z0-9-]+$ ]]; then
+  echo "RESTORE_SMOKE_PROJECT must be a disposable rapi-restore-* project." >&2
   exit 2
 fi
-if [[ ! "$restore_database" =~ ^redhood_restore_smoke_[a-z0-9_]+$ ]]; then
-  echo "RESTORE_SMOKE_DATABASE must be a disposable redhood_restore_smoke_* database." >&2
+if [[ ! "$restore_database" =~ ^rapi_restore_smoke_[a-z0-9_]+$ ]]; then
+  echo "RESTORE_SMOKE_DATABASE must be a disposable rapi_restore_smoke_* database." >&2
   exit 2
 fi
 if [[ -n "${RESTORE_SMOKE_ARTIFACT:-}" && ! "$RESTORE_SMOKE_ARTIFACT" =~ ^tests/artifacts/[a-z0-9_-]+\.json$ ]]; then
@@ -25,8 +25,8 @@ if ! docker info >/dev/null 2>&1 && sudo -n docker info >/dev/null 2>&1; then
   compose=(sudo docker compose -p "$restore_project" -f compose.test.yaml)
 fi
 
-snapshot=$(mktemp /tmp/redhood-restore-smoke.XXXXXX.dump)
-applied_migrations=$(mktemp /tmp/redhood-restore-migrations.XXXXXX.json)
+snapshot=$(mktemp /tmp/rapi-restore-smoke.XXXXXX.dump)
+applied_migrations=$(mktemp /tmp/rapi-restore-migrations.XXXXXX.json)
 cleanup() {
   "${compose[@]}" down --volumes >/dev/null 2>&1 || true
   rm -f "$snapshot"
@@ -39,8 +39,8 @@ trap cleanup EXIT
 if [[ -n "${BACKUP_FILE:-}" ]]; then
   cp "$BACKUP_FILE" "$snapshot"
 elif [[ "${RESTORE_LATEST_BACKUP:-false}" == "true" ]]; then
-  backup_directory=${REDHOOD_BACKUP_DIRECTORY:-backups}
-  latest=$(find "$backup_directory" -maxdepth 1 -type f -name 'redhood-*.dump' -printf '%T@ %p\n' \
+  backup_directory=${RAPI_BACKUP_DIRECTORY:-backups}
+  latest=$(find "$backup_directory" -maxdepth 1 -type f -name 'rapi-*.dump' -printf '%T@ %p\n' \
     | sort -rn | head -n 1 | cut -d' ' -f2-)
   [[ -n "$latest" ]] || { echo "No backup found in $backup_directory" >&2; exit 1; }
   cp "$latest" "$snapshot"
@@ -50,30 +50,30 @@ else
   endpoint=$("${compose[@]}" port postgres 5432)
   source_port=${endpoint##*:}
   [[ "$source_port" =~ ^[0-9]+$ ]]
-  DATABASE_URL="postgresql://redhood:redhood-local-only@127.0.0.1:$source_port/redhood_test" \
+  DATABASE_URL="postgresql://rapi:rapi-local-only@127.0.0.1:$source_port/rapi_test" \
     node scripts/migrate.mjs >/dev/null
-  "${compose[@]}" exec -T postgres pg_dump --format=custom -U redhood --no-owner --no-privileges redhood_test > "$snapshot"
+  "${compose[@]}" exec -T postgres pg_dump --format=custom -U rapi --no-owner --no-privileges rapi_test > "$snapshot"
 fi
-"${compose[@]}" exec -T postgres dropdb -U redhood --if-exists "$restore_database"
-"${compose[@]}" exec -T postgres createdb -U redhood "$restore_database"
-"${compose[@]}" exec -T postgres pg_restore --exit-on-error --no-owner --no-privileges -U redhood -d "$restore_database" < "$snapshot" >/dev/null
+"${compose[@]}" exec -T postgres dropdb -U rapi --if-exists "$restore_database"
+"${compose[@]}" exec -T postgres createdb -U rapi "$restore_database"
+"${compose[@]}" exec -T postgres pg_restore --exit-on-error --no-owner --no-privileges -U rapi -d "$restore_database" < "$snapshot" >/dev/null
 
-tables=$("${compose[@]}" exec -T postgres psql -U redhood -d "$restore_database" -Atc \
+tables=$("${compose[@]}" exec -T postgres psql -U rapi -d "$restore_database" -Atc \
   "SELECT count(*) FROM pg_tables WHERE schemaname='public';")
 if [[ "$tables" -lt 15 ]]; then
   echo "Restore smoke expected at least 15 tables, found $tables" >&2
   exit 1
 fi
 
-migration_records=$("${compose[@]}" exec -T postgres psql -U redhood -d "$restore_database" -Atc \
+migration_records=$("${compose[@]}" exec -T postgres psql -U rapi -d "$restore_database" -Atc \
   "SELECT count(*) FROM schema_migrations;")
-applied_json=$("${compose[@]}" exec -T postgres psql -U redhood -d "$restore_database" -Atc \
+applied_json=$("${compose[@]}" exec -T postgres psql -U rapi -d "$restore_database" -Atc \
   "SELECT COALESCE(json_agg(name ORDER BY name)::text, '[]') FROM schema_migrations;")
 printf '%s\n' "$applied_json" > "$applied_migrations"
 node scripts/verify-migration-set.mjs \
   --directory packages/db/migrations \
   --applied "$applied_migrations" >/dev/null
-constraints=$("${compose[@]}" exec -T postgres psql -U redhood -d "$restore_database" -Atc \
+constraints=$("${compose[@]}" exec -T postgres psql -U rapi -d "$restore_database" -Atc \
   "SELECT count(*) FROM pg_constraint c JOIN pg_namespace n ON n.oid=c.connamespace WHERE n.nspname='public' AND c.contype IN ('p','u','f','c');")
 if [[ "$migration_records" -lt 1 ]]; then
   echo "Restore smoke expected at least 1 migration records, found $migration_records" >&2

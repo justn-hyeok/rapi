@@ -25,15 +25,15 @@ jobs:
       - id: restart_smoke
         if: always()
         env:
-          RESTART_SMOKE_PROJECT: redhood-restart-${{ github.run_id }}
-          RESTART_SMOKE_DATABASE: redhood_test
+          RESTART_SMOKE_PROJECT: rapi-restart-${{ github.run_id }}
+          RESTART_SMOKE_DATABASE: rapi_test
           RESTART_SMOKE_ARTIFACT: tests/artifacts/restart-smoke.json
         run: npm run restart:smoke
       - id: restore_smoke
         if: always()
         env:
-          RESTORE_SMOKE_PROJECT: redhood-restore-${{ github.run_id }}
-          RESTORE_SMOKE_DATABASE: redhood_restore_smoke_${{ github.run_id }}
+          RESTORE_SMOKE_PROJECT: rapi-restore-${{ github.run_id }}
+          RESTORE_SMOKE_DATABASE: rapi_restore_smoke_${{ github.run_id }}
           RESTORE_SMOKE_ARTIFACT: tests/artifacts/restore-smoke.json
         run: npm run restore:smoke
       - id: production_audit

@@ -4,7 +4,7 @@ import {
   GitHubStarRecommender,
   rankStarRecommendations,
   type StarredRepository,
-} from "@redhood/adapters";
+} from "@rapi/adapters";
 
 const now = new Date("2026-10-07T00:00:00Z");
 const recent = "2026-10-05T00:00:00Z";

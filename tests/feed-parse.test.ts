@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseFeed } from "@redhood/adapters";
+import { parseFeed } from "@rapi/adapters";
 
 test("accepts an HTML DOCTYPE inside item CDATA content", () => {
   const xml = `<?xml version="1.0"?><rss><channel><item><guid>1</guid><link>https://example.invalid/1</link><title>Release</title><content:encoded><![CDATA[<!DOCTYPE html><p>Body</p>]]></content:encoded></item></channel></rss>`;

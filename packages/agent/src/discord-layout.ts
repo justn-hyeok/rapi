@@ -39,15 +39,15 @@ export const defaultCommunityLayout: DiscordLayout = {
   replaceExistingChannels: true,
   roles: [
     {
-      key: "redhood_user",
-      name: "레드후드 USER",
+      key: "rapi_user",
+      name: "라피 USER",
       permissions: [],
       color: 0x5865f2,
       hoist: false,
     },
     {
-      key: "redhood_staff",
-      name: "레드후드 운영진",
+      key: "rapi_staff",
+      name: "라피 운영진",
       permissions: ["ADMINISTRATOR"],
       color: 0xfee75c,
       hoist: true,
@@ -81,19 +81,19 @@ export const defaultCommunityLayout: DiscordLayout = {
       ],
     },
     {
-      key: "redhood",
-      name: "레드후드",
+      key: "rapi",
+      name: "라피",
       audience: "user",
       channels: [
         {
-          key: "redhood_briefing",
-          name: "레드후드-브리핑",
+          key: "rapi_briefing",
+          name: "라피-브리핑",
           type: "text",
           readOnly: false,
         },
         {
-          key: "redhood_help",
-          name: "레드후드-도움말",
+          key: "rapi_help",
+          name: "라피-도움말",
           type: "text",
           readOnly: true,
         },
@@ -105,8 +105,8 @@ export const defaultCommunityLayout: DiscordLayout = {
       audience: "user",
       channels: [
         {
-          key: "redhood_development",
-          name: "레드후드-개발",
+          key: "rapi_development",
+          name: "라피-개발",
           type: "text",
           readOnly: false,
         },

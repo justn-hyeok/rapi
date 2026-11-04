@@ -2,7 +2,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-backup_directory=${REDHOOD_BACKUP_DIRECTORY:-backups}
+backup_directory=${RAPI_BACKUP_DIRECTORY:-backups}
 backup_status_file=${BACKUP_STATUS_FILE:-backups/backup-status.json}
 backup_retention_days=${BACKUP_RETENTION_DAYS:-30}
 if [[ ! "$backup_retention_days" =~ ^[1-9][0-9]*$ ]] || (( backup_retention_days > 3650 )); then
@@ -10,14 +10,14 @@ if [[ ! "$backup_retention_days" =~ ^[1-9][0-9]*$ ]] || (( backup_retention_days
   exit 2
 fi
 mkdir -p "$backup_directory" "$(dirname "$backup_status_file")"
-DATABASE_URL=${DATABASE_URL:-postgresql://redhood:redhood-local-only@127.0.0.1:5433/redhood}
+DATABASE_URL=${DATABASE_URL:-postgresql://rapi:rapi-local-only@127.0.0.1:5433/rapi}
 export DATABASE_URL
-if [[ "${REDHOOD_BACKUP_LOCK_HELD:-}" != "1" ]]; then
+if [[ "${RAPI_BACKUP_LOCK_HELD:-}" != "1" ]]; then
   exec node scripts/backup-with-lock.mjs
 fi
 
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
-target="$backup_directory/redhood-$stamp.dump"
+target="$backup_directory/rapi-$stamp.dump"
 temporary="$target.$$.tmp"
 status_temporary="$backup_status_file.$$.tmp"
 cleanup() {
@@ -45,12 +45,12 @@ trap cleanup EXIT
 trap record_failure ERR
 if command -v pg_dump >/dev/null 2>&1; then
   pg_dump --format=custom --no-owner --no-privileges --file="$temporary" "$DATABASE_URL"
-elif [[ "$DATABASE_URL" == "postgresql://redhood:redhood-local-only@127.0.0.1:5433/redhood" ]]; then
+elif [[ "$DATABASE_URL" == "postgresql://rapi:rapi-local-only@127.0.0.1:5433/rapi" ]]; then
   compose=(docker compose)
   if ! docker info >/dev/null 2>&1 && sudo -n docker info >/dev/null 2>&1; then
     compose=(sudo docker compose)
   fi
-  "${compose[@]}" exec -T postgres pg_dump --format=custom -U redhood --no-owner --no-privileges redhood > "$temporary"
+  "${compose[@]}" exec -T postgres pg_dump --format=custom -U rapi --no-owner --no-privileges rapi > "$temporary"
 else
   echo "A pg_dump version compatible with the remote PostgreSQL server is required" >&2
   exit 1

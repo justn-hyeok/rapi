@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import type { PostgresStore } from "@redhood/db";
+import type { PostgresStore } from "@rapi/db";
 import {
   parseDiscordLayout,
   planDiscordLayout,
@@ -223,7 +223,7 @@ export class DiscordLayoutManager {
       value |= BigInt(roles.find((role) => role.id === id)?.permissions ?? "0");
     if ((value & (1n << 3n)) === 0n)
       throw new Error(
-        "레드후드 봇 역할에 Discord Administrator 권한이 필요합니다.",
+        "라피 봇 역할에 Discord Administrator 권한이 필요합니다.",
       );
     const botTop = Math.max(
       0,
@@ -235,7 +235,7 @@ export class DiscordLayoutManager {
       const role = roles.find((entry) => entry.name === desired.name);
       if (role && !member.roles.includes(role.id) && role.position >= botTop)
         throw new Error(
-          `레드후드 봇 역할을 \`${role.name}\` 역할보다 위에 배치해야 합니다.`,
+          `라피 봇 역할을 \`${role.name}\` 역할보다 위에 배치해야 합니다.`,
         );
     }
   }
@@ -246,8 +246,8 @@ export class DiscordLayoutManager {
     roleIds: Map<string, string>,
     channel?: { type: "text" | "voice"; readOnly: boolean },
   ): Array<{ id: string; type: 0; allow: string; deny: string }> {
-    const userId = roleIds.get("redhood_user");
-    const staffId = roleIds.get("redhood_staff");
+    const userId = roleIds.get("rapi_user");
+    const staffId = roleIds.get("rapi_staff");
     if (!userId || !staffId)
       throw new Error("Managed Discord roles are missing");
     const useVoice = channel?.type === "voice";
@@ -544,7 +544,7 @@ export class DiscordLayoutManager {
       "verification",
       JSON.stringify({
         content:
-          "규칙을 확인했다면 아래 버튼을 눌러 `레드후드 USER` 역할을 받고 입장하세요.",
+          "규칙을 확인했다면 아래 버튼을 눌러 `라피 USER` 역할을 받고 입장하세요.",
         allowed_mentions: { parse: [] },
         components: [
           {
@@ -554,7 +554,7 @@ export class DiscordLayoutManager {
                 type: 2,
                 style: 3,
                 label: "인증하고 입장",
-                custom_id: "redhood_verify:v1",
+                custom_id: "rapi_verify:v1",
               },
             ],
           },
@@ -564,12 +564,12 @@ export class DiscordLayoutManager {
     );
   }
 
-  /** The usage guide in #레드후드-도움말, edited in place when its text changes. */
+  /** The usage guide in #라피-도움말, edited in place when its text changes. */
   async ensureHelpMessage(guildId: string, layoutDigest = ""): Promise<void> {
     const channelId = await this.store.managedDiscordResourceId(
       guildId,
       "channel",
-      "redhood_help",
+      "rapi_help",
     );
     if (!channelId) return;
     await this.ensureMessage(
@@ -625,17 +625,16 @@ export class DiscordLayoutManager {
     const roleId = await this.store.managedDiscordResourceId(
       guildId,
       "role",
-      "redhood_user",
+      "rapi_user",
     );
-    if (!roleId)
-      throw new Error("레드후드 USER 역할이 아직 준비되지 않았습니다.");
+    if (!roleId) throw new Error("라피 USER 역할이 아직 준비되지 않았습니다.");
     await this.rest.request(
       `/guilds/${guildId}/members/${userId}/roles/${roleId}`,
       {
         method: "PUT",
       },
     );
-    return "인증이 완료됐습니다. `레드후드 USER` 역할을 부여했습니다.";
+    return "인증이 완료됐습니다. `라피 USER` 역할을 부여했습니다.";
   }
 
   async export(format: "yaml" | "json"): Promise<string> {

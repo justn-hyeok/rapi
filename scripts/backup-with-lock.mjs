@@ -10,7 +10,7 @@ try {
   await client.connect();
   await client.query("SELECT pg_advisory_lock(731552024)");
   const child = spawn("/bin/bash", ["scripts/backup.sh"], {
-    env: { ...process.env, REDHOOD_BACKUP_LOCK_HELD: "1" },
+    env: { ...process.env, RAPI_BACKUP_LOCK_HELD: "1" },
     stdio: "inherit",
   });
   const [code] = await once(child, "exit");

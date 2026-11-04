@@ -1,14 +1,14 @@
-const PROJECT_PATTERN = /^redhood-restore-[a-z0-9-]+$/;
-const DATABASE_PATTERN = /^redhood_restore_smoke_[a-z0-9_]+$/;
+const PROJECT_PATTERN = /^rapi-restore-[a-z0-9-]+$/;
+const DATABASE_PATTERN = /^rapi_restore_smoke_[a-z0-9_]+$/;
 const MINIMUM_COUNTS = { tables: 15, migrations: 1, constraints: 20 };
 
 export function restoreSmokeArtifact(input) {
   const { project, database, tables, migrations, constraints } = input ?? {};
 
   if (typeof project !== "string" || !PROJECT_PATTERN.test(project))
-    throw new Error("project must match /^redhood-restore-[a-z0-9-]+$/");
+    throw new Error("project must match /^rapi-restore-[a-z0-9-]+$/");
   if (typeof database !== "string" || !DATABASE_PATTERN.test(database))
-    throw new Error("database must match /^redhood_restore_smoke_[a-z0-9_]+$/");
+    throw new Error("database must match /^rapi_restore_smoke_[a-z0-9_]+$/");
 
   const counts = { tables, migrations, constraints };
   for (const [name, value] of Object.entries(counts)) {

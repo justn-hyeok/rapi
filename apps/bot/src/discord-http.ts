@@ -4,9 +4,9 @@ import {
   type IncomingMessage,
   type ServerResponse,
 } from "node:http";
-import { DiscordCommandService, type DiscordCommand } from "@redhood/agent";
-import { runtimeRevision } from "@redhood/core";
-import { redactChat } from "@redhood/contracts";
+import { DiscordCommandService, type DiscordCommand } from "@rapi/agent";
+import { runtimeRevision } from "@rapi/core";
+import { redactChat } from "@rapi/contracts";
 
 const ed25519SpkiPrefix = Buffer.from("302a300506032b6570032100", "hex");
 
@@ -44,7 +44,7 @@ export const discordCommandAliases = {
 
 export const slashCommandDefinitions = [
   { name: "수집원", description: "수집원 상태를 확인합니다", type: 1 },
-  { name: "상태", description: "레드후드 운영 상태를 확인합니다", type: 1 },
+  { name: "상태", description: "라피 운영 상태를 확인합니다", type: 1 },
   {
     name: "서버구성",
     description: "Discord 채널 구성을 관리합니다",

@@ -3,8 +3,8 @@ import type {
   DeliveryPayload,
   DeliveryResult,
   DeliveryTarget,
-} from "@redhood/core";
-import { splitDiscordMessage } from "@redhood/core";
+} from "@rapi/core";
+import { splitDiscordMessage } from "@rapi/core";
 
 export class UncertainDeliveryError extends Error {
   readonly possiblyDelivered = true;

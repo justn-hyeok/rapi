@@ -4,7 +4,7 @@ import { dirname, resolve } from "node:path";
 const origin = process.argv[2]?.replace(/\/$/, "");
 const target = resolve(
   process.env.PUBLIC_TUNNEL_VERIFIED_FILE ??
-    "/var/lib/redhood/tunnel-verified.json",
+    "/var/lib/rapi/tunnel-verified.json",
 );
 if (!origin?.startsWith("https://"))
   throw new Error("HTTPS origin이 필요합니다.");

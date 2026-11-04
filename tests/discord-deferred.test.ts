@@ -2,10 +2,7 @@ import assert from "node:assert/strict";
 import { generateKeyPairSync, sign } from "node:crypto";
 import { once } from "node:events";
 import { test } from "node:test";
-import type {
-  DiscordCommandResult,
-  DiscordCommandService,
-} from "@redhood/agent";
+import type { DiscordCommandResult, DiscordCommandService } from "@rapi/agent";
 import { createDiscordInteractionServer } from "../apps/bot/src/discord-http.js";
 
 test("applying a layout acknowledges before work ends and delivers every reply chunk", async (t) => {

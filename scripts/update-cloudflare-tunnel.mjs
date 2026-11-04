@@ -26,12 +26,12 @@ const token = Buffer.concat(chunks).toString("utf8");
 if (!token || token.length < 20 || /[\r\n\0]/.test(token))
   throw new Error("The Cloudflare tunnel token is invalid");
 
-const target = resolve(process.env.REDHOOD_ENV_FILE ?? ".env");
+const target = resolve(process.env.RAPI_ENV_FILE ?? ".env");
 const info = await lstat(target);
 if (!info.isFile() || info.isSymbolicLink())
-  throw new Error("REDHOOD_ENV_FILE must be a regular file");
+  throw new Error("RAPI_ENV_FILE must be a regular file");
 let contents = await readFile(target, "utf8");
-contents = replaceEnvironmentValue(contents, "REDHOOD_PUBLIC_BASE_URL", origin);
+contents = replaceEnvironmentValue(contents, "RAPI_PUBLIC_BASE_URL", origin);
 contents = replaceEnvironmentValue(contents, "CLOUDFLARE_TUNNEL_TOKEN", token);
 const temporary = `${target}.${process.pid}.tmp`;
 try {

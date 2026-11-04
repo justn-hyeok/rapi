@@ -1,5 +1,5 @@
 const token = process.env.DISCORD_BOT_TOKEN;
-const origin = process.env.REDHOOD_PUBLIC_BASE_URL?.replace(/\/$/, "");
+const origin = process.env.RAPI_PUBLIC_BASE_URL?.replace(/\/$/, "");
 if (!token || !origin)
   throw new Error("Discord token과 공개 주소가 필요합니다.");
 const endpoint = `${origin}/interactions`;

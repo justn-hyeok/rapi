@@ -10,17 +10,17 @@ if [[ $EUID -ne 0 ]]; then root=(sudo); fi
 
 cleanup() {
   "${root[@]}" systemctl disable --now \
-    redhood-bot.service >/dev/null 2>&1 || true
+    rapi-bot.service >/dev/null 2>&1 || true
 }
 trap cleanup ERR
 
 "${root[@]}" systemctl enable --now \
-  redhood-bot.service \
+  rapi-bot.service \
 
-if node --env-file=.env -e 'process.exit(process.env.REDHOOD_PUBLIC_BASE_URL ? 0 : 1)'; then
-  "${root[@]}" systemctl enable --now redhood-public-gateway.service
-  if [[ -f /var/lib/redhood/cloudflared/config.yml ]]; then
-    "${root[@]}" systemctl enable --now redhood-tunnel.service
+if node --env-file=.env -e 'process.exit(process.env.RAPI_PUBLIC_BASE_URL ? 0 : 1)'; then
+  "${root[@]}" systemctl enable --now rapi-public-gateway.service
+  if [[ -f /var/lib/rapi/cloudflared/config.yml ]]; then
+    "${root[@]}" systemctl enable --now rapi-tunnel.service
   fi
 fi
 

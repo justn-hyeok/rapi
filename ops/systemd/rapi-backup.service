@@ -1,0 +1,20 @@
+[Unit]
+Description=Rapi PostgreSQL backup
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=justn
+WorkingDirectory=/home/justn/rapi-releases/current
+EnvironmentFile=/home/justn/rapi/.env
+Environment=RAPI_BACKUP_DIRECTORY=/home/justn/rapi/backups
+Environment=BACKUP_STATUS_FILE=/home/justn/rapi/backups/backup-status.json
+Environment=BACKUP_RETENTION_DAYS=30
+ExecStart=/bin/bash /home/justn/rapi-releases/current/scripts/backup.sh
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/justn/rapi/backups /var/lib/rapi

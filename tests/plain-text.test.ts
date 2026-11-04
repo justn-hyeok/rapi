@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { plainText, summarize } from "@redhood/core";
+import { plainText, summarize } from "@rapi/core";
 
 const htmlBody =
   '<p>Article URL: <a href="https://x.test/a">https://x.test/a</a></p> <p>Comments URL: <a href="https://x.test/c">c</a></p>';

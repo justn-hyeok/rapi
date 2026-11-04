@@ -10,7 +10,7 @@ export interface DiscordCard {
   color?: number;
 }
 
-/** Redhood's accent; warn is for things that need an owner decision. */
+/** Rapi's accent; warn is for things that need an owner decision. */
 export const CARD_COLOR = { info: 0x365d46, warn: 0xb5651d } as const;
 
 // Discord rejects a message above these sizes, so cut here instead of losing the whole report.
@@ -83,7 +83,7 @@ export function contentCard(
   const [head = "", ...rest] = content.trim().split("\n");
   const title = head.replace(/\*\*/g, "").replace(/\s+/g, " ").trim();
   return {
-    title: title || "레드후드",
+    title: title || "라피",
     description: rest.join("\n").trim(),
     color,
   };

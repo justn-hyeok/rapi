@@ -9,13 +9,13 @@ import {
   resolveDiscordAccess,
   resolveHomeGuildId,
   selectFeedTargets,
-} from "@redhood/core";
+} from "@rapi/core";
 import {
   DiscordCommandService,
   CommunityFeeds,
-  type RedhoodAgent,
-} from "@redhood/agent";
-import type { PostgresStore } from "@redhood/db";
+  type RapiAgent,
+} from "@rapi/agent";
+import type { PostgresStore } from "@rapi/db";
 
 const ADMINISTRATOR = "8";
 const policy = {
@@ -123,7 +123,7 @@ describe("admin scope", () => {
 
 describe("commands by scope", () => {
   const service = new DiscordCommandService(
-    {} as unknown as RedhoodAgent,
+    {} as unknown as RapiAgent,
     policy,
     {
       status: async () => "ok",
@@ -137,7 +137,7 @@ describe("commands by scope", () => {
         { userId: "owner", guildId: "stranger" },
         { name: "status", options: {} },
       ),
-      /아직 허용되지 않은 서버입니다.*승인을 기다리는 중.*서버 주인이 레드후드 운영자에게 허용을 요청/,
+      /아직 허용되지 않은 서버입니다.*승인을 기다리는 중.*서버 주인이 라피 운영자에게 허용을 요청/,
     );
   });
 });
