@@ -111,10 +111,12 @@ install -d -m 0700 /home/justn/redhood-releases /home/justn/redhood/backups
 #    DATABASE_URL=postgresql://redhood:redhood-local-only@127.0.0.1:5433/redhood
 
 # 3. 유닛 설치와 DB
-sudo install -m 0644 ops/systemd/redhood-* /etc/systemd/system/
+sudo install -m 0644 ops/systemd/redhood-*.service ops/systemd/redhood-*.timer /etc/systemd/system/
 sudo cp -r ops/systemd/redhood-bot.service.d /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now redhood-postgres.service
+npm ci
+DATABASE_URL=postgresql://redhood:redhood-local-only@127.0.0.1:5433/redhood ./scripts/migrate.sh
 
 # 4. 첫 릴리스: 검증한 뒤 current를 직접 만들고 유닛을 연결한다.
 sha=$(git rev-parse HEAD)
