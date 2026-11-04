@@ -7,6 +7,7 @@ import {
   GitHubStarRecommender,
   HtmlSourceAdapter,
   createModelClient,
+  readOwnStars,
   superadminDmNotifier,
 } from "@rapi/adapters";
 import {
@@ -21,6 +22,7 @@ import {
   problemCardButton,
   publishDiscountCard,
   receiveReport,
+  remindStars,
   sendDiscountCards,
   sendProblemCards,
   verifyDiscountCandidates,
@@ -196,13 +198,14 @@ type LoopState = {
   lastError?: string;
 };
 const loops: Record<
-  "collection" | "curation" | "candidates" | "cards",
+  "collection" | "curation" | "candidates" | "cards" | "stars",
   LoopState
 > = {
   collection: {},
   curation: {},
   candidates: {},
   cards: {},
+  stars: {},
 };
 
 async function runLoop(
@@ -281,6 +284,31 @@ async function sendCards(): Promise<void> {
   }
   if (failures.length)
     throw new Error(`Discount cards failed: ${failures.join("; ")}`);
+}
+
+// Stars show the owner's taste, so they go to one person's DM and nowhere else.
+const starOwnerId = config.DISCORD_SUPERADMIN_USER_IDS?.[0];
+const starLogin = config.STAR_REMINDER_GITHUB_USER;
+const starReminder =
+  starLogin && starOwnerId
+    ? {
+        store,
+        delivery: discord,
+        ownerId: starOwnerId,
+        readStars: () => readOwnStars(starLogin, config.GITHUB_READ_TOKEN),
+        reads: {},
+      }
+    : undefined;
+if (starLogin && !starOwnerId)
+  process.stderr.write(
+    "stars: off, DISCORD_SUPERADMIN_USER_IDS has nobody to DM\n",
+  );
+
+async function sendStarReminder(): Promise<void> {
+  if (!starReminder) return;
+  const failures = await remindStars(starReminder);
+  if (failures.length)
+    throw new Error(`Star reminder failed: ${failures.join("; ")}`);
 }
 
 const discountApproval = {
@@ -397,7 +425,7 @@ const server = createDiscordInteractionServer(
               status: state.lastError ? ("failed" as const) : ("ok" as const),
               // A slower loop is not stale just because it has not run lately.
               checkedAt:
-                name === "candidates" || name === "cards"
+                name === "candidates" || name === "cards" || name === "stars"
                   ? now.toISOString()
                   : (state.lastStartedAt ?? now.toISOString()),
               required: name === "collection",
@@ -449,6 +477,10 @@ const cardsTimer = setInterval(
   () => void runLoop("cards", sendCards),
   10 * 60_000,
 );
+if (starReminder) void runLoop("stars", sendStarReminder);
+const starsTimer = starReminder
+  ? setInterval(() => void runLoop("stars", sendStarReminder), 10 * 60_000)
+  : undefined;
 
 const shutdown = (): void => {
   clearInterval(collectionTimer);
@@ -456,6 +488,7 @@ const shutdown = (): void => {
   clearTimeout(candidatesStart);
   clearInterval(candidatesTimer);
   clearInterval(cardsTimer);
+  if (starsTimer) clearInterval(starsTimer);
   server.close(() => {
     void store.close().finally(() => process.exit(0));
   });

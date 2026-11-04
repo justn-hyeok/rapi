@@ -42,6 +42,26 @@ describe("environment configuration", () => {
     );
   });
 
+  it("starts without a star reminder user and rejects a malformed one", () => {
+    assert.equal(
+      loadEnvironment(validEnvironment).STAR_REMINDER_GITHUB_USER,
+      undefined,
+    );
+    assert.equal(
+      loadEnvironment({
+        ...validEnvironment,
+        STAR_REMINDER_GITHUB_USER: "justn-hyeok",
+      }).STAR_REMINDER_GITHUB_USER,
+      "justn-hyeok",
+    );
+    assert.throws(() =>
+      loadEnvironment({
+        ...validEnvironment,
+        STAR_REMINDER_GITHUB_USER: "../orgs/x",
+      }),
+    );
+  });
+
   it("starts without a public discount channel and rejects a malformed one", () => {
     assert.equal(
       loadEnvironment(validEnvironment).DISCOUNT_PUBLIC_CHANNEL_ID,
