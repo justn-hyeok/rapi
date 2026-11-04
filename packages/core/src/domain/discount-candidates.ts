@@ -18,7 +18,7 @@ export interface DiscountCandidate {
 export const DISCOUNT_EVIDENCE_MAX_CHARS = 600;
 export const DISCOUNT_BODY_DEFAULT_CHARS = 600;
 
-const MONTH =
+export const MONTH =
   "(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\\.?";
 // "인하" alone also matches "인하여" (because of) and "인하대".
 const DISCOUNT_WORDING = new RegExp(

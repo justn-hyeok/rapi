@@ -3,9 +3,10 @@ import type {
   CandidatePriceCheck,
   CandidateTermsNote,
 } from "./candidate-verification.js";
-import type {
-  DiscountCandidateKind,
-  DiscountCandidateRoute,
+import {
+  MONTH,
+  type DiscountCandidateKind,
+  type DiscountCandidateRoute,
 } from "./discount-candidates.js";
 import { clip, type DiscordCard } from "./discord-card.js";
 
@@ -44,6 +45,23 @@ const POLICY_NOTICE = /\b(?:terms of (?:service|use)|privacy policy)\b/i;
 const FREE_OR_CREDIT =
   /(?<!feel |-)\bfree\b|(?<!\b(?:load|buy|purchase|add) )\bcredits?\b(?! cards?\b)|무료|크레딧/i;
 const REFERRAL_PARAM = /^(?:ref|aff|invite|utm_|via$|code$)/i;
+const NUMBER_MONTH = "(?:0?[1-9]|1[0-2])";
+const DAY = "(?:0?[1-9]|[12]\\d|3[01])";
+const ORDINAL_DAY = `${DAY}(?:st|nd|rd|th)?`;
+const YEAR = "20\\d{2}";
+const DATE = [
+  `\\b${YEAR}[-./]${NUMBER_MONTH}[-./]${DAY}\\b`,
+  `${YEAR}년\\s*${NUMBER_MONTH}월\\s*${DAY}일`,
+  `${NUMBER_MONTH}월\\s*${DAY}일`,
+  `\\b${MONTH}\\s+${ORDINAL_DAY}(?:,?\\s+${YEAR})?\\b`,
+  `\\b${ORDINAL_DAY}\\s+${MONTH}(?:,?\\s+${YEAR})?(?![\\p{L}\\d])`,
+].join("|");
+const ANY_DATE = new RegExp(DATE, "iu");
+const END_DATE = new RegExp(
+  `(?:\\b(?:until|through|thru|by|ends?(?: on)?|expires?(?: on)?)\\s+|마감일?:?\\s*|~\\s*)(${DATE})|(${DATE})\\s*까지`,
+  "iu",
+);
+export const DEADLINE_MAX_CHARS = 40;
 
 /** The row's own https address without referral parameters, or null. */
 export function cardLink(value: string): string | null {
@@ -90,8 +108,31 @@ function escapeMarkdown(value: string): string {
   return value.replace(/[\\`*_~|<>#[\]()@:.-]/g, "\\$&");
 }
 
+/**
+ * A date to prefill for the owner to confirm, or "". A date that reads as an end
+ * wins over the first one mentioned; it is never trusted without the owner.
+ */
+export function findDeadline(
+  candidate: Pick<CandidateForCard, "title" | "evidence">,
+): string {
+  const text = plainLine(`${candidate.title} ${candidate.evidence}`);
+  const end = END_DATE.exec(text);
+  return end?.[1] ?? end?.[2] ?? ANY_DATE.exec(text)?.[0] ?? "";
+}
+
+/** The line a confirmed deadline shows as. Blank shows nothing. */
+export function deadlineLine(deadline: string): string {
+  const clean = plainLine(deadline);
+  return clean
+    ? `마감: ${escapeMarkdown(clip(clean, DEADLINE_MAX_CHARS))}`
+    : "";
+}
+
 /** ROADMAP's "정해진 카드 규칙": source, linked title, details, tags. */
-export function discountCard(candidate: CandidateForCard): DiscordCard {
+export function discountCard(
+  candidate: CandidateForCard,
+  deadline = "",
+): DiscordCard {
   const link = cardLink(candidate.url);
   const domain = plainLine(candidate.domain ?? "");
   const title = plainLine(candidate.title);
@@ -112,6 +153,7 @@ export function discountCard(candidate: CandidateForCard): DiscordCard {
     ...(link ? { url: link } : {}),
     description: [
       escapeMarkdown(clip(detail, DETAIL_MAX_CHARS)),
+      deadlineLine(deadline),
       candidate.operator
         ? `운영: ${escapeMarkdown(plainLine(candidate.operator))}`
         : "",
