@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import type { NewReport } from "@rapi/core";
 import { PostgresStore } from "@rapi/db";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -291,6 +292,201 @@ describe("discount candidates", () => {
            WHERE status = 'published'`,
         );
         assert.equal(await store.publicationRetryAt(5), null);
+      } finally {
+        await store.close();
+      }
+    });
+  });
+
+  describe("reports", () => {
+    const report = (
+      url: string,
+      fields: Partial<NewReport> = {},
+    ): NewReport => ({
+      kind: "discount",
+      url,
+      domain: new URL(url).hostname,
+      reporterId: "7",
+      memo: null,
+      ...fields,
+    });
+
+    it("saves one candidate per link, verified and carded like any other", async () => {
+      const store = new PostgresStore(databaseUrl);
+      try {
+        await store.resetForTests();
+        const link = "https://new.ai/deal";
+        assert.equal(
+          await store.saveReport(report(link, { memo: "싸요" }), 5),
+          "saved",
+        );
+        assert.equal(
+          await store.saveReport(report(link, { reporterId: "8" }), 5),
+          "duplicate",
+        );
+        const [unverified] = await store.unverifiedDiscountCandidates(
+          10,
+          "report",
+        );
+        assert.equal(unverified!.route, "report");
+        assert.equal(unverified!.evidence, "");
+        assert.deepEqual(
+          await store.unverifiedDiscountCandidates(10, "changelog"),
+          [],
+        );
+        await store.saveCandidateVerification(unverified!.id, {
+          band: "yellow",
+          tags: [],
+          operator: null,
+          priceCheck: "unknown",
+          termsUrl: null,
+          termsNote: "확인 못 함",
+        });
+        const [row] = await store.candidatesForCards(10);
+        assert.equal(row!.memo, "싸요");
+        assert.equal(row!.url, link);
+      } finally {
+        await store.close();
+      }
+    });
+
+    it("limits a reporter across both kinds, even when sent all at once", async () => {
+      const store = new PostgresStore(databaseUrl);
+      try {
+        await store.resetForTests();
+        const outcomes = await Promise.all(
+          ["a", "b", "c", "d", "e", "f"].map((path, index) =>
+            store.saveReport(
+              report(`https://new.ai/${path}`, {
+                kind: index % 2 ? "problem" : "new_service",
+              }),
+              5,
+            ),
+          ),
+        );
+        assert.equal(outcomes.filter((one) => one === "saved").length, 5);
+        assert.equal(outcomes.filter((one) => one === "limited").length, 1);
+        // Someone else is not held back, and an hour later neither is this reporter.
+        assert.equal(
+          await store.saveReport(
+            report("https://new.ai/g", { reporterId: "8" }),
+            5,
+          ),
+          "saved",
+        );
+        await store.pool.query(
+          "UPDATE discount_candidates SET first_seen_at = now() - interval '61 minutes'",
+        );
+        await store.pool.query(
+          "UPDATE problem_reports SET reported_at = now() - interval '61 minutes'",
+        );
+        assert.equal(
+          await store.saveReport(report("https://new.ai/h"), 5),
+          "saved",
+        );
+      } finally {
+        await store.close();
+      }
+    });
+
+    it("keeps a problem report off the candidates until the owner decides", async () => {
+      const store = new PostgresStore(databaseUrl);
+      try {
+        await store.resetForTests();
+        const link = "https://bad.ai/x";
+        const problem = report(link, { kind: "problem", memo: "먹튀" });
+        assert.equal(await store.saveReport(problem, 5), "saved");
+        assert.equal(await store.saveReport(problem, 5), "duplicate");
+        assert.deepEqual(await store.unverifiedDiscountCandidates(10), []);
+
+        const [card] = await store.problemReportsForCards(10);
+        assert.deepEqual(
+          { ...card!, id: "" },
+          {
+            id: "",
+            url: link,
+            domain: "bad.ai",
+            reporterId: "7",
+            memo: "먹튀",
+          },
+        );
+        assert.equal(await store.claimProblemCard(card!.id), true);
+        assert.equal(await store.claimProblemCard(card!.id), false);
+        assert.equal(await store.cardsInLastHour(), 1);
+        assert.deepEqual(await store.problemReportsForCards(10), []);
+
+        assert.deepEqual(
+          await store.decideProblemReport(card!.id, "no_problem", "1"),
+          { url: link, domain: "bad.ai", turnedRed: 0, alreadyPublished: 0 },
+        );
+        assert.equal(
+          await store.decideProblemReport(card!.id, "red", "1"),
+          null,
+        );
+        // The question is closed, so the same link can be raised again.
+        assert.equal(await store.saveReport(problem, 5), "saved");
+      } finally {
+        await store.close();
+      }
+    });
+
+    it("turns the whole domain red, now and for rows found later", async () => {
+      const store = new PostgresStore(databaseUrl);
+      try {
+        await store.resetForTests();
+        const verification = {
+          band: "yellow",
+          tags: [],
+          operator: null,
+          priceCheck: "unknown",
+          termsUrl: null,
+          termsNote: null,
+        } as const;
+        for (const url of ["https://bad.ai/a", "https://bad.ai/b"])
+          await store.saveReport(report(url), 5);
+        await store.saveReport(report("https://fine.ai/a"), 5);
+        const rows = await store.unverifiedDiscountCandidates(10);
+        const [published] = rows;
+        await store.saveCandidateVerification(published!.id, verification);
+        await store.claimCandidatePublication(published!.id, 5);
+
+        await store.saveReport(
+          report("https://bad.ai/c", { kind: "problem", reporterId: "8" }),
+          5,
+        );
+        const [card] = await store.problemReportsForCards(10);
+        assert.deepEqual(
+          await store.decideProblemReport(card!.id, "red", "1"),
+          {
+            url: "https://bad.ai/c",
+            domain: "bad.ai",
+            turnedRed: 2,
+            alreadyPublished: 1,
+          },
+        );
+        const { rows: decided } = await store.pool.query(
+          "SELECT decision, decided_by, reporter_id FROM problem_reports",
+        );
+        assert.deepEqual(decided, [
+          { decision: "red", decided_by: "1", reporter_id: "8" },
+        ]);
+        assert.deepEqual(
+          (await store.candidatesForCards(10)).map((row) => row.domain),
+          [],
+        );
+
+        await store.saveReport(
+          report("https://bad.ai/d", { reporterId: "9" }),
+          5,
+        );
+        const found = (await store.unverifiedDiscountCandidates(10)).find(
+          (row) => row.domain === "bad.ai",
+        );
+        await store.saveCandidateVerification(found!.id, verification);
+        assert.equal(
+          (await store.candidateForDecision(found!.id))!.band,
+          "red",
+        );
       } finally {
         await store.close();
       }
