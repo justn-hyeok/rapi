@@ -8,6 +8,8 @@ import {
   type DiscordIdentity,
 } from "@rapi/core";
 import type { PostgresStore } from "@rapi/db";
+import { messageBody } from "./community-feeds.js";
+import { PROBLEM_RED_PREFIX } from "./discount-candidates.js";
 
 export const REPORTS_PER_HOUR = 5;
 
@@ -91,4 +93,69 @@ export async function receiveReport(
   return kind === "problem"
     ? "문제 제보를 받았습니다. 소유자가 직접 확인합니다."
     : "제보를 받았습니다. 확인한 뒤 소유자에게 전달합니다.";
+}
+
+export interface ProblemReview {
+  store: Pick<PostgresStore, "decideProblemReport">;
+  ownerIds: readonly string[];
+  reviewChannelId: string | undefined;
+}
+
+const ephemeral = (content: string) => ({
+  type: 4,
+  data: { content, flags: 64, allowed_mentions: { parse: [] } },
+});
+
+function decisionText(decided: {
+  domain: string;
+  turnedRed: number;
+  alreadyPublished: number;
+}): string {
+  const published = decided.alreadyPublished
+    ? ` 이미 공개 채널에 나간 ${decided.alreadyPublished}건은 직접 지워 주세요.`
+    : "";
+  return `${decided.domain}을 빨강으로 정했습니다. 후보 ${decided.turnedRed}건과 앞으로 찾는 후보는 게시되지 않습니다.${published}`;
+}
+
+/**
+ * The response to [빨강으로 정함] or [문제 없음]. Checked as the approval buttons are:
+ * who pressed it and where come from Discord's signed request, on every click.
+ */
+export async function problemCardButton(
+  input: ProblemReview,
+  identity: DiscordIdentity,
+  customId: string,
+): Promise<unknown> {
+  if (!input.ownerIds.includes(identity.userId))
+    return ephemeral("소유자만 쓸 수 있는 버튼입니다.");
+  if (!input.reviewChannelId || identity.channelId !== input.reviewChannelId)
+    return ephemeral("검토 채널에서만 쓸 수 있는 버튼입니다.");
+  try {
+    const decision = customId.startsWith(PROBLEM_RED_PREFIX)
+      ? "red"
+      : "no_problem";
+    const decided = await input.store.decideProblemReport(
+      customId.slice(customId.indexOf(":") + 1),
+      decision,
+      identity.userId,
+    );
+    if (!decided) return ephemeral("이미 처리한 제보입니다.");
+    return {
+      type: 7,
+      data: {
+        content:
+          decision === "red"
+            ? decisionText(decided)
+            : "문제 없음으로 닫았습니다.",
+        // The link stays; only the decision buttons go.
+        components: messageBody([{ url: decided.url }]).components ?? [],
+        allowed_mentions: { parse: [] },
+      },
+    };
+  } catch (error) {
+    process.stderr.write(
+      `problem report: ${error instanceof Error ? error.message.slice(0, 200) : "failed"}\n`,
+    );
+    return ephemeral("처리하지 못했습니다. 잠시 뒤 다시 눌러 주세요.");
+  }
 }
