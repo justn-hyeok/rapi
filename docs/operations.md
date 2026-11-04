@@ -774,3 +774,45 @@ docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT route, band, tags, o
 ```sh
 docker exec rapi-postgres-1 psql -U rapi -d rapi -c "UPDATE discount_candidates SET band = 'red' WHERE domain = '도메인'"
 ```
+
+## 할인 카드 (0.0.5)
+
+`DISCOUNT_REVIEW_CHANNEL_ID`에 소유자만 보는 채널 ID를 넣으면 봇이 시작할 때와 그 뒤 10분마다 검증한 후보를 카드로 보낸다. 값이 없으면 아무것도 보내지 않고 봇은 그대로 뜬다. 봇에게 그 채널의 보기, 메시지 보내기, 링크 첨부 권한이 있어야 한다. 다른 채널로 내보내는 것은 0.0.6에서 한다. 형식은 [로드맵의 카드 규칙](../ROADMAP.md#정해진-카드-규칙)을 따른다.
+
+어떤 후보를 보내는가:
+
+- `band`가 `green` 또는 `yellow`인 행만 보낸다. `red`와 아직 확인하지 않은 행은 보내지 않는다.
+- `new_service`는 모두 보낸다. `discount`는 `price_check`가 `below_list`이거나 제목이나 근거에 무료나 크레딧이 적힌 행만 보낸다. 약관 변경 소식은 보내지 않는다.
+- 게시일이 최근 7일 안인 행을 최신순으로 보낸다. 게시일이 없으면 처음 본 날로 따진다. 처음 수집하면 몇 달 전 변경로그도 오늘 처음 본 행이 되므로, 게시일이 있으면 처음 본 날은 보지 않는다. 더 오래된 행은 보내지 않고 그대로 둔다.
+- 최근 1시간에 보낸 카드가 5장이면 멈추고, 나머지는 다음 실행으로 넘긴다.
+
+중복을 막는 방식:
+
+- 보내기 전에 `carded_at`을 적고, 보낸 뒤 `card_message_id`를 적는다. 그래서 봇이 재시작해도 같은 카드를 두 번 보내지 않는다.
+- 대신 보내는 도중 봇이 죽거나 Discord 응답을 받지 못하면 그 카드는 다시 보내지 않아 빠질 수 있다. `carded_at`만 있고 `card_message_id`가 없는 행이 그 경우다. 메시지 ID를 저장하다 실패해도 같은 모양이다.
+- Discord가 거절한 카드(403, 500 등)는 표시를 지우고 다음 실행에서 다시 보낸다. 다음 카드는 계속 보낸다. 5xx인데 실제로는 게시된 드문 경우에는 두 번 갈 수 있다.
+- 429를 받으면 그 실행을 멈추고 다음 실행까지 기다린다.
+- 실패는 `/ready`의 `cards` 항목과 서버 로그에 남고, 준비 상태에는 영향을 주지 않는다.
+
+Discord로 가는 글은 낯선 사람이 쓴 것이라서 다음을 지킨다.
+
+- 멘션을 모두 끈다. 제목과 본문의 마크다운과 링크는 글자로만 보이게 하고 주소의 `https://`를 뗀다.
+- 링크는 제목과 `원문 보기` 버튼에 후보의 https 주소만 쓴다. https가 아닌 행은 보내지 않는다. `ref`, `aff`, `via`, `utm_` 같은 추천 파라미터는 지운다.
+
+결과를 볼 때:
+
+```sh
+docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT carded_at, card_message_id, band, kind, domain, left(title, 50) AS title FROM discount_candidates WHERE carded_at IS NOT NULL ORDER BY carded_at DESC LIMIT 20"
+```
+
+보냈는지 알 수 없는 행을 볼 때:
+
+```sh
+docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT id, carded_at, left(title, 60) AS title FROM discount_candidates WHERE carded_at IS NOT NULL AND card_message_id IS NULL"
+```
+
+채널에 카드가 없는 것을 확인했으면 그 행의 `carded_at`을 지워 다시 보낸다.
+
+```sh
+docker exec rapi-postgres-1 psql -U rapi -d rapi -c "UPDATE discount_candidates SET carded_at = NULL WHERE id = '행 ID' AND card_message_id IS NULL"
+```
