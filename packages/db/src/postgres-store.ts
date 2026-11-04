@@ -7,11 +7,13 @@ import type {
   CandidateVerification,
   DiscountCandidate,
   DiscountCandidateRoute,
+  GitHubStar,
   NewReport,
   NormalizedItem,
   ProblemDecision,
   ProblemReportForCard,
   ReportOutcome,
+  StoredStar,
   Visibility,
 } from "@rapi/core";
 import { parseHtmlSourcePolicy, validateHtmlSourceLocator } from "@rapi/core";
@@ -91,7 +93,7 @@ export class PostgresStore {
     if (!database.rows[0]?.name.endsWith("_test"))
       throw new Error("Refusing to reset a database without an _test suffix");
     await this.pool
-      .query(`TRUNCATE discount_candidates, problem_reports, discord_layout_plans, discord_managed_resources, summaries, classifications,
+      .query(`TRUNCATE github_stars, star_reminder_days, discount_candidates, problem_reports, discord_layout_plans, discord_managed_resources, summaries, classifications,
       item_relations, source_items, source_cursors, raw_events, sources RESTART IDENTITY CASCADE`);
   }
 
@@ -763,6 +765,116 @@ export class PostgresStore {
       [since, includeOfficial],
     );
     return result.rows as never;
+  }
+
+  /**
+   * Today's list from GitHub. What the owner removed stops being reminded, only when
+   * the whole list was read; the history stays in case they star it again.
+   */
+  async saveStars(
+    stars: readonly GitHubStar[],
+    complete: boolean,
+  ): Promise<void> {
+    await this.transaction(async (client) => {
+      await client.query(
+        `INSERT INTO github_stars
+           (full_name, url, description, language, stars_count, archived, starred_at)
+         SELECT * FROM unnest($1::text[], $2::text[], $3::text[], $4::text[],
+                              $5::int[], $6::boolean[], $7::timestamptz[])
+         ON CONFLICT (full_name) DO UPDATE
+         SET url = EXCLUDED.url, description = EXCLUDED.description,
+             language = EXCLUDED.language, stars_count = EXCLUDED.stars_count,
+             archived = EXCLUDED.archived, starred_at = EXCLUDED.starred_at,
+             unstarred_at = NULL`,
+        [
+          stars.map((star) => star.fullName),
+          stars.map((star) => star.url),
+          stars.map((star) => star.description),
+          stars.map((star) => star.language),
+          stars.map((star) => star.stars),
+          stars.map((star) => star.archived),
+          stars.map((star) => star.starredAt),
+        ],
+      );
+      if (complete)
+        await client.query(
+          `UPDATE github_stars SET unstarred_at = now()
+           WHERE unstarred_at IS NULL AND NOT full_name = ANY($1::text[])`,
+          [stars.map((star) => star.fullName)],
+        );
+    });
+  }
+
+  async currentStars(): Promise<StoredStar[]> {
+    const { rows } = await this.pool.query<StoredStar>(
+      `SELECT full_name AS "fullName", url, description, language,
+              stars_count AS stars, archived, starred_at AS "starredAt",
+              last_reminded_at AS "lastRemindedAt"
+       FROM github_stars WHERE unstarred_at IS NULL`,
+    );
+    return rows;
+  }
+
+  async starReminderClaimed(day: string): Promise<boolean> {
+    const { rowCount } = await this.pool.query(
+      "SELECT 1 FROM star_reminder_days WHERE day = $1",
+      [day],
+    );
+    return rowCount === 1;
+  }
+
+  /** Taken before sending, with the stars marked. False when today is already taken. */
+  async claimStarReminder(
+    day: string,
+    stars: readonly StoredStar[],
+  ): Promise<boolean> {
+    const names = stars.map((star) => star.fullName);
+    return this.transaction(async (client) => {
+      const claimed = await client.query(
+        `INSERT INTO star_reminder_days (day, repos) VALUES ($1, $2)
+         ON CONFLICT (day) DO NOTHING`,
+        [day, names],
+      );
+      if (claimed.rowCount !== 1) return false;
+      await client.query(
+        `UPDATE github_stars
+         SET last_reminded_at = now(), reminded_count = reminded_count + 1
+         WHERE full_name = ANY($1::text[])`,
+        [names],
+      );
+      return true;
+    });
+  }
+
+  /** Only for a send Discord refused: today is free again and the stars as they were. */
+  async releaseStarReminder(
+    day: string,
+    stars: readonly StoredStar[],
+  ): Promise<void> {
+    await this.transaction(async (client) => {
+      const freed = await client.query(
+        "DELETE FROM star_reminder_days WHERE day = $1 AND message_id IS NULL",
+        [day],
+      );
+      if (freed.rowCount !== 1) return;
+      await client.query(
+        `UPDATE github_stars SET last_reminded_at = earlier.last_at,
+                reminded_count = reminded_count - 1
+         FROM unnest($1::text[], $2::timestamptz[]) AS earlier(repo, last_at)
+         WHERE full_name = earlier.repo`,
+        [
+          stars.map((star) => star.fullName),
+          stars.map((star) => star.lastRemindedAt?.toISOString() ?? null),
+        ],
+      );
+    });
+  }
+
+  async saveStarReminderMessage(day: string, messageId: string): Promise<void> {
+    await this.pool.query(
+      "UPDATE star_reminder_days SET message_id = $2 WHERE day = $1",
+      [day, messageId],
+    );
   }
 
   async sourceStatus(): Promise<Array<Record<string, unknown>>> {
