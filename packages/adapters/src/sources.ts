@@ -1,9 +1,13 @@
+import { createHash } from "node:crypto";
 import { XMLParser } from "fast-xml-parser";
 import { type HtmlSourcePolicy } from "@rapi/core";
 
 export interface SourceHttpOptions {
   timeoutMs?: number;
   maxBodyBytes?: number;
+  // Keep the first maxBodyBytes instead of failing. Long feeds are newest first.
+  truncate?: boolean;
+  fetch?: typeof fetch;
 }
 
 export interface SourcePayload {
@@ -29,7 +33,10 @@ export async function readSource(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(url, { headers, signal: controller.signal });
+    const response = await (options.fetch ?? fetch)(url, {
+      headers,
+      signal: controller.signal,
+    });
     if (response.status === 304) return { response, body: "" };
     if (!response.ok) {
       await response.body?.cancel();
@@ -46,7 +53,15 @@ export async function readSource(
           size += chunk.value.byteLength;
           if (size > maxBodyBytes) {
             await reader.cancel();
-            throw new Error("Source body exceeds the byte limit");
+            if (!options.truncate)
+              throw new Error("Source body exceeds the byte limit");
+            chunks.push(
+              chunk.value.subarray(
+                0,
+                chunk.value.byteLength - (size - maxBodyBytes),
+              ),
+            );
+            break;
           }
           chunks.push(chunk.value);
         }
@@ -115,6 +130,8 @@ export function parseFeed(xml: string): ExternalItem[] {
     ignoreAttributes: false,
     processEntities: false,
     trimValues: true,
+    // Atom content can be inline XHTML (Vercel); keep it as text, not parsed tags.
+    stopNodes: ["feed.entry.content"],
   });
   const parsed = parser.parse(xml) as Record<string, unknown>;
 
@@ -154,7 +171,9 @@ export function parseFeed(xml: string): ExternalItem[] {
         externalId: text(entry.id) || url,
         url,
         title: text(entry.title),
-        body: text(entry.summary) || text(entry.content),
+        body:
+          text(entry.summary) ||
+          text(entry.content).replace(/<!\[CDATA\[|\]\]>/g, ""),
         author: author ? text(author.name) || null : null,
         publishedAt: text(entry.published) || text(entry.updated) || null,
         metadata: { feedType: "atom" },
@@ -163,6 +182,16 @@ export function parseFeed(xml: string): ExternalItem[] {
   }
 
   throw new Error("Unsupported RSS/Atom document");
+}
+
+// A feed cut off by the byte limit: drop the partial entry and close the document.
+export function closeTruncatedFeed(xml: string): string {
+  if (/<\/(?:feed|rss)>\s*$/.test(xml)) return xml;
+  const entry = xml.lastIndexOf("</entry>");
+  if (entry >= 0) return `${xml.slice(0, entry + 8)}</feed>`;
+  const item = xml.lastIndexOf("</item>");
+  if (item >= 0) return `${xml.slice(0, item + 7)}</channel></rss>`;
+  return xml;
 }
 
 const VOID_TAGS = new Set([
@@ -225,10 +254,14 @@ function attribute(attrs: string, name: string): string | undefined {
 }
 
 // A tolerant tag-stream tree: no script execution, no external parser.
-function buildHtmlTree(html: string): HtmlNode {
-  const stripped = html
+function stripInertHtml(html: string): string {
+  return html
     .replace(/<!--[\s\S]*?-->/g, "")
     .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, "");
+}
+
+function buildHtmlTree(html: string): HtmlNode {
+  const stripped = stripInertHtml(html);
   const root: HtmlNode = {
     tag: "#root",
     attrs: "",
@@ -473,6 +506,88 @@ export function parseHtmlList(
   return [...items.values()].filter((item) => item.title);
 }
 
+const MONTH_YEAR_TAIL = new RegExp(
+  `\\b(?:${MONTH_NAMES}),?\\s+(20\\d{2})\\s*$`,
+  "i",
+);
+const MONTH_DAY_HEAD = new RegExp(
+  `^\\W*((?:${MONTH_NAMES})\\.?\\s+\\d{1,2})\\b`,
+  "i",
+);
+const ENTRY_TITLE_MAX_CHARS = 120;
+
+// A page holding many updates with no link of their own. `entryStart` is a regex
+// that marks in the HTML where each update begins. Dates come from the start of
+// the update, from a date-only heading above it, or, for "Oct 28", from a
+// "October, 2026" heading above it.
+export function parseHtmlEntries(
+  html: string,
+  pageUrl: string,
+  entryStart: string,
+): ExternalItem[] {
+  if (Buffer.byteLength(html) > 2_000_000)
+    throw new Error("HTML exceeds the 2 MB input limit");
+  const page = stripInertHtml(html);
+  const starts = [...page.matchAll(new RegExp(entryStart, "g"))].map(
+    (match) => match.index,
+  );
+  const items: ExternalItem[] = [];
+  let carriedDate: string | null = null;
+  let year = MONTH_YEAR_TAIL.exec(
+    nodeText(buildHtmlTree(page.slice(0, starts[0] ?? 0))),
+  )?.[1];
+  starts.forEach((start, index) => {
+    const root = buildHtmlTree(page.slice(start, starts[index + 1]));
+    const raw = nodeText(root)
+      .replace(/\u200b/g, "")
+      .trim();
+    const tailYear = MONTH_YEAR_TAIL.exec(raw);
+    const text = tailYear ? raw.slice(0, tailYear.index).trim() : raw;
+    const monthDay = year ? MONTH_DAY_HEAD.exec(text) : null;
+    const found = monthDay
+      ? findDateText(`${monthDay[1]}, ${year}`)
+      : findDateText(text.slice(0, 60));
+    year = tailYear?.[1] ?? year;
+    const body = monthDay ? text.slice(monthDay[0].length).trim() : text;
+    if (found) {
+      carriedDate = found.iso;
+      // A heading with only a date dates the updates below it.
+      if (/^\W*(?:date)?\W*$/i.test(body.replace(found.matched, ""))) return;
+    }
+    const heading = findNodes(root, (node) => /^h[1-6]$/.test(node.tag))
+      .map((node) =>
+        nodeText(node)
+          .replace(/\u200b/g, "")
+          .trim(),
+      )
+      .find((value) => value && !MONTH_YEAR_TAIL.test(value));
+    const title = heading ?? body.slice(0, ENTRY_TITLE_MAX_CHARS).trim();
+    if (!title) return;
+    const digest = createHash("sha256")
+      .update(`${carriedDate ?? ""}|${title}`)
+      .digest("hex")
+      .slice(0, 16);
+    items.push({
+      externalId: `${pageUrl}#${digest}`,
+      url: pageUrl,
+      title,
+      body,
+      author: null,
+      publishedAt: carriedDate,
+      metadata: { feedType: "html-entries" },
+    });
+  });
+  return items;
+}
+
+// An article's visible text, without the site navigation when the page marks it.
+export function parseHtmlArticle(html: string): string {
+  if (Buffer.byteLength(html) > 2_000_000)
+    throw new Error("HTML exceeds the 2 MB input limit");
+  const root = buildHtmlTree(html);
+  return nodeText(findNodes(root, (node) => node.tag === "main")[0] ?? root);
+}
+
 export function parseGitHubEvent(
   payload: Record<string, unknown>,
 ): ExternalItem {
@@ -591,11 +706,13 @@ export class FeedSourceAdapter {
     if (!response.ok) throw new Error(`Feed returned ${response.status}`);
     const responseEtag = response.headers.get("etag") ?? undefined;
     return {
-      items: parseFeed(body),
+      items: parseFeed(this.options.truncate ? closeTruncatedFeed(body) : body),
       ...(responseEtag ? { etag: responseEtag } : {}),
     };
   }
 }
+
+const HTML_HEADERS = { Accept: "text/html", "User-Agent": "rapi" };
 
 export class HtmlSourceAdapter {
   constructor(private readonly options: SourceHttpOptions = {}) {}
@@ -624,5 +741,15 @@ export class HtmlSourceAdapter {
       items: parseHtmlList(body, url, policy),
       ...(responseEtag ? { etag: responseEtag } : {}),
     };
+  }
+
+  async fetchEntries(url: string, entryStart: string): Promise<ExternalItem[]> {
+    const { body } = await readSource(url, HTML_HEADERS, this.options);
+    return parseHtmlEntries(body, url, entryStart);
+  }
+
+  async fetchArticle(url: string): Promise<string> {
+    const { body } = await readSource(url, HTML_HEADERS, this.options);
+    return parseHtmlArticle(body);
   }
 }
