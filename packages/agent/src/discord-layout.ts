@@ -86,12 +86,6 @@ export const defaultCommunityLayout: DiscordLayout = {
       audience: "user",
       channels: [
         {
-          key: "rapi_questions",
-          name: "라피-질문",
-          type: "text",
-          readOnly: false,
-        },
-        {
           key: "rapi_briefing",
           name: "라피-브리핑",
           type: "text",
@@ -130,7 +124,6 @@ export const defaultCommunityLayout: DiscordLayout = {
       name: "운영",
       audience: "staff",
       channels: [
-        { key: "rapi_admin", name: "라피-관리", type: "text", readOnly: false },
         {
           key: "operations_alerts",
           name: "운영-알림",

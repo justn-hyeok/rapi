@@ -34,11 +34,7 @@ const store = new PostgresStore(config.DATABASE_URL, {
   connectionTimeoutMs: 3000,
   queryTimeoutMs: 3000,
 });
-const chatFailureThreshold =
-  Math.ceil((5 * 60) / config.MONITOR_INTERVAL_SECONDS) + 1;
-const tracker = new HealthTransitionTracker(3, 2, {
-  chat: { failureThreshold: chatFailureThreshold },
-});
+const tracker = new HealthTransitionTracker(3, 2);
 const state = await loadState(config.MONITOR_STATE_FILE);
 tracker.restore(state.tracker);
 let checking = false;
@@ -264,27 +260,7 @@ async function check(): Promise<void> {
   checking = true;
   try {
     const now = new Date();
-    const checks = [
-      checkEndpoint("bot", config.BOT_READY_URL),
-      checkEndpoint("chat", config.CHAT_READY_URL),
-      checkEndpoint("worker", config.WORKER_READY_URL),
-      checkBackup(),
-    ];
-    if (config.PUBLIC_AGENT_ENABLED)
-      checks.push(checkEndpoint("public_agent", config.PUBLIC_AGENT_READY_URL));
-    if (config.SOURCE_EXPIRY_STATUS_FILE)
-      checks.push(
-        checkBackup("source_expiry", config.SOURCE_EXPIRY_STATUS_FILE),
-      );
-    if (config.PRIVACY_STATUS_FILE)
-      checks.push(checkBackup("data_lifecycle", config.PRIVACY_STATUS_FILE));
-    if (config.PRIVACY_MAINTENANCE_STATUS_FILE)
-      checks.push(
-        checkBackup(
-          "metadata_retention",
-          config.PRIVACY_MAINTENANCE_STATUS_FILE,
-        ),
-      );
+    const checks = [checkEndpoint("bot", config.BOT_READY_URL), checkBackup()];
     if (config.RAPI_PUBLIC_BASE_URL) {
       checks.push(
         checkEndpoint("public_gateway", config.PUBLIC_GATEWAY_READY_URL),

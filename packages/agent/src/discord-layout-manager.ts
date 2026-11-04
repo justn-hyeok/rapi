@@ -522,10 +522,6 @@ export class DiscordLayoutManager {
 
       await this.ensureVerificationMessage(guildId, ids, fresh.layoutDigest);
       await this.ensureHelpMessage(guildId, fresh.layoutDigest);
-      for (const key of ["rapi_questions", "rapi_admin"]) {
-        const id = ids.get(resourceKey("channel", key));
-        if (id) await this.store.enableChatChannel(guildId, id, actorId);
-      }
       if (!(await this.store.markDiscordLayoutPlanApplied(guildId, planId)))
         throw new Error("서버 구성 계획 완료 상태를 기록하지 못했습니다.");
       return `서버 구성을 적용했습니다: ${actionSummary(fresh.actions) || "권한 동기화"}`;

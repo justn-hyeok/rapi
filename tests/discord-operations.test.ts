@@ -3,8 +3,7 @@ import { describe, it } from "node:test";
 import { DiscordCommandService, type RapiAgent } from "@rapi/agent";
 
 describe("Discord operations commands", () => {
-  it("restricts status to admins and webhook management to superadmins", async () => {
-    const calls: string[] = [];
+  it("restricts status to admins and server configuration to superadmins", async () => {
     const service = new DiscordCommandService(
       {} as RapiAgent,
       {
@@ -14,44 +13,23 @@ describe("Discord operations commands", () => {
       },
       {
         status: () => Promise.resolve("healthy"),
-        webhooks: {
-          register: () => Promise.resolve({ id: "connection" }),
-          list: () => {
-            calls.push("list");
-            return Promise.resolve([
-              {
-                id: "connection",
-                name: "github",
-                kind: "github_inbound",
-                state: "active",
-              },
-            ]);
-          },
-          detail: () => Promise.resolve({ id: "connection" }),
-          test: () => Promise.resolve(),
-          setState: () => Promise.resolve(true),
+        serverConfig: {
+          preview: () => Promise.resolve({ summary: "plan", planId: "p" }),
+          apply: () => Promise.resolve("applied"),
+          export: () => Promise.resolve("yaml"),
         },
       },
     );
+    const admin = { userId: "admin", guildId: "guild", channelId: "channel" };
     assert.deepEqual(
-      await service.execute(
-        { userId: "admin", guildId: "guild", channelId: "channel" },
-        { name: "status", options: {} },
-      ),
+      await service.execute(admin, { name: "status", options: {} }),
       { messages: ["healthy"] },
     );
-    await assert.rejects(
-      service.execute(
-        { userId: "admin", guildId: "guild", channelId: "channel" },
-        { name: "webhook", options: { action: "목록" } },
-      ),
-      /SUPERADMIN/,
-    );
-    const result = await service.execute(
-      { userId: "owner", guildId: "guild", channelId: "channel" },
-      { name: "webhook", options: { action: "목록" } },
-    );
-    assert.match(result.messages[0] ?? "", /github/);
-    assert.deepEqual(calls, ["list"]);
+    const owner = { userId: "owner", guildId: "guild", channelId: "channel" };
+    const preview = await service.execute(owner, {
+      name: "server_config",
+      options: { action: "미리보기" },
+    });
+    assert.equal(preview.data?.confirmationCustomId, "server_config_apply:p");
   });
 });

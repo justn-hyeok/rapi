@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
-import { createHmac, generateKeyPairSync, sign } from "node:crypto";
+import { generateKeyPairSync, sign } from "node:crypto";
 import { describe, it } from "node:test";
-import { verifyWebhookSignature } from "@rapi/adapters";
 import {
   assertDiscordAccess,
   canonicalizeUrl,
@@ -45,13 +44,6 @@ describe("external input boundaries", () => {
     );
   });
 
-  it("verifies webhook HMAC signatures", () => {
-    const body = Buffer.from("payload");
-    const signature = `sha256=${createHmac("sha256", "secret").update(body).digest("hex")}`;
-    assert.equal(verifyWebhookSignature(body, signature, "secret"), true);
-    assert.equal(verifyWebhookSignature(body, signature, "wrong"), false);
-  });
-
   it("rejects non-HTTP source URLs and splits Discord output", () => {
     assert.throws(() => canonicalizeUrl("javascript:alert(1)"), /HTTP/);
     const chunks = splitDiscordMessage("x ".repeat(2500));
@@ -60,7 +52,7 @@ describe("external input boundaries", () => {
   });
 
   it("registers simple Korean slash commands", () => {
-    assert.equal(slashCommandDefinitions.length, 16);
+    assert.equal(slashCommandDefinitions.length, 3);
     const optionNames = slashCommandDefinitions.flatMap((command) =>
       (command.options ?? []).flatMap((option) => [
         option.name,
@@ -77,36 +69,8 @@ describe("external input boundaries", () => {
     );
     assert.deepEqual(
       slashCommandDefinitions.map((command) => command.name),
-      [
-        "일정",
-        "데이터삭제",
-        "브리핑",
-        "검색",
-        "구독",
-        "구독해제",
-        "수집원",
-        "발송내역",
-        "상태",
-        "사용량",
-        "사용정책",
-        "서버구성",
-        "웹훅",
-        "대화채널",
-        "대화해제",
-        "취소",
-      ],
+      ["수집원", "상태", "서버구성"],
     );
-    const subscribe = slashCommandDefinitions.find(
-      (command) => command.name === "구독",
-    );
-    assert.deepEqual(
-      subscribe?.options?.map((option) => option.name),
-      ["이름", "키워드", "분야", "주기"],
-    );
-    const names = slashCommandDefinitions.map((command) => command.name);
-    assert.equal(names.includes("작업"), false);
-    assert.equal(names.includes("승인"), false);
-    assert.equal(names.includes("취소"), true);
   });
 
   it("allows every channel when no channel allowlist is configured", () => {
@@ -194,10 +158,8 @@ describe("external input boundaries", () => {
   });
 
   it("assigns command tiers", () => {
-    assert.equal(requiredCommandAccess("search"), "user");
-    assert.equal(requiredCommandAccess("chat_enable"), "admin");
-    assert.equal(requiredCommandAccess("cancel"), "superadmin");
     assert.equal(requiredCommandAccess("status"), "admin");
-    assert.equal(requiredCommandAccess("webhook"), "superadmin");
+    assert.equal(requiredCommandAccess("sources"), "admin");
+    assert.equal(requiredCommandAccess("server_config"), "superadmin");
   });
 });

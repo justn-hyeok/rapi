@@ -94,7 +94,7 @@ const runtimeClient = new pg.Client({
 await runtimeClient.connect();
 try {
   await runtimeClient.query("SELECT count(*) FROM schema_migrations");
-  await runtimeClient.query("SELECT count(*) FROM ai_usage_policies");
+  await runtimeClient.query("SELECT count(*) FROM sources");
 } finally {
   await runtimeClient.end();
 }

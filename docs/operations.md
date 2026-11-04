@@ -388,7 +388,7 @@ DM을 보낸다. 버튼은 `[반영]` `[건너뛰기]` `[나중에]`(24시간 �
 - `/사용량`(운영진)과 `/상태`에 이번 달·지난달 기능별 모델 비용이 붙는다.
 - 사용량 조회: `SELECT feature, count(*), sum(cost_micro_usd)/1e6 AS usd FROM model_usage
   WHERE at >= date_trunc('month', now() AT TIME ZONE 'Asia/Seoul') GROUP BY 1;`
-- 마이그레이션 `0026_model_usage.sql`을 먼저 적용한다(`npm run db:migrate`).
+- 마이그레이션을 먼저 적용한다(`npm run db:migrate`).
 - 80%/100% 알림은 월·단계·`MODEL_MONTHLY_BUDGET_USD` 금액별로 한 번씩 간다. 한도를 올리면 같은 달에도 새 한도에서 다시 알린다.
 
 연결 범위: 봇·chat·워커가 각자 같은 방식으로 이 클라이언트를 만들어 블로그 초안(`blog_draft`)과
@@ -428,7 +428,7 @@ public-agent는 DB·키 접근이 없는 격리 프로세스라 이 클라이언
      넣는다(기본 `outbound`).
 5. `.env`에 설정한다: `EMAIL_ENABLED=true`, `EMAIL_PROVIDER`, `EMAIL_API_KEY`, `EMAIL_FROM`
    (인증한 도메인의 주소만, 표시 이름 없이), 선택 `EMAIL_REPLY_TO`, `EMAIL_WEBHOOK_SECRET`. 하나라도 빠지면
-   봇이 시작하지 않는다. 마이그레이션 `0023_email_delivery.sql`이 먼저 적용돼야 한다.
+   봇이 시작하지 않는다.
 6. 공개 게이트웨이(`ops/gateway/run.mjs`)가 새 코드로 재시작돼야 `/e/verify/…`,
    `/e/unsub/…`, `/e/webhook/…`가 열린다. 봇을 재시작한다.
 7. 확인: 본인 계정으로 학습자 구독 → 구독 확인 메시지의 `[메일로도 받기]`로 주소 등록 →
@@ -592,7 +592,7 @@ GITHUB_REPORT_TARGET=dm
 ```
 
 `DISCORD_SUPERADMIN_USER_IDS`가 필요하다(리포트 DM 수신자). 마이그레이션
-`0024_github_app.sql`을 먼저 적용한다(`npm run db:migrate`).
+마이그레이션을 먼저 적용한다(`npm run db:migrate`).
 
 ### 3. 동작과 안전장치
 
@@ -654,13 +654,12 @@ GITHUB_REPORT_TARGET=dm
 
 ## 소유자 재알림 (U8)
 
-마이그레이션 `0027_owner_reminders.sql`(`npm run db:migrate`, 자동 배포는 스스로 적용)을 봇·워커보다 먼저 적용한다. 블로그 상태 전이도 새 컬럼을 쓰므로 필수다. 학습자 미리보기를 3시간 동안
+학습자 미리보기를 3시간 동안
 결정하지 않으면, 블로그 글이 PR이 열린 채 24시간 `approved`에 머물면 SUPERADMIN에게 DM을 한 번 보낸다(반복 없음).
 새 환경 변수는 없다.
 
 ## 크롤러 제거 후 정리 (0029)
 
-`0029_remove_crawler.sql`은 `aside` 수집원을 모두 `disabled`로 바꾸고 `crawler_collection_*` 테이블 세 개를 지우며, 응답 전체 스냅샷으로 쌓인 `raw_events` 중복(수집원별 최신 1건 제외, `source_items`가 참조하지 않는 것만)을 삭제한다. 피드가 없는 Anthropic 뉴스는 `kind='html'` 수집원으로 시드한다. 롤백은 테이블을 빈 채로 되살리고 `html` 수집원을 비활성화한다.
 
 배포 뒤 VM에서: `rapi-crawler-controller`, `rapi-crawler-browser`, `rapi-crawler-auto-deploy.timer`를 stop·disable하고, `.env`에서 `CRAWLER_*`를 지우고, `rapi-crawler` 저장소를 보관(archive)한다.
 그다음 쌓인 응답 스냅샷을 서비스를 멈추지 않고 지운다: `node --env-file=/home/justn/rapi-agent/.env scripts/cleanup-response-snapshots.mjs`(건수 확인) → `--apply` → `VACUUM (ANALYZE) raw_events`. 마이그레이션 안에서 지우면 3 GB 테이블에서 배포 전환이 몇 분 이상 멈춘다(2026-10-25 실제로 13분 중단).

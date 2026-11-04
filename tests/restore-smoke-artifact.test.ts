@@ -7,15 +7,15 @@ test("restore smoke artifact requires an isolated target and complete counts", (
     restoreSmokeArtifact({
       project: "rapi-restore-1",
       database: "rapi_restore_smoke_1",
-      tables: 21,
-      migrations: 7,
+      tables: 15,
+      migrations: 1,
       constraints: 20,
     }),
     {
       project: "rapi-restore-1",
       database: "rapi_restore_smoke_1",
-      tables: 21,
-      migrations: 7,
+      tables: 15,
+      migrations: 1,
       constraints: 20,
     },
   );
@@ -23,8 +23,8 @@ test("restore smoke artifact requires an isolated target and complete counts", (
     restoreSmokeArtifact({
       project: "rapi-restore-1",
       database: "rapi_restore_smoke_1",
-      tables: 20,
-      migrations: 7,
+      tables: 14,
+      migrations: 1,
       constraints: 20,
     }),
   );
@@ -32,8 +32,8 @@ test("restore smoke artifact requires an isolated target and complete counts", (
     restoreSmokeArtifact({
       project: "rapi",
       database: "rapi_restore_smoke_1",
-      tables: 21,
-      migrations: 7,
+      tables: 15,
+      migrations: 1,
       constraints: 20,
     }),
   );

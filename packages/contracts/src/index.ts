@@ -1,70 +1,33 @@
-import { z } from "zod";
-import { providerFields, defaultProviderModel } from "./providers.js";
-
-export const visibilitySchema = z.enum(["private", "unlisted", "public"]);
-export const deliveryStateSchema = z.enum([
-  "draft",
-  "ready",
-  "sending",
-  "partially_failed",
-  "retrying",
-  "delivered",
-  "failed",
-  "dead_letter",
-]);
-export const taskStateSchema = z.enum([
-  "draft",
-  "awaiting_approval",
-  "approved",
-  "dispatched",
-  "running",
-  "blocked",
-  "completed",
-  "failed",
-  "rejected",
-  "expired",
-  "cancelled",
-]);
-export const taskPermissionSchema = z.enum([
-  "repo:read",
-  "repo:write",
-  "commit:create",
-  "push",
-  "pull_request:create",
-  "deploy",
-]);
-
-const identifierSchema = z.string().min(1).max(200);
-const isoDateTimeSchema = z.iso.datetime({ offset: true });
-
-export const taskSpecificationSchema = z
-  .object({
-    task_id: identifierSchema,
-    task_revision: z.number().int().positive(),
-    execution_attempt_id: identifierSchema,
-    repository: z.string().min(1),
-    base_revision: z.string().min(1),
-    workspace_ref: z.string().min(1),
-    ...providerFields,
-    goal: z.string().min(1),
-    non_goals: z.array(z.string()),
-    requirements: z.array(z.string().min(1)).min(1),
-    acceptance_criteria: z.array(z.string().min(1)).min(1),
-    permissions: z.array(taskPermissionSchema),
-    forbidden_actions: z.array(z.string().min(1)),
-    approval_id: identifierSchema,
-    approval_expires_at: isoDateTimeSchema,
-    timeout_seconds: z.number().int().positive(),
-    result_report_ref: z.string().min(1),
-    required_evidence: z.array(z.string().min(1)),
-  })
-  .transform(defaultProviderModel);
-
-export type DeliveryState = z.infer<typeof deliveryStateSchema>;
-export type TaskState = z.infer<typeof taskStateSchema>;
-export type TaskSpecification = z.infer<typeof taskSpecificationSchema>;
-
-export * from "./chatops.js";
 export * from "./models.js";
 
-export * from "./providers.js";
+export function redactChat(text: string): string {
+  let safe = text;
+  for (const [key, value] of Object.entries(process.env)) {
+    if (
+      /TOKEN|SECRET|PASSWORD|API_KEY|DATABASE_URL|PRIVATE_KEY|CURSOR|CREDENTIAL/i.test(
+        key,
+      ) &&
+      value &&
+      value.length >= 4
+    )
+      safe = safe.split(value).join("[REDACTED]");
+  }
+  return safe
+    .replace(
+      /("[^"\n]*(?:token|secret|password|api[_-]?key|credential|authorization)[^"\n]*"\s*:\s*)"(?:\\.|[^"\\])*"/gi,
+      '$1"[REDACTED]"',
+    )
+    .replace(
+      /-----BEGIN [^-]*PRIVATE KEY-----[\s\S]*?(?:-----END [^-]*PRIVATE KEY-----|$)/g,
+      "[REDACTED]",
+    )
+    .replace(/(?:postgres(?:ql)?:\/\/)[^\s]+/gi, "[REDACTED]")
+    .replace(
+      /\b(?:sk-[\w-]{10,}|gh[pousr]_[\w]{10,}|github_pat_[\w]{10,})\b/g,
+      "[REDACTED]",
+    )
+    .replace(
+      /((?:authorization|cookie|token|secret|password|api[_-]?key|cmd_api_key|cursor[\w.-]*(?:credential|auth|token)[\w.-]*)\s*[:=]\s*)(?:Bearer\s+)?[^\s,;]+/gi,
+      "$1[REDACTED]",
+    );
+}

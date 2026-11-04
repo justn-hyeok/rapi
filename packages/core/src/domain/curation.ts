@@ -13,12 +13,6 @@ export function kstReached(now: Date, hour: number, minute = 0): boolean {
   return local.getUTCHours() * 60 + local.getUTCMinutes() >= hour * 60 + minute;
 }
 
-/** 1 = Monday ... 7 = Sunday in Asia/Seoul. */
-export function kstWeekday(now: Date): number {
-  const day = new Date(now.getTime() + KST_MS).getUTCDay();
-  return day === 0 ? 7 : day;
-}
-
 function normalizeUrl(value: string): string {
   try {
     const url = new URL(value);
@@ -111,34 +105,4 @@ export function selectBlogItems<T extends BlogFeedItem>(
     taken.set(item.source, count + 1);
     return true;
   });
-}
-
-export interface OwnerRepository {
-  name: string;
-  fork: boolean;
-  archived: boolean;
-  private: boolean;
-  pushedAt: string;
-}
-
-/** Public, original, recently maintained repositories worth introducing. */
-export function selectProjectRepositories<T extends OwnerRepository>(
-  repositories: T[],
-  owner: string,
-  now: Date,
-  exclude: string[] = [],
-): T[] {
-  const skip = new Set([
-    owner.toLowerCase(),
-    "test",
-    ...exclude.map((n) => n.toLowerCase()),
-  ]);
-  return repositories.filter(
-    (repo) =>
-      !repo.fork &&
-      !repo.archived &&
-      !repo.private &&
-      !skip.has(repo.name.toLowerCase()) &&
-      now.getTime() - Date.parse(repo.pushedAt) < 365 * 86_400_000,
-  );
 }

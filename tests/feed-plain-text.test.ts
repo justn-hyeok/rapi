@@ -37,7 +37,6 @@ test("each AI blog post gets its own card without markup or entities", async () 
   };
   const feeds = new CommunityFeeds(store as never, undefined, {
     guildId: "g",
-    owner: "o",
     post: async () => "m",
   });
   await feeds.aiBlogs(new Date("2026-10-27T01:00:00Z"));
@@ -76,7 +75,7 @@ const blogFeeds = (
       },
     } as never,
     summarizer as never,
-    { guildId: "g", owner: "o", post: async () => "m" },
+    { guildId: "g", post: async () => "m" },
   );
 const blogItem = (id: string, summary = "English excerpt of the post") => ({
   id,

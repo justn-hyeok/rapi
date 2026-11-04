@@ -19,7 +19,7 @@ import {
 } from "../scripts/switch-release.mjs";
 import { releaseFileDigests } from "../scripts/release-artifact.mjs";
 
-test("isolated service switch verifies boot revision, rolls back failure and preserves an inactive worker", async () => {
+test("isolated service switch verifies boot revision, rolls back failure and preserves an inactive monitor", async () => {
   const root = await realpath(await mkdtemp(join(tmpdir(), "rapi-switch-")));
   let child: ChildProcess | undefined;
   let port = 0;
@@ -106,7 +106,7 @@ test("isolated service switch verifies boot revision, rolls back failure and pre
     await driver.start(["bot"]);
     const options = {
       currentPath: current,
-      services: ["bot", "worker"],
+      services: ["bot", "monitor"],
       driver,
     };
     const failedReceipt = join(root, "failed-receipt.json");

@@ -5,7 +5,7 @@ import { test } from "node:test";
 import type { DiscordCommandResult, DiscordCommandService } from "@rapi/agent";
 import { createDiscordInteractionServer } from "../apps/bot/src/discord-http.js";
 
-test("cancellation acknowledges before work ends and delivers every reply chunk", async (t) => {
+test("applying a layout acknowledges before work ends and delivers every reply chunk", async (t) => {
   let finish!: (result: DiscordCommandResult) => void;
   const pending = new Promise<DiscordCommandResult>((resolve) => {
     finish = resolve;
@@ -70,7 +70,16 @@ test("cancellation acknowledges before work ends and delivers every reply chunk"
         guild_id: "guild",
         channel_id: "admin",
         member: { user: { id: "owner" }, roles: [] },
-        data: { name: "취소", options: [] },
+        data: {
+          name: "서버구성",
+          options: [
+            {
+              type: 1,
+              name: "적용",
+              options: [{ name: "계획", value: "plan" }],
+            },
+          ],
+        },
       }),
     );
     const timestamp = String(Math.floor(Date.now() / 1000));
@@ -93,12 +102,12 @@ test("cancellation acknowledges before work ends and delivers every reply chunk"
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), { type: 5, data: { flags: 64 } });
     assert.equal(delivered.length, 0);
-    finish({ messages: ["중단을 확인했습니다.", "추가 근거입니다."] });
+    finish({ messages: ["적용했습니다.", "추가 근거입니다."] });
     const timeout = setTimeout(() => completed(), 3_000);
     await deliveryComplete;
     clearTimeout(timeout);
     assert.deepEqual(delivered, [
-      { method: "PATCH", content: "중단을 확인했습니다." },
+      { method: "PATCH", content: "적용했습니다." },
       { method: "POST", content: "추가 근거입니다." },
     ]);
   } finally {

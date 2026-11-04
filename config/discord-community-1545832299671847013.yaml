@@ -25,10 +25,6 @@ categories:
     name: 라피
     audience: user
     channels:
-      - key: rapi_questions
-        name: 라피-질문
-        type: text
-        readOnly: false
       - key: rapi_briefing
         name: 라피-브리핑
         type: text
@@ -41,16 +37,6 @@ categories:
     name: 라피-큐레이션
     audience: user
     channels:
-      - key: curation_projects
-        name: 프로젝트-소식
-        type: text
-        readOnly: true
-        topic: justn이 만드는 프로젝트 소개와 릴리스 소식
-      - key: curation_setup
-        name: 세팅-추천레포
-        type: text
-        readOnly: true
-        topic: justn의 개발 세팅과 매주 star한 저장소
       - key: curation_ai_blogs
         name: ai-블로그
         type: text
@@ -65,10 +51,6 @@ categories:
     name: 라피-운영
     audience: staff
     channels:
-      - key: rapi_admin
-        name: 라피-관리
-        type: text
-        readOnly: false
       - key: operations_alerts
         name: 라피-운영-알림
         type: text

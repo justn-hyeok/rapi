@@ -27,7 +27,7 @@ cp .env "$previous"
 chmod 600 "$previous"
 node scripts/update-environment.mjs --from-file DATABASE_URL "$runtime_file"
 
-services=(rapi-chat.service rapi-worker.service rapi-bot.service rapi-monitor.service)
+services=(rapi-bot.service rapi-monitor.service)
 root=()
 if [[ $EUID -ne 0 ]]; then root=(sudo); fi
 rollback() {

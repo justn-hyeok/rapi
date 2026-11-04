@@ -1,49 +1,8 @@
 import { createServer, request as httpRequest } from "node:http";
-import { readFile } from "node:fs/promises";
-import { URL } from "node:url";
-import {
-  readWithdrawals,
-  filterWithdrawnBlog,
-} from "../../scripts/blog-withdrawals.mjs";
 
 const port = Number(process.env.RAPI_GATEWAY_PORT ?? "3600");
 const healthPort = Number(process.env.RAPI_GATEWAY_HEALTH_PORT ?? "3601");
 const targetPort = Number(process.env.PORT ?? "3000");
-const allowed = [
-  /^\/interactions$/,
-  /^\/github\/webhook$/,
-  /^\/webhooks\/v1\/[^/?#]+$/,
-  /^\/webhooks\/[^/?#]+$/,
-];
-
-// Web pages (Discord login, /me, /admin pages, archive, tokenless unsubscribe). The bot answers 404 for
-// all of them unless WEB_ENABLED is true; the strict shapes here keep everything else out.
-const webRoutes = [
-  ["GET", /^\/auth\/discord\/(?:login|callback)$/],
-  ["POST", /^\/logout$/],
-  ["GET", /^\/me$/],
-  ["POST", /^\/me\/subscription$/],
-  ["POST", /^\/me\/email$/],
-  ["GET", /^\/admin$/],
-  [
-    "GET",
-    /^\/admin\/(?:subscribe|unsubscribe|sources|deliveries|status|usage|usage-policy|server-config|webhooks|billing)$/,
-  ],
-  [
-    "POST",
-    /^\/admin\/(?:subscribe|unsubscribe|usage-policy|server-config|webhooks|billing)$/,
-  ],
-  // Paid period passes; the bot answers 404 for all of them unless BILLING_ENABLED is true.
-  ["GET", /^\/billing$/],
-  ["GET", /^\/billing\/(?:checkout|success|fail)$/],
-  ["POST", /^\/billing\/webhook\/toss$/],
-  ["GET", /^\/archive$/],
-  ["GET", /^\/archive\/(?:daily|weekly)-\d{4}-\d{2}-\d{2}$/],
-  ["GET", /^\/archive\/blog\/(?=.{1,100}$)[a-z0-9]+(?:-[a-z0-9]+)*$/],
-  ["GET", /^\/u\/\d{15,20}\.\d{10}\.[\w-]{43}$/],
-  ["POST", /^\/u\/\d{15,20}\.\d{10}\.[\w-]{43}$/],
-];
-
 function respond(response, status, body) {
   response.writeHead(status, {
     "content-type": "application/json",
@@ -52,99 +11,9 @@ function respond(response, status, body) {
   response.end(JSON.stringify(body));
 }
 
-const server = createServer(async (incoming, outgoing) => {
+const server = createServer((incoming, outgoing) => {
   const path = incoming.url?.split("?")[0] ?? "";
-  if (
-    ["GET", "HEAD"].includes(incoming.method) &&
-    /^\/blog(?:\/(?:[a-z0-9]+(?:-[a-z0-9]+)*\.html|feed\.xml)?)?$/.test(path)
-  ) {
-    incoming.resume();
-    const name =
-      path === "/blog" || path === "/blog/"
-        ? "index.html"
-        : path.slice("/blog/".length);
-    try {
-      let body = await readFile(
-        new URL(`../../apps/blog/dist/${name}`, import.meta.url),
-      );
-      const slugs = await readWithdrawals(
-        process.env.RAPI_BLOG_WITHDRAWALS_FILE,
-        process.env.RAPI_BLOG_WITHDRAWALS_REQUIRED === "true",
-      );
-      body = filterWithdrawnBlog(name, body, slugs);
-      if (!body) {
-        respond(outgoing, 404, { error: "not_found" });
-        return;
-      }
-      if (name === "feed.xml" && process.env.RAPI_PUBLIC_BASE_URL) {
-        const metadata = JSON.parse(
-          await readFile(
-            new URL("../../apps/blog/dist/blog-build.json", import.meta.url),
-            "utf8",
-          ),
-        );
-        const configured = new URL(process.env.RAPI_PUBLIC_BASE_URL);
-        if (!["http:", "https:"].includes(configured.protocol))
-          throw new Error("Invalid blog origin");
-        const effective = new URL("/blog/", configured.origin).href;
-        if (typeof metadata.baseUrl !== "string" || !metadata.baseUrl)
-          throw new Error("Blog build origin is missing");
-        body = Buffer.from(
-          body.toString("utf8").replaceAll(metadata.baseUrl, effective),
-        );
-      }
-      outgoing.writeHead(200, {
-        "content-type": name.endsWith(".xml")
-          ? "application/rss+xml; charset=utf-8"
-          : "text/html; charset=utf-8",
-        "cache-control":
-          process.env.RAPI_BLOG_WITHDRAWALS_REQUIRED === "true"
-            ? "no-store"
-            : "public, max-age=60",
-        "content-security-policy":
-          "default-src 'none'; style-src 'unsafe-inline'; img-src https:; base-uri 'none'; frame-ancestors 'none'",
-        "x-content-type-options": "nosniff",
-      });
-      outgoing.end(incoming.method === "HEAD" ? undefined : body);
-    } catch {
-      respond(outgoing, 404, { error: "not_found" });
-    }
-    return;
-  }
-  // The owner's briefing page and its reactions; the bot verifies the signed link.
-  const briefingPage =
-    ["GET", "HEAD"].includes(incoming.method) &&
-    /^\/b\/[0-9a-f-]{36}$/.test(path);
-  // Tracked learner links: one signed token per item and recipient.
-  const learnerLink =
-    incoming.method === "GET" &&
-    /^\/r\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.\d{15,20}\.\d{10}\.[\w-]{43}$/.test(
-      path,
-    );
-  // Email links: a confirm page (GET) and its action (POST), plus provider webhooks.
-  const emailLink =
-    ["GET", "POST"].includes(incoming.method) &&
-    /^\/e\/(?:verify|unsub)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.\d{10}\.[\w-]{43}$/.test(
-      path,
-    );
-  const emailWebhook =
-    incoming.method === "POST" &&
-    /^\/e\/webhook\/(?:resend|postmark)$/.test(path);
-  const briefingFeedback =
-    incoming.method === "POST" &&
-    /^\/b\/[0-9a-f-]{36}\/(?:feedback|events|detail|curation)$/.test(path);
-  const webPage = webRoutes.some(
-    ([method, rule]) => incoming.method === method && rule.test(path),
-  );
-  if (
-    !webPage &&
-    !briefingPage &&
-    !learnerLink &&
-    !emailLink &&
-    !emailWebhook &&
-    !briefingFeedback &&
-    (incoming.method !== "POST" || !allowed.some((rule) => rule.test(path)))
-  ) {
+  if (incoming.method !== "POST" || path !== "/interactions") {
     incoming.resume();
     respond(outgoing, 404, { error: "not_found" });
     return;

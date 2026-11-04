@@ -8,16 +8,14 @@ cd "$(dirname "$0")/.."
 root=()
 if [[ $EUID -ne 0 ]]; then root=(sudo); fi
 
-started_at="$(date --iso-8601=seconds)"
 cleanup() {
   "${root[@]}" systemctl disable --now \
-    rapi-chat.service rapi-bot.service >/dev/null 2>&1 || true
+    rapi-bot.service >/dev/null 2>&1 || true
 }
 trap cleanup ERR
 
 "${root[@]}" systemctl enable --now \
   rapi-bot.service \
-  rapi-chat.service \
 
 if node --env-file=.env -e 'process.exit(process.env.RAPI_PUBLIC_BASE_URL ? 0 : 1)'; then
   "${root[@]}" systemctl enable --now rapi-public-gateway.service
@@ -27,18 +25,12 @@ if node --env-file=.env -e 'process.exit(process.env.RAPI_PUBLIC_BASE_URL ? 0 : 
 fi
 
 for attempt in {1..30}; do
-  chat_log="$(journalctl -u rapi-chat.service --since "$started_at" --no-pager -o cat 2>/dev/null || true)"
-  if [[ "$chat_log" == *"rapi-chat connected to Discord Gateway"* ]]; then
+  if curl --silent --fail --max-time 3 "http://127.0.0.1:${PORT:-3000}/ready" >/dev/null; then
     trap - ERR
-    echo "새 Discord 토큰을 등록했고 Gateway 연결을 확인했습니다."
+    echo "새 Discord 토큰을 등록했고 봇 준비 상태를 확인했습니다."
     exit 0
-  fi
-  if [[ "$chat_log" == *"Discord Gateway rejected the bot"* ]]; then
-    echo "Discord가 새 토큰을 거부했습니다. 서비스를 다시 중지합니다." >&2
-    false
   fi
   sleep 1
 done
-
-echo "30초 안에 Discord Gateway 연결을 확인하지 못했습니다. 서비스를 다시 중지합니다." >&2
+echo "봇이 준비되지 않았습니다. 서비스를 다시 중지합니다." >&2
 false

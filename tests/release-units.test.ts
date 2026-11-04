@@ -25,14 +25,10 @@ import {
 import { parseEnv } from "node:util";
 
 test("release verification reads every supported port override from the service environment", () => {
-  const environment = parseEnv(
-    'PORT=4100\nCHAT_HEALTH_PORT="4101"\nMONITOR_PORT=4103\nWORKER_HEALTH_PORT=4104\n',
-  );
+  const environment = parseEnv("PORT=4100\nMONITOR_PORT=4103\n");
   assert.deepEqual(configuredHealthPorts(environment), {
     bot: 4100,
-    chat: 4101,
     monitor: 4103,
-    worker: 4104,
   });
   assert.equal(configuredHealthPorts({}).bot, 3000);
   assert.throws(() => configuredHealthPorts({ PORT: "70000" }), /Invalid/);

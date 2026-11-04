@@ -1,13 +1,6 @@
 import assert from "node:assert/strict";
-import { mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { describe, it } from "node:test";
-import {
-  CommunityFeeds,
-  RapiAgent,
-  RecordingDeliveryAdapter,
-} from "@rapi/agent";
+import { CommunityFeeds, RapiAgent } from "@rapi/agent";
 import { PostgresStore } from "@rapi/db";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -17,7 +10,7 @@ if (!databaseUrl || new URL(databaseUrl).pathname !== "/rapi_test")
 describe("curation feeds", () => {
   it("posts each feed once to its managed channel and skips missing channels", async () => {
     const store = new PostgresStore(databaseUrl);
-    const agent = new RapiAgent(store, new RecordingDeliveryAdapter());
+    const agent = new RapiAgent(store);
     try {
       await store.resetForTests();
       await store.pool.query("DELETE FROM community_posts");
@@ -28,11 +21,6 @@ describe("curation feeds", () => {
         channel: string;
         embeds: Array<Record<string, unknown>>;
       }> = [];
-      const setupFile = join(
-        await mkdtemp(join(tmpdir(), "rapi-setup-")),
-        "setup.md",
-      );
-      await writeFile(setupFile, "# 세팅\n\n- Herdr\n- Codex\n");
       let models = [
         {
           id: "a:free",
@@ -48,46 +36,16 @@ describe("curation feeds", () => {
           policy: "t",
           summarize: async (items) =>
             new Map(items.map((i) => [i.id, `요약 ${i.title}`])),
-          detail: async () => ["핵심"],
         },
         {
           guildId: "g",
-          owner: "me",
-          setupFile,
           autoPost: { "ai-blogs": true, "free-tokens": true },
           post: async (channel, embeds) => {
             posts.push({ channel, embeds });
             return String(posts.length);
           },
-          getText: async () => "README",
           getJson: async (url) => {
             if (url.includes("openrouter")) return { data: models };
-            if (url.includes("/users/me/repos"))
-              return [
-                {
-                  name: "brgr",
-                  full_name: "me/brgr",
-                  html_url: "https://github.com/me/brgr",
-                  description: "Agent runner",
-                  fork: false,
-                  archived: false,
-                  private: false,
-                  pushed_at: new Date().toISOString(),
-                  stargazers_count: 3,
-                  language: "Rust",
-                },
-              ];
-            if (url.includes("/releases"))
-              return [
-                {
-                  tag_name: "v1.0.0",
-                  name: "v1.0.0",
-                  html_url: "https://github.com/me/brgr/releases/v1.0.0",
-                  body: "First release",
-                  published_at: new Date().toISOString(),
-                  draft: false,
-                },
-              ];
             return [];
           },
         },
@@ -98,8 +56,6 @@ describe("curation feeds", () => {
       assert.equal(posts.length, 0);
 
       for (const [key, id] of [
-        ["curation_projects", "c-proj"],
-        ["curation_setup", "c-setup"],
         ["curation_ai_blogs", "c-ai"],
         ["curation_free_tokens", "c-free"],
       ])
@@ -165,34 +121,12 @@ describe("curation feeds", () => {
       const morning = new Date(new Date().setUTCHours(1, 0, 0, 0)); // 10:00 KST
       await feeds.runOnce(morning);
       const byChannel = (id: string) => posts.filter((p) => p.channel === id);
-      // Reviewed feeds wait as drafts; automatic feeds are posted.
-      assert.equal(byChannel("c-setup").length, 0);
-      assert.equal(byChannel("c-proj").length, 0);
-      const drafts = await feeds.drafts();
-      assert.deepEqual(drafts.map((d) => d.label).sort(), [
-        "세팅 소개",
-        "프로젝트 소식",
-        "프로젝트 소식",
-      ]);
       assert.equal(byChannel("c-ai").length, 1);
       assert.match(JSON.stringify(byChannel("c-ai")[0]!.embeds), /다룬 곳 1/);
       // The legend, one free model, and one piece of free news: a card each.
       assert.equal(byChannel("c-free").length, 3);
       assert.match(JSON.stringify(byChannel("c-free")), /띠 색깔 보는 법/);
       assert.match(JSON.stringify(byChannel("c-free")), /"title":"A"/);
-
-      const intro = drafts.find((d) => d.title.includes("새 프로젝트 · brgr"))!;
-      assert.deepEqual(await feeds.sendDraft(intro.key), {
-        ok: true,
-        message: "채널에 보냈습니다.",
-      });
-      assert.equal(byChannel("c-proj").length, 1);
-      assert.equal((await feeds.sendDraft(intro.key)).ok, false);
-      const setup = drafts.find((d) => d.label === "세팅 소개")!;
-      assert.equal((await feeds.discardDraft(setup.key)).ok, true);
-      assert.equal((await feeds.drafts()).length, 1);
-      await feeds.runOnce(morning);
-      assert.equal((await feeds.drafts()).length, 1); // discarded and sent drafts never return
 
       const before = posts.length;
       models = [
@@ -205,7 +139,7 @@ describe("curation feeds", () => {
         },
       ];
       await store.pool.query(
-        "DELETE FROM community_posts WHERE starts_with(key,'free-models:') OR starts_with(key,'projects:check:')",
+        "DELETE FROM community_posts WHERE starts_with(key,'free-models:')",
       );
       await feeds.runOnce(morning);
       // The new card waits for the next hourly batch.

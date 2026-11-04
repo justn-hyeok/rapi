@@ -45,7 +45,7 @@ test("the usage guide is posted once and then edited in place", async () => {
     embeds: Array<{ title: string; fields: unknown[] }>;
   };
   assert.equal(body.embeds[0]!.title, "라피 사용 안내");
-  assert.ok(body.embeds[0]!.fields.length >= 3);
+  assert.ok(body.embeds[0]!.fields.length >= 1);
   assert.deepEqual(first.saved, [{ ...first.saved[0]!, key: "help" }]);
 
   const again = setup("message-1");

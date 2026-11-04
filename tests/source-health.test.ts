@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { assessSourceHealth } from "../workers/runtime/src/source-health.js";
+import { assessSourceHealth } from "../apps/bot/src/source-health.js";
 
 test("does not count an active Aside source as a healthy collector", () => {
   assert.deepEqual(

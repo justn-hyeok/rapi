@@ -1,21 +1,10 @@
 import { createPublicKey, verify } from "node:crypto";
 import {
   createServer,
-  type IncomingHttpHeaders,
   type IncomingMessage,
   type ServerResponse,
 } from "node:http";
-import {
-  DiscordCommandService,
-  RapiAgent,
-  WebhookAuthenticationError,
-  WebhookManager,
-  composeButtonEmbeds,
-  composeButtonMessage,
-  type ButtonOutcome,
-  type DiscordCommand,
-} from "@rapi/agent";
-import { verifyWebhookSignature, type ExternalItem } from "@rapi/adapters";
+import { DiscordCommandService, type DiscordCommand } from "@rapi/agent";
 import { runtimeRevision } from "@rapi/core";
 import { redactChat } from "@rapi/contracts";
 
@@ -47,164 +36,15 @@ const stringOption = (name: string, description: string, required = true) => ({
   required,
 });
 
-const integerOption = (name: string, description: string) => ({
-  type: 4,
-  name,
-  description,
-  required: false,
-  min_value: 0,
-});
-
-const RETIRED_CHATOPS_COMMAND =
-  "이 명령은 없어졌어요. 개발 작업은 채널에서 `라피야! 로그인 오류 고쳐줘`처럼 요청하고, 진행 중인 작업은 `/취소`로 멈춥니다.";
-
-export const retiredDiscordCommands: Record<string, string | undefined> = {
-  작업: RETIRED_CHATOPS_COMMAND,
-  승인: RETIRED_CHATOPS_COMMAND,
-  task: RETIRED_CHATOPS_COMMAND,
-  approve: RETIRED_CHATOPS_COMMAND,
-};
-
 export const discordCommandAliases = {
-  브리핑: "brief",
-  검색: "search",
-  구독: "subscribe",
-  구독해제: "unsubscribe",
   수집원: "sources",
-  발송내역: "deliveries",
   상태: "status",
-  사용량: "usage",
-  사용정책: "usage_policy",
   서버구성: "server_config",
-  웹훅: "webhook",
-  대화채널: "chat_enable",
-  대화해제: "chat_disable",
-  취소: "cancel",
-  데이터삭제: "privacy",
-  일정: "schedule",
 } as const satisfies Record<string, DiscordCommand["name"]>;
 
 export const slashCommandDefinitions = [
-  {
-    name: "일정",
-    description: "내 일정과 수집된 마감을 관리합니다",
-    type: 1,
-    options: [
-      {
-        type: 1,
-        name: "추가",
-        description: "문장으로 일정을 추가합니다 (예: 금요일 오후 3시 면담)",
-        options: [stringOption("내용", "날짜·시간과 할 일")],
-      },
-      {
-        type: 1,
-        name: "목록",
-        description: "앞으로 30일의 일정과 마감을 봅니다",
-      },
-      {
-        type: 1,
-        name: "삭제",
-        description: "목록 번호로 일정을 지우거나 수집된 마감을 숨깁니다",
-        options: [
-          {
-            ...integerOption("번호", "목록 번호"),
-            required: true,
-            min_value: 1,
-          },
-        ],
-      },
-    ],
-  },
-  {
-    name: "데이터삭제",
-    description: "라피가 보관하는 본인 정보 또는 관리 대상의 삭제를 요청합니다",
-    type: 1,
-    options: [
-      {
-        type: 1,
-        name: "요청",
-        description: "삭제 대상과 건수를 미리 확인합니다",
-        options: [
-          {
-            ...stringOption("종류", "삭제할 데이터 종류"),
-            choices: [
-              { name: "내 정보", value: "user" },
-              { name: "수집 항목 (소유자)", value: "item" },
-              { name: "수집원 (소유자)", value: "source" },
-            ],
-          },
-          stringOption("대상", "항목·수집원 UUID", false),
-        ],
-      },
-      {
-        type: 1,
-        name: "확정",
-        description: "미리 확인한 삭제 요청을 실행합니다",
-        options: [stringOption("요청id", "삭제 요청 UUID")],
-      },
-      {
-        type: 1,
-        name: "상태",
-        description: "본인 삭제 요청의 진행·백업 만료 상태를 확인합니다",
-        options: [stringOption("요청id", "삭제 요청 UUID")],
-      },
-    ],
-  },
-  {
-    name: "브리핑",
-    description: "최근 24시간 브리핑을 만들어 보냅니다",
-    type: 1,
-  },
-  {
-    name: "검색",
-    description: "수집한 항목을 검색합니다",
-    type: 1,
-    options: [stringOption("검색어", "찾을 내용을 입력하세요")],
-  },
-  {
-    name: "구독",
-    description: "Discord 알림 구독을 만듭니다",
-    type: 1,
-    options: [
-      stringOption("이름", "구독 이름"),
-      stringOption("키워드", "쉼표로 구분한 포함 키워드", false),
-      stringOption("분야", "쉼표로 구분한 분야", false),
-      stringOption("주기", "즉시, 매일, 매주 중 하나", false),
-    ],
-  },
-  {
-    name: "구독해제",
-    description: "알림 구독을 해제합니다",
-    type: 1,
-    options: [stringOption("이름", "해제할 구독 이름")],
-  },
   { name: "수집원", description: "수집원 상태를 확인합니다", type: 1 },
-  { name: "발송내역", description: "최근 발송 상태를 확인합니다", type: 1 },
   { name: "상태", description: "라피 운영 상태를 확인합니다", type: 1 },
-  {
-    name: "사용량",
-    description: "내 AI 사용량과 초기화 시각을 봅니다",
-    type: 1,
-  },
-  {
-    name: "사용정책",
-    description: "AI 사용 정책을 조회하거나 변경합니다",
-    type: 1,
-    options: [
-      { type: 1, name: "조회", description: "현재 사용 정책을 봅니다" },
-      {
-        type: 1,
-        name: "설정",
-        description: "USER 및 전체 한도를 변경합니다",
-        options: [
-          integerOption("사용자일일한도", "USER 1명당 하루 호출 수"),
-          integerOption("쿨다운초", "USER 호출 사이의 최소 초"),
-          integerOption("전체일일한도", "서버 전체 하루 호출 수"),
-          integerOption("동시실행", "서버 전체 동시 실행 수"),
-        ],
-      },
-    ],
-  },
   {
     name: "서버구성",
     description: "Discord 채널 구성을 관리합니다",
@@ -228,66 +68,6 @@ export const slashCommandDefinitions = [
         options: [stringOption("형식", "yaml 또는 json", false)],
       },
     ],
-  },
-  {
-    name: "웹훅",
-    description: "웹훅 연결을 관리합니다",
-    type: 1,
-    options: [
-      {
-        type: 1,
-        name: "등록",
-        description: "웹훅 연결을 등록합니다",
-        options: [
-          stringOption("이름", "연결 이름"),
-          stringOption("종류", "GitHub 수신, 범용 수신, Discord 발송"),
-          stringOption("목적지종류", "채널 또는 웹훅", false),
-          stringOption("목적지", "채널 ID 또는 Discord 발송 연결 ID", false),
-          stringOption("이벤트", "쉼표로 구분한 이벤트", false),
-          stringOption("비밀", "발송 URL 또는 선택한 수신 비밀값", false),
-        ],
-      },
-      { type: 1, name: "목록", description: "웹훅 연결 목록을 봅니다" },
-      {
-        type: 1,
-        name: "상세",
-        description: "웹훅 연결 상세를 봅니다",
-        options: [stringOption("연결", "연결 ID")],
-      },
-      {
-        type: 1,
-        name: "테스트",
-        description: "웹훅 연결을 테스트합니다",
-        options: [stringOption("연결", "연결 ID")],
-      },
-      {
-        type: 1,
-        name: "중지",
-        description: "웹훅 연결을 중지합니다",
-        options: [stringOption("연결", "연결 ID")],
-      },
-      {
-        type: 1,
-        name: "재개",
-        description: "웹훅 연결을 재개합니다",
-        options: [stringOption("연결", "연결 ID")],
-      },
-    ],
-  },
-  {
-    name: "대화채널",
-    description: "현재 채널에서 라피 ChatOps를 켭니다",
-    type: 1,
-  },
-  {
-    name: "대화해제",
-    description: "현재 채널의 라피 ChatOps를 끕니다",
-    type: 1,
-  },
-  {
-    name: "취소",
-    description: "가장 최근 진행 중인 작업을 취소합니다",
-    type: 1,
   },
 ] satisfies Array<{
   name: string;
@@ -356,98 +136,7 @@ export function createDiscordInteractionServer(
   service: DiscordCommandService,
   publicKey: string,
   integrations?: {
-    webhook?: { agent: RapiAgent; secret: string };
-    managedWebhook?: WebhookManager;
-    github?: {
-      receive(
-        body: Buffer,
-        headers: IncomingHttpHeaders,
-      ): Promise<{ status: number; body: unknown }>;
-    };
     readiness?: () => Promise<unknown>;
-    briefing?: {
-      page(
-        batchId: string,
-        token: string,
-      ): Promise<{ html: string; nonce: string } | undefined>;
-      feedback(
-        batchId: string,
-        token: string,
-        input: unknown,
-      ): Promise<"ok" | "forbidden" | "invalid">;
-      schedule(
-        batchId: string,
-        token: string,
-        input: unknown,
-      ): Promise<{ status: number; body: unknown }>;
-      detail(
-        batchId: string,
-        token: string,
-        itemId: unknown,
-      ): Promise<{ status: number; body: unknown }>;
-      curation(
-        batchId: string,
-        token: string,
-        input: { action?: unknown; key?: unknown },
-      ): Promise<{ status: number; body: unknown }>;
-    };
-    web?: {
-      handle(request: {
-        method: string;
-        path: string;
-        query: URLSearchParams;
-        cookie?: string | undefined;
-        form: URLSearchParams;
-        body?: string | undefined;
-      }): Promise<
-        | {
-            status: number;
-            headers: Record<string, string | string[]>;
-            body: string;
-          }
-        | undefined
-      >;
-    };
-    blog?: {
-      /** Modal for [수정 요청]; null when the button is not a revise button. */
-      modal(
-        identity: { userId: string; guildId?: string },
-        customId: string,
-      ): object | null;
-      note(
-        identity: { userId: string; guildId?: string },
-        customId: string,
-        note: string,
-      ): Promise<string>;
-    };
-    learner?: {
-      handle(
-        identity: { userId: string; guildId?: string },
-        customId: string,
-      ): Promise<{ content: string; components?: unknown[] }>;
-      link(token: string, userAgent: string): Promise<string | null>;
-    };
-    email?: {
-      page(
-        kind: "verify" | "unsub",
-        token: string,
-        method: "GET" | "POST",
-      ): Promise<{ status: number; html: string }>;
-      webhook(
-        provider: string,
-        headers: Record<string, string | string[] | undefined>,
-        rawBody: string,
-      ): Promise<{ status: number }>;
-      register(userId: string, address: string): Promise<string>;
-    };
-    /** Owner decision buttons; the result is written onto the pressed message. */
-    decision?: {
-      handles(customId: string): boolean;
-      handle(
-        identity: { userId: string; guildId?: string },
-        customId: string,
-      ): Promise<ButtonOutcome>;
-    };
     component?: (
       identity: {
         userId: string;
@@ -479,214 +168,9 @@ export function createDiscordInteractionServer(
           revision: runtimeRevision,
         });
       }
-      if (
-        integrations?.web &&
-        (request.method === "GET" || request.method === "POST") &&
-        /^\/(?:auth\/|me(?:[/?]|$)|admin(?:[/?]|$)|billing(?:[/?]|$)|archive(?:[/?]|$)|u\/|logout(?:\?|$))/.test(
-          request.url ?? "",
-        )
-      ) {
-        const url = new URL(request.url!, "http://local");
-        let form = new URLSearchParams();
-        let body: string | undefined;
-        if (request.method === "POST") {
-          const raw = await readBody(request);
-          // Toss's JSON webhook is larger than any form.
-          if (
-            raw.length >
-            (url.pathname === "/billing/webhook/toss" ? 65_536 : 4096)
-          )
-            return json(response, 413, { error: "too large" });
-          body = raw.toString("utf8");
-          form = new URLSearchParams(body);
-        }
-        const page = await integrations.web.handle({
-          method: request.method,
-          path: url.pathname,
-          query: url.searchParams,
-          cookie: request.headers.cookie,
-          form,
-          body,
-        });
-        if (page) {
-          response.writeHead(page.status, page.headers);
-          return response.end(page.body);
-        }
-      }
-      // Billing is off (or the web portal is): never fall through to the interaction handler.
-      if (/^\/billing(?:[/?]|$)/.test(request.url ?? ""))
-        return json(response, 404, { error: "not found" });
-      const learnerLink = /^\/r\/([\w.-]{1,200})(?:\?|$)/.exec(
-        request.url ?? "",
-      );
-      if (learnerLink && integrations?.learner) {
-        const target =
-          request.method === "GET"
-            ? await integrations.learner.link(
-                learnerLink[1]!,
-                request.headers["user-agent"] ?? "",
-              )
-            : null;
-        if (!target) return json(response, 404, { error: "not found" });
-        response.writeHead(302, {
-          location: target,
-          "cache-control": "no-store",
-          "referrer-policy": "no-referrer",
-        });
-        return response.end();
-      }
-      const emailPage = /^\/e\/(verify|unsub)\/([\w.-]{1,200})(?:\?|$)/.exec(
-        request.url ?? "",
-      );
-      if (emailPage && integrations?.email) {
-        if (request.method !== "GET" && request.method !== "POST")
-          return json(response, 404, { error: "not found" });
-        if (request.method === "POST") await readBody(request);
-        const result = await integrations.email.page(
-          emailPage[1] as "verify" | "unsub",
-          emailPage[2]!,
-          request.method,
-        );
-        response.writeHead(result.status, {
-          "content-type": "text/html; charset=utf-8",
-          "cache-control": "no-store",
-          "referrer-policy": "no-referrer",
-          "x-content-type-options": "nosniff",
-          "x-robots-tag": "noindex",
-          "content-security-policy":
-            "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
-        });
-        return response.end(result.html);
-      }
-      const emailWebhook = /^\/e\/webhook\/(resend|postmark)(?:\?|$)/.exec(
-        request.url ?? "",
-      );
-      if (emailWebhook && integrations?.email) {
-        if (request.method !== "POST")
-          return json(response, 404, { error: "not found" });
-        const raw = await readBody(request);
-        const outcome = await integrations.email.webhook(
-          emailWebhook[1]!,
-          request.headers,
-          raw.toString("utf8"),
-        );
-        return json(response, outcome.status, {});
-      }
-      const briefing =
-        /^\/b\/([0-9a-f-]{36})(\/feedback|\/events|\/detail|\/curation)?(?:\?|$)/.exec(
-          request.url ?? "",
-        );
-      if (briefing && integrations?.briefing) {
-        const batchId = briefing[1]!;
-        if (request.method === "GET" && !briefing[2]) {
-          const token =
-            new URL(request.url!, "http://local").searchParams.get("t") ?? "";
-          const page = await integrations.briefing.page(batchId, token);
-          if (!page) {
-            response.writeHead(404, {
-              "content-type": "text/plain; charset=utf-8",
-              "cache-control": "no-store",
-              "referrer-policy": "no-referrer",
-            });
-            return response.end(
-              "링크가 만료됐거나 올바르지 않습니다. 최신 DM의 링크를 열어 주세요.",
-            );
-          }
-          response.writeHead(200, {
-            "content-type": "text/html; charset=utf-8",
-            "cache-control": "no-store",
-            "referrer-policy": "no-referrer",
-            "x-content-type-options": "nosniff",
-            "x-robots-tag": "noindex",
-            "content-security-policy": `default-src 'none'; style-src 'nonce-${page.nonce}'; script-src 'nonce-${page.nonce}'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`,
-          });
-          return response.end(page.html);
-        }
-        if (request.method === "POST" && briefing[2]) {
-          let input: { t?: unknown } & Record<string, unknown>;
-          try {
-            const raw = await readBody(request);
-            if (raw.length > 4096)
-              return json(response, 413, { error: "too large" });
-            input = JSON.parse(raw.toString("utf8")) as typeof input;
-          } catch {
-            return json(response, 400, { error: "invalid json" });
-          }
-          if (briefing[2] === "/curation") {
-            const curated = await integrations.briefing.curation(
-              batchId,
-              typeof input.t === "string" ? input.t : "",
-              input as { action?: unknown; key?: unknown },
-            );
-            return json(response, curated.status, curated.body);
-          }
-          if (briefing[2] === "/detail") {
-            const detail = await integrations.briefing.detail(
-              batchId,
-              typeof input.t === "string" ? input.t : "",
-              input.itemId,
-            );
-            return json(response, detail.status, detail.body);
-          }
-          if (briefing[2] === "/events") {
-            const scheduled = await integrations.briefing.schedule(
-              batchId,
-              typeof input.t === "string" ? input.t : "",
-              input,
-            );
-            return json(response, scheduled.status, scheduled.body);
-          }
-          const result = await integrations.briefing.feedback(
-            batchId,
-            typeof input.t === "string" ? input.t : "",
-            input,
-          );
-          return json(
-            response,
-            result === "ok" ? 200 : result === "forbidden" ? 403 : 400,
-            { result },
-          );
-        }
-      }
       if (request.method !== "POST")
         return json(response, 404, { error: "not found" });
       const body = await readBody(request);
-      if (request.url === "/github/webhook" && integrations?.github) {
-        const result = await integrations.github.receive(body, request.headers);
-        return json(response, result.status, result.body);
-      }
-      if (
-        request.url?.startsWith("/webhooks/v1/") &&
-        integrations?.managedWebhook
-      ) {
-        const connectionId = decodeURIComponent(
-          request.url.slice("/webhooks/v1/".length),
-        );
-        const result = await integrations.managedWebhook.receive(
-          connectionId,
-          body,
-          request.headers,
-        );
-        return json(response, 202, result);
-      }
-      if (request.url?.startsWith("/webhooks/") && integrations?.webhook) {
-        const signature = request.headers["x-rapi-signature"];
-        if (
-          typeof signature !== "string" ||
-          !verifyWebhookSignature(body, signature, integrations.webhook.secret)
-        ) {
-          return json(response, 401, { error: "invalid webhook signature" });
-        }
-        const sourceId = decodeURIComponent(
-          request.url.slice("/webhooks/".length),
-        );
-        const payload = JSON.parse(body.toString("utf8")) as ExternalItem;
-        const result = await integrations.webhook.agent.ingestExternalItem(
-          sourceId,
-          payload,
-        );
-        return json(response, 202, result);
-      }
       if (request.url !== "/interactions")
         return json(response, 404, { error: "not found" });
       const signature = request.headers["x-signature-ed25519"];
@@ -711,7 +195,6 @@ export function createDiscordInteractionServer(
         user?: { id?: string };
         guild_id?: string;
         channel_id?: string;
-        message?: { content?: string; embeds?: unknown[] };
         data?: {
           name?: string;
           custom_id?: string;
@@ -738,259 +221,7 @@ export function createDiscordInteractionServer(
           ? { guildPermissions: interaction.member.permissions }
           : {}),
       };
-      if (
-        interaction.type === 5 &&
-        interaction.data?.custom_id?.startsWith("blog_note:") &&
-        integrations?.blog &&
-        interaction.application_id &&
-        interaction.token
-      ) {
-        const note =
-          interaction.data.components
-            ?.flatMap((entry) => entry.components ?? [])
-            .find((field) => field.custom_id === "note")?.value ?? "";
-        const customId = interaction.data.custom_id;
-        const blog = integrations.blog;
-        // Regenerating the draft calls the model and outlives Discord's 3 second window.
-        json(response, 200, { type: 5, data: { flags: 64 } });
-        void blog
-          .note(identity, customId, note)
-          .catch((error: unknown) =>
-            error instanceof Error ? error.message : "수정하지 못했어요.",
-          )
-          .then(async (content) => {
-            const update = await fetch(
-              `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`,
-              {
-                method: "PATCH",
-                headers: { "content-type": "application/json" },
-                body: JSON.stringify({
-                  content,
-                  allowed_mentions: { parse: [] },
-                }),
-              },
-            );
-            await update.arrayBuffer();
-          })
-          .catch(() => undefined);
-        return;
-      }
-      if (
-        interaction.type === 3 &&
-        interaction.data?.custom_id?.startsWith("blog_revise:") &&
-        integrations?.blog
-      ) {
-        try {
-          const modal = integrations.blog.modal(
-            identity,
-            interaction.data.custom_id,
-          );
-          if (modal) return json(response, 200, { type: 9, data: modal });
-        } catch (error) {
-          return json(response, 200, {
-            type: 4,
-            data: {
-              content: error instanceof Error ? error.message : "열 수 없어요.",
-              flags: 64,
-            },
-          });
-        }
-      }
-      if (
-        interaction.type === 3 &&
-        interaction.data?.custom_id === "email_add" &&
-        integrations?.email
-      )
-        return json(response, 200, {
-          type: 9,
-          data: {
-            custom_id: "email_add_modal",
-            title: "메일로도 받기",
-            components: [
-              {
-                type: 1,
-                components: [
-                  {
-                    type: 4,
-                    custom_id: "address",
-                    label: "받을 메일 주소",
-                    style: 1,
-                    min_length: 5,
-                    max_length: 254,
-                    required: true,
-                    placeholder: "name@example.com",
-                  },
-                ],
-              },
-            ],
-          },
-        });
-      if (
-        interaction.type === 5 &&
-        interaction.data?.custom_id === "email_add_modal" &&
-        integrations?.email
-      ) {
-        const address =
-          interaction.data.components
-            ?.flatMap((rowItem) => rowItem.components ?? [])
-            .find((field) => field.custom_id === "address")?.value ?? "";
-        // The provider call can outlast Discord's 3 second window.
-        if (interaction.application_id && interaction.token) {
-          const original = `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`;
-          json(response, 200, { type: 5, data: { flags: 64 } });
-          void integrations.email
-            .register(userId, address)
-            .catch(
-              () =>
-                "메일 주소를 등록하지 못했어요. 잠시 뒤에 다시 시도해 주세요.",
-            )
-            .then(async (content) => {
-              const update = await fetch(original, {
-                method: "PATCH",
-                headers: { "content-type": "application/json" },
-                body: JSON.stringify({
-                  content,
-                  allowed_mentions: { parse: [] },
-                }),
-              });
-              await update.arrayBuffer();
-            })
-            .catch(() => undefined);
-          return;
-        }
-        const content = await integrations.email.register(userId, address);
-        return json(response, 200, {
-          type: 4,
-          data: { content, flags: 64, allowed_mentions: { parse: [] } },
-        });
-      }
-      if (
-        interaction.type === 3 &&
-        interaction.data?.custom_id &&
-        integrations?.decision?.handles(interaction.data.custom_id)
-      ) {
-        const decision = integrations.decision;
-        const customId = interaction.data.custom_id;
-        const original = interaction.message?.content ?? "";
-        const originalEmbeds = interaction.message?.embeds ?? [];
-        const run = async (): Promise<{
-          content: string;
-          embeds?: unknown[];
-          components?: unknown[];
-          notice: boolean;
-        }> => {
-          try {
-            const outcome = await decision.handle(identity, customId);
-            if (outcome.notice)
-              return { content: outcome.notice, notice: true };
-            // Messages sent as embeds keep their cards and gain a result card;
-            // older text messages keep the text composition.
-            if (originalEmbeds.length)
-              return {
-                content: original,
-                embeds: composeButtonEmbeds(
-                  originalEmbeds,
-                  outcome,
-                  userId,
-                  new Date(),
-                ),
-                components: outcome.components ?? [],
-                notice: false,
-              };
-            return {
-              content: composeButtonMessage(
-                original,
-                outcome,
-                userId,
-                new Date(),
-              ),
-              components: outcome.components ?? [],
-              notice: false,
-            };
-          } catch (error) {
-            return {
-              content:
-                error instanceof Error ? error.message : "처리하지 못했어요.",
-              notice: true,
-            };
-          }
-        };
-        if (!interaction.application_id || !interaction.token) {
-          const result = await run();
-          return json(
-            response,
-            200,
-            result.notice
-              ? {
-                  type: 4,
-                  data: {
-                    content: result.content,
-                    flags: 64,
-                    allowed_mentions: { parse: [] },
-                  },
-                }
-              : {
-                  type: 7,
-                  data: {
-                    content: result.content,
-                    ...(result.embeds ? { embeds: result.embeds } : {}),
-                    components: result.components,
-                    allowed_mentions: { parse: [] },
-                  },
-                },
-          );
-        }
-        // Approving a guild or sending an issue outlives Discord's 3 second
-        // window, so acknowledge first and edit the pressed message afterwards.
-        const webhook = `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}`;
-        json(response, 200, { type: 6 });
-        void run()
-          .then(async (result) => {
-            const update = await (result.notice
-              ? fetch(webhook, {
-                  method: "POST",
-                  headers: { "content-type": "application/json" },
-                  body: JSON.stringify({
-                    content: result.content,
-                    flags: 64,
-                    allowed_mentions: { parse: [] },
-                  }),
-                })
-              : fetch(`${webhook}/messages/@original`, {
-                  method: "PATCH",
-                  headers: { "content-type": "application/json" },
-                  body: JSON.stringify({
-                    content: result.content,
-                    ...(result.embeds ? { embeds: result.embeds } : {}),
-                    components: result.components,
-                    allowed_mentions: { parse: [] },
-                  }),
-                }));
-            await update.arrayBuffer();
-          })
-          .catch(() => undefined);
-        return;
-      }
       if (interaction.type === 3 && interaction.data?.custom_id) {
-        const learnerId = interaction.data.custom_id;
-        if (learnerId.startsWith("learner_")) {
-          const learner = integrations?.learner;
-          if (!learner)
-            return json(response, 200, {
-              type: 4,
-              data: { content: "지금은 쓸 수 없는 버튼입니다.", flags: 64 },
-            });
-          const reply = await learner.handle(identity, learnerId);
-          return json(response, 200, {
-            type: 4,
-            data: {
-              content: reply.content,
-              flags: 64,
-              ...(reply.components ? { components: reply.components } : {}),
-              allowed_mentions: { parse: [] },
-            },
-          });
-        }
         if (!integrations?.component)
           return json(response, 400, { error: "component unavailable" });
         if (
@@ -1051,17 +282,8 @@ export function createDiscordInteractionServer(
           DiscordCommand["name"] | undefined
         >
       )[interaction.data.name];
-      if (!commandName) {
-        // Commands stay registered in Discord until the next registration run,
-        // so a retired one gets an answer instead of "interaction failed".
-        const retired = retiredDiscordCommands[interaction.data.name];
-        if (retired)
-          return json(response, 200, {
-            type: 4,
-            data: { content: retired, flags: 64 },
-          });
+      if (!commandName)
         return json(response, 400, { error: "unknown interaction command" });
-      }
       const suppliedOptions = interaction.data.options ?? [];
       const subcommand = suppliedOptions[0] as
         | {
@@ -1077,57 +299,23 @@ export function createDiscordInteractionServer(
       );
       if (subcommand?.type === 1) options.action = subcommand.name;
       const aliases: Record<string, string> = {
-        검색어: "query",
-        이름: "name",
-        키워드: "keywords",
-        분야: "categories",
-        주기: "cadence",
-        내용: "content",
-        모델: "model",
-        공급자: "provider",
-        subscription_id: "subscriptionId",
-        period_start: "periodStart",
-        period_end: "periodEnd",
-        task_id: "taskId",
-        message_ref: "messageRef",
-        종류: "kind",
-        대상: "target",
-        요청id: "deletionId",
-        번호: "number",
-        목적지종류: "destinationKind",
-        목적지: "destinationId",
-        이벤트: "events",
-        비밀: "secret",
-        연결: "id",
         계획: "planId",
         형식: "format",
-        사용자일일한도: "userDailyLimit",
-        쿨다운초: "userCooldownSeconds",
-        전체일일한도: "globalDailyLimit",
-        동시실행: "globalConcurrency",
       };
       for (const [discordName, internalName] of Object.entries(aliases)) {
         if (options[discordName] !== undefined) {
           options[internalName] = options[discordName];
         }
       }
-      for (const key of ["subscription", "specification", "permissions"]) {
-        if (typeof options[key] === "string")
-          options[key] = JSON.parse(options[key] as string) as unknown;
-      }
       if (interaction.id) options.requestId = interaction.id;
       const command = { name: commandName, options };
       if (
-        ((commandName === "webhook" && options.action === "테스트") ||
-          commandName === "brief" ||
-          commandName === "cancel" ||
-          commandName === "privacy" ||
-          (commandName === "server_config" && options.action === "적용")) &&
+        commandName === "server_config" &&
+        options.action === "적용" &&
         interaction.application_id &&
         interaction.token
       ) {
-        const isPublic = commandName === "brief";
-        json(response, 200, { type: 5, data: { flags: isPublic ? 0 : 64 } });
+        json(response, 200, { type: 5, data: { flags: 64 } });
         void service
           .execute(identity, command)
           .then(async (result) => {
@@ -1152,7 +340,7 @@ export function createDiscordInteractionServer(
                   headers: { "content-type": "application/json" },
                   body: JSON.stringify({
                     content,
-                    ...(isPublic ? {} : { flags: 64 }),
+                    flags: 64,
                     allowed_mentions: { parse: [] },
                   }),
                 },
@@ -1201,14 +389,11 @@ export function createDiscordInteractionServer(
               },
             ]
           : undefined;
-      const isPublic =
-        ["search", "brief", "usage"].includes(commandName) &&
-        !result.data?.webNotice;
       json(response, 200, {
         type: 4,
         data: {
           content: result.messages[0] ?? "완료",
-          flags: isPublic ? 0 : 64,
+          flags: 64,
           ...(components ? { components } : {}),
           allowed_mentions: { parse: [] },
         },
@@ -1227,7 +412,7 @@ export function createDiscordInteractionServer(
                 headers: { "content-type": "application/json" },
                 body: JSON.stringify({
                   content,
-                  ...(isPublic ? {} : { flags: 64 }),
+                  flags: 64,
                   allowed_mentions: { parse: [] },
                 }),
               },
@@ -1249,23 +434,8 @@ export function createDiscordInteractionServer(
             allowed_mentions: { parse: [] },
           },
         });
-      const managedWebhookRequest = request.url?.startsWith("/webhooks/v1/");
-      const status =
-        error instanceof WebhookAuthenticationError
-          ? 401
-          : error instanceof Error && /conflicting payload/.test(error.message)
-            ? 409
-            : 400;
-      return json(response, status, {
-        error: managedWebhookRequest
-          ? status === 401
-            ? "invalid webhook signature"
-            : status === 409
-              ? "conflicting webhook delivery"
-              : "webhook rejected"
-          : error instanceof Error
-            ? error.message
-            : "request failed",
+      return json(response, 400, {
+        error: error instanceof Error ? error.message : "request failed",
       });
     }
   });

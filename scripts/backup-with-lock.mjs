@@ -1,7 +1,7 @@
 import pg from "pg";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { atomicJson, readJson } from "./privacy-files.mjs";
+import { atomicJson, readJson } from "./json-files.mjs";
 const client = new pg.Client({
   connectionString: process.env.DATABASE_URL,
   connectionTimeoutMillis: 10000,
