@@ -234,11 +234,63 @@ const failureText = (id: string, error: unknown) =>
   `${id}: ${error instanceof Error ? error.message : "failed"}`;
 
 /**
- * Sends what the hourly limit allows; the rest stay unclaimed for a later run. A
- * row is claimed before its send, so dying mid-send loses a card (the row shows
- * it: carded_at without a message id) rather than sending it twice. Only a send
+ * Sends what `budget` allows; the rest stay unclaimed for a later run. A row is
+ * claimed before its send, so dying mid-send loses a card (the row shows it:
+ * carded_at without a message id) rather than sending it twice. Only a send
  * Discord definitely refused is released and tried again. Returns the failures.
  */
+async function sendClaimedCards<Row extends { id: string }>(input: {
+  rows: readonly Row[];
+  budget: number;
+  delivery: Pick<DeliveryAdapter, "send">;
+  channelId: string;
+  claim: (id: string) => Promise<boolean>;
+  release: (id: string) => Promise<void>;
+  saveMessage: (id: string, messageId: string) => Promise<void>;
+  payload: (row: Row) => DeliveryPayload;
+  deliveryKey: string;
+}): Promise<string[]> {
+  const { rows, delivery, channelId, claim, release, saveMessage } = input;
+  let budget = input.budget;
+  const failures: string[] = [];
+  for (const row of rows) {
+    if (budget <= 0) break;
+    try {
+      if (!(await claim(row.id))) continue;
+    } catch (error) {
+      failures.push(failureText(row.id, error));
+      continue;
+    }
+    let messageId: string;
+    try {
+      const sent = await delivery.send(
+        { channel: "discord_channel", recipientId: channelId },
+        input.payload(row),
+        `${input.deliveryKey}:${row.id}`,
+      );
+      messageId = sent.providerId;
+    } catch (error) {
+      failures.push(failureText(row.id, error));
+      // It may be in the channel already, so it keeps the claim and counts.
+      if (error instanceof UncertainDeliveryError) {
+        budget -= 1;
+        continue;
+      }
+      await release(row.id).catch((releaseError: unknown) =>
+        failures.push(failureText(row.id, releaseError)),
+      );
+      if (error instanceof DiscordRateLimitError) break;
+      continue;
+    }
+    budget -= 1;
+    await saveMessage(row.id, messageId).catch((saveError: unknown) =>
+      failures.push(failureText(row.id, saveError)),
+    );
+  }
+  return failures;
+}
+
+/** Verified candidates, as many as the hourly limit allows. */
 export async function sendDiscountCards(input: {
   store: CardStore;
   delivery: Pick<DeliveryAdapter, "send">;
@@ -256,45 +308,16 @@ export async function sendDiscountCards(input: {
   } catch (error) {
     return [failureText("cards", error)];
   }
-
-  const failures: string[] = [];
-  for (const candidate of candidates) {
-    if (budget <= 0) break;
-    try {
-      if (!(await store.claimCandidateCard(candidate.id))) continue;
-    } catch (error) {
-      failures.push(failureText(candidate.id, error));
-      continue;
-    }
-    let messageId: string;
-    try {
-      const sent = await delivery.send(
-        { channel: "discord_channel", recipientId: channelId },
-        reviewPayloadFor(candidate),
-        `discount-card:${candidate.id}`,
-      );
-      messageId = sent.providerId;
-    } catch (error) {
-      failures.push(failureText(candidate.id, error));
-      // It may be in the channel already, so it keeps the claim and counts.
-      if (error instanceof UncertainDeliveryError) {
-        budget -= 1;
-        continue;
-      }
-      await store
-        .releaseCandidateCard(candidate.id)
-        .catch((releaseError: unknown) =>
-          failures.push(failureText(candidate.id, releaseError)),
-        );
-      if (error instanceof DiscordRateLimitError) break;
-      continue;
-    }
-    budget -= 1;
-    await store
-      .saveCandidateCardMessage(candidate.id, messageId)
-      .catch((saveError: unknown) =>
-        failures.push(failureText(candidate.id, saveError)),
-      );
-  }
-  return failures;
+  return sendClaimedCards({
+    rows: candidates,
+    budget,
+    delivery,
+    channelId,
+    claim: (id) => store.claimCandidateCard(id),
+    release: (id) => store.releaseCandidateCard(id),
+    saveMessage: (id, messageId) =>
+      store.saveCandidateCardMessage(id, messageId),
+    payload: reviewPayloadFor,
+    deliveryKey: "discount-card",
+  });
 }
