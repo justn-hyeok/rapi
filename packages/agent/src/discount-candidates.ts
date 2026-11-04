@@ -176,19 +176,57 @@ type CardStore = Pick<
   | "saveCandidateCardMessage"
 >;
 
-const CARDS_PER_HOUR = 5;
+export const CARDS_PER_HOUR = 5;
 // Most recent rows are noise, so look well past what can be sent.
 const CARD_ROWS_TO_READ = 500;
 // A channel that refuses everything is not asked about the whole backlog each run.
 const CARD_ATTEMPTS_PER_RUN = 20;
 
-function cardPayloadFor(candidate: CandidateForCard): DeliveryPayload {
+export const DISCOUNT_PUBLISH_PREFIX = "discount_publish:";
+export const DISCOUNT_DISCARD_PREFIX = "discount_discard:";
+
+/** One card as one message with its link, and nothing the reader could press to decide. */
+export function cardPayloadFor(
+  candidate: CandidateForCard,
+  deadline = "",
+): DeliveryPayload {
   return {
     subject: candidate.title,
     text: candidate.title,
     html: "",
     itemIds: [],
-    discord: messageBody([discordEmbed(discountCard(candidate))]),
+    discord: messageBody([discordEmbed(discountCard(candidate, deadline))]),
+  };
+}
+
+// The buttons carry only the row id; whoever presses them is checked on the click.
+function reviewPayloadFor(candidate: CandidateForCard): DeliveryPayload {
+  const payload = cardPayloadFor(candidate);
+  return {
+    ...payload,
+    discord: {
+      ...payload.discord!,
+      components: [
+        ...(payload.discord!.components ?? []),
+        {
+          type: 1,
+          components: [
+            {
+              type: 2,
+              style: 3,
+              label: "게시",
+              custom_id: `${DISCOUNT_PUBLISH_PREFIX}${candidate.id}`,
+            },
+            {
+              type: 2,
+              style: 4,
+              label: "버리기",
+              custom_id: `${DISCOUNT_DISCARD_PREFIX}${candidate.id}`,
+            },
+          ],
+        },
+      ],
+    },
   };
 }
 
@@ -232,7 +270,7 @@ export async function sendDiscountCards(input: {
     try {
       const sent = await delivery.send(
         { channel: "discord_channel", recipientId: channelId },
-        cardPayloadFor(candidate),
+        reviewPayloadFor(candidate),
         `discount-card:${candidate.id}`,
       );
       messageId = sent.providerId;
