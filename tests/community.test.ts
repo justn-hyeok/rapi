@@ -12,7 +12,7 @@ describe("Discord layout", () => {
     assert.equal(layout.roles.length, 2);
     assert.equal(
       layout.categories.flatMap((category) => category.channels).length,
-      19,
+      17,
     );
   });
 

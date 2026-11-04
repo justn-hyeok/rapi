@@ -85,7 +85,7 @@ sudo -n env RAPI_SWITCH_APPROVED=true RAPI_SWITCH_APPLY_MIGRATIONS=true RAPI_CUR
 status=$(jq -r '.status // "missing"' "$receipt" 2>/dev/null || echo missing)
 [[ "$status" == "switched" ]] || fail "서비스 전환 실패 ($status)"
 
-# Keep the source checkout on main for ChatOps, preserving local edits.
+# Keep the source checkout on main, preserving local edits.
 if [[ -n "$(git -C "$REPO" rev-list origin/main..HEAD)" ]]; then
   notify "⚠️ 소스 체크아웃에 push되지 않은 커밋이 있어 main으로 맞추지 않았습니다."
 else

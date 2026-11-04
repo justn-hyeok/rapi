@@ -5,7 +5,6 @@ import {
   assertDiscordAccess,
   assertDiscordScope,
   createGuildGate,
-  decideGuildAdmission,
   isGuildAllowed,
   resolveDiscordAccess,
   resolveHomeGuildId,
@@ -166,15 +165,6 @@ describe("guild allowlist decisions", () => {
     assert.equal(isGuildAllowed("x", undefined), true);
   });
 
-  it("decides what to do when the gateway reports a guild", () => {
-    assert.equal(decideGuildAdmission("g", ["g"], undefined), "none");
-    assert.equal(decideGuildAdmission("g", undefined, undefined), "request");
-    assert.equal(decideGuildAdmission("g", undefined, "pending"), "none");
-    assert.equal(decideGuildAdmission("g", undefined, "allowed"), "none");
-    assert.equal(decideGuildAdmission("g", undefined, "rejected"), "leave");
-    assert.equal(decideGuildAdmission("g", undefined, "left"), "request");
-  });
-
   it("caches the approved guilds until invalidated", async () => {
     let loads = 0;
     let at = 0;
@@ -225,12 +215,17 @@ describe("per-guild feeds", () => {
     const posted: Array<{ channel: string }> = [];
     const sentKeys = new Set<string>();
     const channels: Record<string, string> = {
-      "home|curation_setup": "home-ch",
-      "g2|curation_setup": "g2-ch",
+      "home|curation_ai_blogs": "home-ch",
+      "g2|curation_ai_blogs": "g2-ch",
     };
     const store = {
-      communityPostExists: async () => false,
-      recordCommunityPost: async () => undefined,
+      communityDraft: async (key: string) => ({
+        key,
+        feed: "ai-blogs",
+        embeds: [{ title: "t" }],
+        created: new Date(),
+      }),
+      settleCommunityDraft: async () => true,
       managedDiscordResourceId: async (
         guild: string,
         _type: string,
@@ -247,8 +242,6 @@ describe("per-guild feeds", () => {
     } as unknown as PostgresStore;
     const feeds = new CommunityFeeds(store, undefined, {
       guildId: "home",
-      owner: "o",
-      autoPost: { setup: true },
       guildTargets: async () => targets,
       post: async (channel) => {
         posted.push({ channel });
@@ -264,19 +257,13 @@ describe("per-guild feeds", () => {
       { guildId: "g3", allowedSince: null },
       { guildId: "future", allowedSince: new Date(Date.now() + 3_600_000) },
     ]);
-    const embeds = [{ title: "t" }];
-    const publish = (
-      feeds as unknown as {
-        publish(feed: string, key: string, embeds: unknown[]): Promise<boolean>;
-      }
-    ).publish.bind(feeds);
-    await publish("setup", "k1", embeds);
+    await feeds.sendDraft("k1");
     assert.deepEqual(
       posted.map((p) => p.channel),
       ["home-ch", "g2-ch"],
     );
     // The same key again must not reach g2 twice.
-    await publish("setup", "k1", embeds);
+    await feeds.sendDraft("k1");
     assert.deepEqual(
       posted.map((p) => p.channel),
       ["home-ch", "g2-ch", "home-ch"],
@@ -285,11 +272,7 @@ describe("per-guild feeds", () => {
 
   it("behaves as before when the community guild is the only guild", async () => {
     const { feeds, posted } = setup([{ guildId: "home", allowedSince: null }]);
-    await (
-      feeds as unknown as {
-        publish(feed: string, key: string, embeds: unknown[]): Promise<boolean>;
-      }
-    ).publish("setup", "k", [{ title: "t" }]);
+    await feeds.sendDraft("k");
     assert.deepEqual(
       posted.map((p) => p.channel),
       ["home-ch"],

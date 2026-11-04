@@ -4,13 +4,7 @@ import {
   type IncomingMessage,
   type ServerResponse,
 } from "node:http";
-import {
-  DiscordCommandService,
-  composeButtonEmbeds,
-  composeButtonMessage,
-  type ButtonOutcome,
-  type DiscordCommand,
-} from "@rapi/agent";
+import { DiscordCommandService, type DiscordCommand } from "@rapi/agent";
 import { runtimeRevision } from "@rapi/core";
 import { redactChat } from "@rapi/contracts";
 
@@ -143,14 +137,6 @@ export function createDiscordInteractionServer(
   publicKey: string,
   integrations?: {
     readiness?: () => Promise<unknown>;
-    /** Owner decision buttons; the result is written onto the pressed message. */
-    decision?: {
-      handles(customId: string): boolean;
-      handle(
-        identity: { userId: string; guildId?: string },
-        customId: string,
-      ): Promise<ButtonOutcome>;
-    };
     component?: (
       identity: {
         userId: string;
@@ -209,7 +195,6 @@ export function createDiscordInteractionServer(
         user?: { id?: string };
         guild_id?: string;
         channel_id?: string;
-        message?: { content?: string; embeds?: unknown[] };
         data?: {
           name?: string;
           custom_id?: string;
@@ -236,113 +221,6 @@ export function createDiscordInteractionServer(
           ? { guildPermissions: interaction.member.permissions }
           : {}),
       };
-      if (
-        interaction.type === 3 &&
-        interaction.data?.custom_id &&
-        integrations?.decision?.handles(interaction.data.custom_id)
-      ) {
-        const decision = integrations.decision;
-        const customId = interaction.data.custom_id;
-        const original = interaction.message?.content ?? "";
-        const originalEmbeds = interaction.message?.embeds ?? [];
-        const run = async (): Promise<{
-          content: string;
-          embeds?: unknown[];
-          components?: unknown[];
-          notice: boolean;
-        }> => {
-          try {
-            const outcome = await decision.handle(identity, customId);
-            if (outcome.notice)
-              return { content: outcome.notice, notice: true };
-            // Messages sent as embeds keep their cards and gain a result card;
-            // older text messages keep the text composition.
-            if (originalEmbeds.length)
-              return {
-                content: original,
-                embeds: composeButtonEmbeds(
-                  originalEmbeds,
-                  outcome,
-                  userId,
-                  new Date(),
-                ),
-                components: outcome.components ?? [],
-                notice: false,
-              };
-            return {
-              content: composeButtonMessage(
-                original,
-                outcome,
-                userId,
-                new Date(),
-              ),
-              components: outcome.components ?? [],
-              notice: false,
-            };
-          } catch (error) {
-            return {
-              content:
-                error instanceof Error ? error.message : "처리하지 못했어요.",
-              notice: true,
-            };
-          }
-        };
-        if (!interaction.application_id || !interaction.token) {
-          const result = await run();
-          return json(
-            response,
-            200,
-            result.notice
-              ? {
-                  type: 4,
-                  data: {
-                    content: result.content,
-                    flags: 64,
-                    allowed_mentions: { parse: [] },
-                  },
-                }
-              : {
-                  type: 7,
-                  data: {
-                    content: result.content,
-                    ...(result.embeds ? { embeds: result.embeds } : {}),
-                    components: result.components,
-                    allowed_mentions: { parse: [] },
-                  },
-                },
-          );
-        }
-        // Approving a guild or sending an issue outlives Discord's 3 second
-        // window, so acknowledge first and edit the pressed message afterwards.
-        const webhook = `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}`;
-        json(response, 200, { type: 6 });
-        void run()
-          .then(async (result) => {
-            const update = await (result.notice
-              ? fetch(webhook, {
-                  method: "POST",
-                  headers: { "content-type": "application/json" },
-                  body: JSON.stringify({
-                    content: result.content,
-                    flags: 64,
-                    allowed_mentions: { parse: [] },
-                  }),
-                })
-              : fetch(`${webhook}/messages/@original`, {
-                  method: "PATCH",
-                  headers: { "content-type": "application/json" },
-                  body: JSON.stringify({
-                    content: result.content,
-                    ...(result.embeds ? { embeds: result.embeds } : {}),
-                    components: result.components,
-                    allowed_mentions: { parse: [] },
-                  }),
-                }));
-            await update.arrayBuffer();
-          })
-          .catch(() => undefined);
-        return;
-      }
       if (interaction.type === 3 && interaction.data?.custom_id) {
         if (!integrations?.component)
           return json(response, 400, { error: "component unavailable" });

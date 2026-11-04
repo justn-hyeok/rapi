@@ -65,7 +65,6 @@ function harness(catalog: unknown, openRouter: unknown[] = []) {
   };
   const feeds = new CommunityFeeds(store as never, undefined, {
     guildId: "g",
-    owner: "o",
     autoPost: { "free-tokens": true },
     post: async (_channel, embeds) => {
       const title = (embeds[0] as Embed).title;

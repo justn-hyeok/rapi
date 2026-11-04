@@ -14,12 +14,16 @@ describe("community persistence", () => {
       await store.upsertManagedDiscordResource({
         guildId: "guild",
         resourceType: "channel",
-        key: "rapi_admin",
+        key: "operations_alerts",
         discordId: "123",
         layoutDigest: "layout",
       });
       assert.equal(
-        await store.managedDiscordResourceId("guild", "channel", "rapi_admin"),
+        await store.managedDiscordResourceId(
+          "guild",
+          "channel",
+          "operations_alerts",
+        ),
         "123",
       );
       const planId = await store.createDiscordLayoutPlan({

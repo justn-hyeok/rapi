@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { composeButtonEmbeds } from "@rapi/agent";
 import { cardPayload, contentCard, discordEmbed } from "@rapi/core";
 
 test("a card becomes an embed with the accent color and clipped fields", () => {
@@ -43,25 +42,4 @@ test("contentCard takes the first line as the headline", () => {
   );
   assert.equal(card.title, "senpi 새 버전: 1 → 2");
   assert.equal(card.description, "릴리스: <https://x.test>\n• 통과");
-});
-
-test("a button result is added as the last card; a confirm prompt is replaced, never stacked", () => {
-  const now = new Date("2026-10-27T00:00:00Z");
-  const original = [discordEmbed({ title: "초안", description: "본문" })];
-  const asked = composeButtonEmbeds(
-    original,
-    { prompt: "정말 버릴까요?" },
-    "9",
-    now,
-  );
-  assert.equal(asked.length, 2);
-  assert.equal((asked[1] as { title: string }).title, "❓ 확인");
-  const again = composeButtonEmbeds(asked, { prompt: "다시 확인" }, "9", now);
-  assert.equal(again.length, 2);
-  const done = composeButtonEmbeds(asked, { result: "버렸어요." }, "9", now);
-  assert.equal(done.length, 2);
-  const result = done[1] as { title: string; description: string };
-  assert.equal(result.title, "✅ 처리됨");
-  assert.match(result.description, /버렸어요\.\n처리: <@9> · <t:\d+:f>/);
-  assert.equal((done[0] as { title: string }).title, "초안");
 });

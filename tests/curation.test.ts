@@ -7,14 +7,11 @@ import {
   selectBlogItems,
   kstDateKey,
   kstReached,
-  kstWeekday,
-  selectProjectRepositories,
 } from "@rapi/core";
 
 test("KST calendar helpers", () => {
   const now = new Date("2026-10-11T23:30:00Z"); // Mon 08:30 KST
   assert.equal(kstDateKey(now), "2026-10-12");
-  assert.equal(kstWeekday(now), 1);
   assert.equal(kstReached(now, 8, 30), true);
   assert.equal(kstReached(now, 9), false);
 });
@@ -115,31 +112,4 @@ test("free token news detection", () => {
   );
   assert.ok(!isFreeTokenNews("Free software foundation news", "freedom"));
   assert.ok(!isFreeTokenNews("Rust 1.90 released", ""));
-});
-
-test("project selection keeps recent public originals", () => {
-  const now = new Date("2026-10-09T00:00:00Z");
-  const repo = (name: string, extra: Record<string, unknown> = {}) => ({
-    name,
-    fork: false,
-    archived: false,
-    private: false,
-    pushedAt: "2026-10-01T00:00:00Z",
-    ...extra,
-  });
-  assert.deepEqual(
-    selectProjectRepositories(
-      [
-        repo("brgr"),
-        repo("justn-hyeok"),
-        repo("test"),
-        repo("forked", { fork: true }),
-        repo("old", { pushedAt: "2025-01-01T00:00:00Z" }),
-        repo("secret", { private: true }),
-      ],
-      "justn-hyeok",
-      now,
-    ).map((r) => r.name),
-    ["brgr"],
-  );
 });

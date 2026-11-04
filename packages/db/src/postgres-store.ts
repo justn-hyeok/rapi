@@ -184,21 +184,6 @@ export class PostgresStore {
     const work = async (
       client: PoolClient,
     ): Promise<{ id: string; inserted: boolean }> => {
-      const raw = await client.query<{ expired: boolean }>(
-        "SELECT COALESCE(payload->>'retentionExpired'='true',false) AS expired FROM raw_events WHERE id=$1 FOR UPDATE",
-        [item.rawEventId],
-      );
-      if (raw.rows[0]?.expired) {
-        const existing = await client.query<{ id: string }>(
-          "SELECT id FROM source_items WHERE raw_event_id=$1 AND normalizer_version=$2",
-          [item.rawEventId, item.normalizerVersion],
-        );
-        if (existing.rows[0])
-          return { id: existing.rows[0].id, inserted: false };
-        throw new Error(
-          "Source content has expired; normalization is forbidden",
-        );
-      }
       const result = await client.query<{ id: string }>(
         `INSERT INTO source_items
           (id, raw_event_id, normalizer_version, canonical_url, title, body, author, published_at,
@@ -269,19 +254,6 @@ export class PostgresStore {
     }));
   }
 
-  /** Settles a pending guild once; false when it was already decided. */
-  async decideDiscordGuild(
-    guildId: string,
-    status: "allowed" | "rejected",
-    decidedBy: string,
-  ): Promise<boolean> {
-    const result = await this.pool.query(
-      `UPDATE discord_guilds SET status=$2,decided_at=now(),decided_by=$3 WHERE guild_id=$1 AND status='pending'`,
-      [guildId, status, decidedBy],
-    );
-    return (result.rowCount ?? 0) > 0;
-  }
-
   async communityGuildPostSent(guildId: string, key: string): Promise<boolean> {
     const result = await this.pool.query(
       "SELECT 1 FROM community_guild_posts WHERE guild_id=$1 AND key=$2",
@@ -343,21 +315,6 @@ export class PostgresStore {
     );
   }
 
-  async communityDrafts(): Promise<
-    Array<{
-      key: string;
-      feed: string;
-      title: string;
-      embeds: unknown[];
-      created: Date;
-    }>
-  > {
-    const result = await this.pool.query(
-      `SELECT key,feed,title,embeds,posted_at AS created FROM community_posts WHERE state='draft' ORDER BY posted_at DESC LIMIT 50`,
-    );
-    return result.rows as never;
-  }
-
   /** Oldest waiting cards of a feed. */
   async communityCardQueue(
     feed: string,
@@ -389,10 +346,10 @@ export class PostgresStore {
     return result.rows[0] ?? null;
   }
 
-  /** Moves a draft to posted or discarded exactly once. */
+  /** Moves a waiting card to posted exactly once. */
   async settleCommunityDraft(
     key: string,
-    state: "posted" | "discarded",
+    state: "posted",
     channelId: string | null = null,
     messageId: string | null = null,
   ): Promise<boolean> {
@@ -430,8 +387,6 @@ export class PostgresStore {
     );
     return result.rows.map((row) => row.key);
   }
-
-  // --- Phase-0 learner DM experiment (docs/product-direction.md) ---
 
   /** Recent public posts from sources marked official (AI tool blogs). */
   async officialItems(since: Date): Promise<

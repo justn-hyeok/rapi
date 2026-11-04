@@ -15,11 +15,8 @@ import {
   DiscordLayoutManager,
   RapiAgent,
   createCommunityFeeds,
-  decideGuildButton,
-  isGuildDecision,
 } from "@rapi/agent";
 import {
-  assertDiscordAccess,
   createGuildGate,
   GUILD_NOT_ALLOWED_MESSAGE,
   isGuildAllowed,
@@ -67,7 +64,7 @@ const summarizer =
         )
       : new CodexSummarizer(process.env.SUMMARY_MODEL || DEFAULT_SUMMARY_MODEL);
 const agent = new RapiAgent(store);
-// The curation channels: projects, setup and stars, AI blogs, free tokens.
+// The curation channels: AI blogs and free tokens.
 const communityFeeds = config.COMMUNITY_GUILD_ID
   ? await createCommunityFeeds({
       store,
@@ -76,9 +73,6 @@ const communityFeeds = config.COMMUNITY_GUILD_ID
       extraGuildIds: config.DISCORD_ALLOWED_GUILD_IDS ?? [],
       botToken: config.DISCORD_BOT_TOKEN,
       root: process.cwd(),
-      ...(config.GITHUB_READ_TOKEN
-        ? { githubToken: config.GITHUB_READ_TOKEN }
-        : {}),
     })
   : undefined;
 const feed = new FeedSourceAdapter();
@@ -225,42 +219,6 @@ const server = createDiscordInteractionServer(
   commands,
   config.DISCORD_PUBLIC_KEY,
   {
-    decision: {
-      handles: isGuildDecision,
-      // Pressed in the owner's DM; only a SUPERADMIN may decide.
-      handle: async (identity, customId) => {
-        assertDiscordAccess(identity, allowlists, "superadmin");
-        return decideGuildButton(
-          {
-            decide: (guildId, status, actorId) =>
-              store.decideDiscordGuild(guildId, status, actorId),
-            invalidate: () => guildGate.invalidate(),
-            leave: async (guildId) => {
-              const left = await fetch(
-                `https://discord.com/api/v10/users/@me/guilds/${guildId}`,
-                {
-                  method: "DELETE",
-                  headers: {
-                    authorization: `Bot ${config.DISCORD_BOT_TOKEN}`,
-                  },
-                  signal: AbortSignal.timeout(10_000),
-                },
-              );
-              await left.arrayBuffer();
-              return left.ok;
-            },
-            registerCommands: (guildId) =>
-              registerSlashCommands(
-                config.DISCORD_APPLICATION_ID,
-                config.DISCORD_BOT_TOKEN,
-                guildId,
-              ),
-          },
-          customId,
-          identity.userId,
-        );
-      },
-    },
     component: async (identity, customId) => {
       if (!identity.guildId)
         throw new Error("서버에서만 사용할 수 있는 버튼입니다.");
