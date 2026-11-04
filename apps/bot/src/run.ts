@@ -14,7 +14,9 @@ import {
   DiscordCommandService,
   DiscordLayoutManager,
   RapiAgent,
+  collectDiscountCandidates,
   createCommunityFeeds,
+  loadDiscountSources,
 } from "@rapi/agent";
 import {
   createGuildGate,
@@ -179,9 +181,10 @@ type LoopState = {
   lastSuccessAt?: string;
   lastError?: string;
 };
-const loops: Record<"collection" | "curation", LoopState> = {
+const loops: Record<"collection" | "curation" | "candidates", LoopState> = {
   collection: {},
   curation: {},
+  candidates: {},
 };
 
 async function runLoop(
@@ -213,6 +216,17 @@ async function curate(): Promise<void> {
   const failures = await communityFeeds?.runOnce();
   if (failures?.length)
     throw new Error(`Curation feeds failed: ${failures.join("; ")}`);
+}
+
+// Recorded only; each source reports its own failures in /수집원.
+async function collectCandidates(): Promise<void> {
+  const failures = await collectDiscountCandidates({
+    store,
+    sources: await loadDiscountSources(process.cwd()),
+    githubToken: config.GITHUB_READ_TOKEN,
+  });
+  if (failures.length)
+    throw new Error(`Candidate sources failed: ${failures.join("; ")}`);
 }
 
 const server = createDiscordInteractionServer(
@@ -308,7 +322,11 @@ const server = createDiscordInteractionServer(
             ...Object.entries(loops).map(([name, state]) => ({
               name,
               status: state.lastError ? ("failed" as const) : ("ok" as const),
-              checkedAt: state.lastStartedAt ?? now.toISOString(),
+              // A daily loop is not stale just because it ran hours ago.
+              checkedAt:
+                name === "candidates"
+                  ? now.toISOString()
+                  : (state.lastStartedAt ?? now.toISOString()),
               required: name === "collection",
               ...(state.lastSuccessAt
                 ? { lastSuccessAt: state.lastSuccessAt }
@@ -345,10 +363,20 @@ const collectionTimer = setInterval(
 const curationTimer = communityFeeds
   ? setInterval(() => void runLoop("curation", curate), 5 * 60_000)
   : undefined;
+const candidatesStart = setTimeout(
+  () => void runLoop("candidates", collectCandidates),
+  60_000,
+);
+const candidatesTimer = setInterval(
+  () => void runLoop("candidates", collectCandidates),
+  24 * 60 * 60_000,
+);
 
 const shutdown = (): void => {
   clearInterval(collectionTimer);
   if (curationTimer) clearInterval(curationTimer);
+  clearTimeout(candidatesStart);
+  clearInterval(candidatesTimer);
   server.close(() => {
     void store.close().finally(() => process.exit(0));
   });
