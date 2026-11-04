@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { findDateText, parseHtmlList } from "@rapi/adapters";
+import {
+  findDateText,
+  parseHtmlArticle,
+  parseHtmlEntries,
+  parseHtmlList,
+} from "@rapi/adapters";
 import { parseHtmlSourcePolicy } from "@rapi/core";
 
 const BASE = "https://www.anthropic.com/news";
@@ -108,4 +113,52 @@ test("validates the html source policy", () => {
     () => parseHtmlSourcePolicy({ html: { linkPattern: "a", maxItems: 0 } }),
     /maxItems/,
   );
+});
+
+test("splits a single page of updates and carries each kind of date", () => {
+  const openai = parseHtmlEntries(
+    `<nav><h3>Docs</h3></nav><h3>October, 2026</h3>
+     <div><div class="b">Oct 28</div><span>Feature</span><p>Up to $500 in free API credits.</p></div>
+     <h3>September, 2026</h3>
+     <div><div class="b">Sep 2</div><span>Update</span><p>Sandbox billing changed.</p></div>`,
+    "https://x.test/log",
+    "<div[^>]*>(?:Oct|Sep) \\d{1,2}</div>",
+  );
+  assert.deepEqual(
+    openai.map((item) => [item.title, item.publishedAt?.slice(0, 10)]),
+    [
+      ["Feature Up to $500 in free API credits.", "2026-10-28"],
+      ["Update Sandbox billing changed.", "2026-09-02"],
+    ],
+  );
+  const deepseek = parseHtmlEntries(
+    `<h2>Date: 2026-10-17</h2><h3>Search API</h3><p>Now open to everyone today.</p>
+     <h3>Flash Update</h3><p>A new flash model for all users.</p>`,
+    "https://x.test/updates",
+    "<h[23]\\b",
+  );
+  assert.deepEqual(
+    deepseek.map((item) => [item.title, item.publishedAt?.slice(0, 10)]),
+    [
+      ["Search API", "2026-10-17"],
+      ["Flash Update", "2026-10-17"],
+    ],
+  );
+  assert.notEqual(deepseek[0]!.externalId, deepseek[1]!.externalId);
+  const again = parseHtmlEntries(
+    `<h2>Date: 2026-10-17</h2><h3>Search API</h3><p>Reworded.</p>`,
+    "https://x.test/updates",
+    "<h[23]\\b",
+  );
+  assert.equal(again[0]!.externalId, deepseek[0]!.externalId);
+});
+
+test("reads an article from main when the page marks it", () => {
+  assert.equal(
+    parseHtmlArticle(
+      "<nav>Skip Home</nav><main><h1>Title</h1><p>Body</p></main>",
+    ),
+    "Title Body",
+  );
+  assert.equal(parseHtmlArticle("<p>Body</p>"), "Body");
 });
