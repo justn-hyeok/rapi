@@ -1,0 +1,51 @@
+[
+  {
+    "id": "openai-gpt-5.6-sol-api-promo-2026-08",
+    "source": "https://developers.openai.com/api/docs/changelog",
+    "title": "Update gpt-5.6-sol GPT-5.6 Sol now costs $4 per million input tokens and $20 per million output tokens, representing 20%",
+    "body": "Update gpt-5.6-sol GPT-5.6 Sol now costs $4 per million input tokens and $20 per million output tokens, representing 20% lower input pricing and 33% lower output pricing. GPT-5.6 Sol’s promotional pricing is available at least through November 21, 2026. See pricing details ."
+  },
+  {
+    "id": "vercel-ai-gateway-gpt-5.6-sol-50off-2026-08",
+    "source": "https://vercel.com/atom",
+    "title": "GPT-5.6 Sol is 50% off on AI Gateway for the next month",
+    "body": "GPT-5.6 Sol , the flagship of OpenAI's GPT-5.6 series, is 50% off on AI Gateway through September 18. The discount applies on the OpenAI provider to all token types, tiers, regions, and modes, and it is available only on requests running directly through AI Gateway (not BYOK). Pricing: 50% off Service tier New price per M tokens (input / output) Original price per M tokens (input / output) Default $2.50 / $15.00 $5.00 / $30.00 Flex $1.25 / $7.50 $2.50 / $15.00 Priority (fast mode) $5.00 / $30.00 $10.00 / $60.00 The discount applies on the same terms everywhere else the model is priced: across "
+  },
+  {
+    "id": "cloudflare-ai-gateway-gpt-5.6-sol-50off-2026-08",
+    "source": "https://developers.cloudflare.com/changelog/rss/index.xml",
+    "title": "AI Gateway - Get 50% off GPT-5.6 Sol through AI Gateway",
+    "body": "GPT-5.6 Sol is available through AI Gateway, and for a limited time you can use it at 50% off. If you are already using AI Gateway, point to the openai/gpt-5.6-sol model and the discounted pricing applies automatically — no promo code needed. The promotion is available for Unified Billing users only (not Bring Your Own Keys ). Load credits onto AI Gateway and start sending requests to openai/gpt-5.6-sol . Discounted pricing during the promotion: Usage Promotional price Standard price Input $2.50 per 1M tokens $5 per 1M tokens Output $15 per 1M tokens $30 per 1M tokens Cache read $0.25 per 1M t"
+  },
+  {
+    "id": "anthropic-monthly-api-credits-max-team-2026-10",
+    "source": "https://www.anthropic.com/news",
+    "title": "Introducing Claude Haiku 5.5",
+    "body": "Introduction Performance Pricing Safety Availability Further updates October 7, 2026 Claude Haiku 5.5 (1) Performance (2) Pricing (3) Safety (4) Further updates Model ID Copied claude-haiku-5-5 Skip intro Scroll down Introducing Claude Haiku 5.5: the cheapest, fastest, and most capable small model we’ve ever released. Claude Haiku 5.5 is designed for high-volume, cost-sensitive tasks. It reliably handles quick and repetitive workloads (like summaries, compactions, database queries, and classification requests). It pairs well with Opus 5.5 and Sonnet 5.5 as a subagent on coding work. And, since it’s also our fastest model to date, it works especially well for speed-sensitive tasks like live customer support and browser use.¹ Haiku 5.5 is available at a much lower price than Haiku 4.5. On average, it now costs around 75% less to run.² Along with this launch, we’re making improvements to the value of our model range. We’re halving the price of Claude Sonnet 5.5’s cache reads, which means Sonnet 5.5 now runs around 20% cheaper on most agentic work. And we’re introducing a new monthly API credit for our Claude Max, Ultra, and Team subscribers, designed to support our users in building new agents and applications that run on the Claude Platform. Performance Here’s how Claude Haiku 5.5 performs across a range of benchmarks: Haiku 5.5 Haiku 4.5 GPT-6 Luna Sonnet 5.5 For reference Knowledge work GDPval-AA v2.1 Knowledge work GDPval-AA v2.1 1620 735 1437 1840 Knowledge work AA-Briefcase v1.1 Knowledge work AA-Briefcase v1.1 1578 614 1336 1824 Computer use OSWorld 2.1 Computer use OSWorld 2.1 72.4% Offline subset 15.7% Offline subset 48.9% Offline subset 83.9% Offline subset Multidisciplinary reasoning Humanity’s Last Exam Multidisciplinary reasoning Humanity’s Last Exam 45.9% no tools 10.2% no tools — 56.9% no tools 57.4% with tools 18.7% with tools — 64.5% with tools Agentic coding Terminal-Bench 4.0 Agentic coding Terminal-Bench 4.0 39.2% 0.0% 16.4% 70.6% Agentic coding Fro",
+    "bodyChars": 2000
+  },
+  {
+    "id": "openai-chatgpt-pro-business-api-credits-2026-10",
+    "source": "https://developers.openai.com/api/docs/changelog",
+    "title": "Feature Eligible ChatGPT Pro and Business subscribers can now claim up to $500 per month in free API credits as a subscr",
+    "body": "Feature Eligible ChatGPT Pro and Business subscribers can now claim up to $500 per month in free API credits as a subscription benefit. Activate the benefit from ChatGPT or API Platform by linking an API organization you own. See API credits for ChatGPT subscribers for credit amounts, eligibility, and how to claim."
+  },
+  {
+    "id": "apiyi-oct28-svip-10pct-discount-2026-10",
+    "source": "https://docs.apiyi.com/en/changelog",
+    "title": "Oct 26 Outage Review",
+    "body": "Oct 27, 2026 · Oct 26 Outage Review Service Notice Oct 26 Outage Review Apology, Follow-Up Arrangements, and IP Allowlist Reminder The October 26 incident review is now available, and we apologize to affected customers. A 10% discount will apply automatically to Default and SVIP usage throughout Wednesday, October 28 (UTC+8), with no application required. Customers who temporarily removed IP allowlists because of 401 errors should restore their original configurations. 📖 Full incident review and compensation details"
+  },
+  {
+    "id": "deepseek-v4-flash-price-cut-2026-09",
+    "source": "https://api-docs.deepseek.com/updates/",
+    "title": "DeepSeek-V4.1-Flash Release",
+    "body": "DeepSeek-V4.1-Flash Release Today, we officially release the DeepSeek-V4.1-Flash model. It is the smallest model in our new architecture family, with native multimodal visual understanding. The new architecture is designed for a higher capability ceiling, faster inference, higher throughput, and scaling to larger models. GPQA Diamond: 90.9 HLE: 36.8 (39.1*) Codeforces (Rating): 3471 MathArena Apex: 65.6 Terminal-Bench 2.1: 90.6 Terminal-Bench 3.0: 30.0 Terminal-Bench 4.0: 31.2 DeepSWE v1.1: 74.2 ProgramBench: 20.3 NL2Repo-Bench: 65.4 CyberGym: 88.1 SEC-Bench Pro: 62.8 ExploitGym: 15.3 HLE (w/t"
+  },
+  {
+    "id": "aws-bedrock-gpt-5.6-sol-reduced-pricing-2026-08",
+    "source": "https://aws.amazon.com/about-aws/whats-new/recent/feed/",
+    "title": "Amazon Bedrock reduced pricing for GPT-5.6 Sol",
+    "body": "Amazon Bedrock announces reduced pricing for OpenAI GPT-5.6 Sol Posted on: Aug 21, 2026 Today, OpenAI announced that they are lowering API prices for GPT-5.6 Sol. Following the recent Terra and Luna price reductions, Sol now costs $4 per million input tokens and $20 per million output tokens—20% lower input pricing and 33.3% lower output pricing. This promotional pricing is available at least through November 21, 2026. Whether you're building autonomous coding agents, running complex multi-step analyses, or performing advanced research workflows,"
+  }
+]
