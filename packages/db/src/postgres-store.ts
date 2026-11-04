@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Pool, type PoolClient } from "pg";
 import type {
+  CandidateForCard,
   CandidateToVerify,
   CandidateVerification,
   DiscountCandidate,
@@ -234,6 +235,58 @@ export class PostgresStore {
         verification.termsUrl,
         verification.termsNote,
       ],
+    );
+  }
+
+  /**
+   * Newest first. The published date decides when there is one: a first collection
+   * finds months-old changelog entries, and they are not news just because they
+   * were first seen this week.
+   */
+  async candidatesForCards(limit: number): Promise<CandidateForCard[]> {
+    const { rows } = await this.pool.query<CandidateForCard>(
+      `SELECT id, kind, route, domain, title, url, evidence, band, tags, operator,
+              price_check AS "priceCheck", terms_note AS "termsNote"
+       FROM discount_candidates
+       WHERE carded_at IS NULL AND band IN ('green', 'yellow')
+         AND COALESCE(published_at, first_seen_at) >= now() - interval '7 days'
+       ORDER BY COALESCE(published_at, first_seen_at) DESC, id LIMIT $1`,
+      [limit],
+    );
+    return rows;
+  }
+
+  async cardsInLastHour(): Promise<number> {
+    const { rows } = await this.pool.query<{ count: number }>(
+      `SELECT count(*)::int AS count FROM discount_candidates
+       WHERE carded_at > now() - interval '1 hour'`,
+    );
+    return rows[0]!.count;
+  }
+
+  /** Taken before sending. False when another run has it or the owner just made it red. */
+  async claimCandidateCard(id: string): Promise<boolean> {
+    const result = await this.pool.query(
+      `UPDATE discount_candidates SET carded_at = now()
+       WHERE id = $1 AND carded_at IS NULL AND band IN ('green', 'yellow')`,
+      [id],
+    );
+    return result.rowCount === 1;
+  }
+
+  /** Only for a send Discord refused, so the card goes out on a later run. */
+  async releaseCandidateCard(id: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE discount_candidates SET carded_at = NULL
+       WHERE id = $1 AND card_message_id IS NULL`,
+      [id],
+    );
+  }
+
+  async saveCandidateCardMessage(id: string, messageId: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE discount_candidates SET card_message_id = $2 WHERE id = $1`,
+      [id, messageId],
     );
   }
 
