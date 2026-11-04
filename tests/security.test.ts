@@ -52,7 +52,7 @@ describe("external input boundaries", () => {
   });
 
   it("registers simple Korean slash commands", () => {
-    assert.equal(slashCommandDefinitions.length, 4);
+    assert.equal(slashCommandDefinitions.length, 5);
     const optionNames = slashCommandDefinitions.flatMap((command) =>
       (command.options ?? []).flatMap((option) => [
         option.name,
@@ -69,7 +69,7 @@ describe("external input boundaries", () => {
     );
     assert.deepEqual(
       slashCommandDefinitions.map((command) => command.name),
-      ["수집원", "상태", "서버구성", "제보"],
+      ["수집원", "상태", "서버구성", "제보", "기능"],
     );
   });
 

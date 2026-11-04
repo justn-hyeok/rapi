@@ -16,6 +16,7 @@ import {
   type DiscountPublishResult,
 } from "@rapi/agent";
 import {
+  GUILD_FEATURES,
   REPORT_MEMO_MAX_CHARS,
   runtimeRevision,
   type DiscordIdentity,
@@ -55,7 +56,16 @@ export const discordCommandAliases = {
   상태: "status",
   서버구성: "server_config",
   제보: "report",
+  기능: "features",
 } as const satisfies Record<string, DiscordCommand["name"]>;
+
+const featureOption = {
+  ...stringOption("기능", "바꿀 기능"),
+  choices: GUILD_FEATURES.map(({ key, label }) => ({
+    name: label,
+    value: key,
+  })),
+};
 
 export const slashCommandDefinitions = [
   { name: "수집원", description: "수집원 상태를 확인합니다", type: 1 },
@@ -101,6 +111,26 @@ export const slashCommandDefinitions = [
       {
         ...stringOption("메모", "소유자에게 전할 짧은 메모", false),
         max_length: REPORT_MEMO_MAX_CHARS,
+      },
+    ],
+  },
+  {
+    name: "기능",
+    description: "이 서버에서 켠 기능을 보고 바꿉니다. 소유자만 쓸 수 있습니다",
+    type: 1,
+    options: [
+      { type: 1, name: "보기", description: "켜고 끈 기능을 봅니다" },
+      {
+        type: 1,
+        name: "켜기",
+        description: "기능을 켭니다",
+        options: [featureOption],
+      },
+      {
+        type: 1,
+        name: "끄기",
+        description: "기능을 끕니다",
+        options: [featureOption],
       },
     ],
   },
@@ -426,6 +456,7 @@ export function createDiscordInteractionServer(
         링크: "link",
         종류: "kind",
         메모: "memo",
+        기능: "feature",
       };
       for (const [discordName, internalName] of Object.entries(aliases)) {
         if (options[discordName] !== undefined) {

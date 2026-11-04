@@ -1,15 +1,22 @@
 import {
   assertDiscordLevel,
   assertDiscordScope,
+  describeGuildFeatures,
+  discordOwnerIds,
   GUILD_NOT_ALLOWED_MESSAGE,
+  guildFeatureChanged,
+  guildFeatureRefusal,
   isGuildAllowed,
+  isGuildFeature,
   resolveDiscordAccess,
   splitDiscordMessage,
   type DiscordAccessLevel,
   type DiscordAccessScope,
   type DiscordAllowlists,
   type DiscordIdentity,
+  type GuildFeature,
 } from "@rapi/core";
+import type { GuildFeatureSwitch } from "./guild-features.js";
 import { RapiAgent } from "./rapi-agent.js";
 import type { ReportOptions } from "./reports.js";
 
@@ -18,7 +25,20 @@ export const slashCommands = [
   "status",
   "server_config",
   "report",
+  "features",
 ] as const;
+
+/** The feature each command belongs to. /기능 has none: it has to stay reachable. */
+const commandFeatures: Record<
+  (typeof slashCommands)[number],
+  GuildFeature | undefined
+> = {
+  sources: "status",
+  status: "status",
+  server_config: "server_config",
+  report: "report",
+  features: undefined,
+};
 
 export interface DiscordCommand {
   name: (typeof slashCommands)[number];
@@ -34,7 +54,9 @@ export function requiredCommandAccess(
   command: DiscordCommand["name"],
 ): DiscordAccessLevel {
   if (command === "report") return "user";
-  return command === "server_config" ? "superadmin" : "admin";
+  return command === "server_config" || command === "features"
+    ? "superadmin"
+    : "admin";
 }
 
 const guildScopedCommands: ReadonlySet<DiscordCommand["name"]> = new Set([
@@ -93,8 +115,48 @@ export class DiscordCommandService {
       ) => Promise<string>;
       /** Guilds the bot answers in; undefined means no restriction. */
       guildAllowlist?: () => Promise<readonly string[] | undefined>;
+      guildFeatures?: GuildFeatureSwitch;
     },
   ) {}
+
+  /** Throws the refusal when the feature is off in this guild. */
+  async assertGuildFeature(
+    guildId: string,
+    feature: GuildFeature,
+  ): Promise<void> {
+    const features = await this.operations?.guildFeatures?.enabled(guildId);
+    if (features && !features.has(feature))
+      throw new Error(guildFeatureRefusal(feature));
+  }
+
+  // Owner only, whatever Discord permissions someone has in that server. Skips the
+  // channel allowlist, so it cannot lock the owner out of another server.
+  private async features(
+    identity: DiscordIdentity,
+    options: Record<string, unknown>,
+  ): Promise<DiscordCommandResult> {
+    if (!discordOwnerIds(this.allowlists).includes(identity.userId))
+      throw new Error("소유자만 쓸 수 있는 명령입니다.");
+    if (!identity.guildId) throw new Error("서버에서만 쓸 수 있는 명령입니다.");
+    const features = this.operations?.guildFeatures;
+    if (!features) throw new Error("서버별 기능이 설정되지 않았습니다.");
+    const action = optionalString(options, "action") ?? "보기";
+    let changed: string | undefined;
+    if (action !== "보기") {
+      if (action !== "켜기" && action !== "끄기")
+        throw new Error("지원하지 않는 기능 동작입니다.");
+      const feature = options.feature;
+      if (!isGuildFeature(feature)) throw new Error("알 수 없는 기능입니다.");
+      const enabled = action === "켜기";
+      await features.set(identity.guildId, feature, enabled, identity.userId);
+      changed = guildFeatureChanged(feature, enabled);
+    }
+    const summary = describeGuildFeatures(
+      await features.enabled(identity.guildId),
+      identity.guildId === this.allowlists.homeGuildId,
+    );
+    return { messages: [changed ? `${changed}\n\n${summary}` : summary] };
+  }
 
   async execute(
     identity: DiscordIdentity,
@@ -109,6 +171,11 @@ export class DiscordCommandService {
       )
         throw new Error(GUILD_NOT_ALLOWED_MESSAGE);
     }
+    if (command.name === "features")
+      return this.features(identity, command.options);
+    const feature = commandFeatures[command.name];
+    if (identity.guildId && feature)
+      await this.assertGuildFeature(identity.guildId, feature);
     // Anyone in an allowed server may report; the channel gate still applies.
     if (command.name === "report" && !identity.guildId)
       throw new Error("제보는 서버에서만 보낼 수 있습니다.");
