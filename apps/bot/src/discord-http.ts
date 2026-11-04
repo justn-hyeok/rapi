@@ -16,6 +16,7 @@ import {
   type DiscountPublishResult,
 } from "@rapi/agent";
 import {
+  allowedGuildIds,
   GUILD_FEATURES,
   REPORT_MEMO_MAX_CHARS,
   runtimeRevision,
@@ -157,6 +158,7 @@ export async function registerSlashCommands(
         "content-type": "application/json",
       },
       body: JSON.stringify(slashCommandDefinitions),
+      signal: AbortSignal.timeout(15_000),
     });
     if (response.ok) {
       await response.arrayBuffer();
@@ -178,6 +180,42 @@ export async function registerSlashCommands(
       `Discord command registration failed: ${response.status}${body.message ? ` ${body.message}` : ""}`,
     );
   }
+}
+
+/**
+ * Registers in every allowed guild and returns what failed. One guild failing never
+ * stops the next, and without approved guilds the env list and home guild still go.
+ * With no guild configured at all, registers globally.
+ */
+export async function registerAllowedGuildCommands(input: {
+  applicationId: string;
+  botToken: string;
+  envGuildIds: readonly string[] | undefined;
+  homeGuildId: string | undefined;
+  loadApproved: () => Promise<readonly string[]>;
+}): Promise<string[]> {
+  const failures: string[] = [];
+  const reason = (error: unknown) =>
+    error instanceof Error ? error.message.slice(0, 200) : "failed";
+  let approved: readonly string[] = [];
+  try {
+    approved = await input.loadApproved();
+  } catch (error) {
+    failures.push(`approved guilds: ${reason(error)}`);
+  }
+  const guildIds = allowedGuildIds(
+    input.envGuildIds,
+    approved,
+    input.homeGuildId,
+  );
+  for (const guildId of guildIds ?? [undefined]) {
+    try {
+      await registerSlashCommands(input.applicationId, input.botToken, guildId);
+    } catch (error) {
+      failures.push(`${guildId ?? "global"}: ${reason(error)}`);
+    }
+  }
+  return failures;
 }
 
 async function readBody(request: IncomingMessage): Promise<Buffer> {

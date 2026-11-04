@@ -47,7 +47,7 @@ import {
 import { readFile } from "node:fs/promises";
 import {
   createDiscordInteractionServer,
-  registerSlashCommands,
+  registerAllowedGuildCommands,
 } from "./discord-http.js";
 import { assessSourceHealth } from "./source-health.js";
 
@@ -101,12 +101,13 @@ const htmlList = new HtmlSourceAdapter();
 const github = new GitHubSourceAdapter(config.GITHUB_READ_TOKEN);
 const stars = new GitHubStarRecommender(config.GITHUB_READ_TOKEN);
 
+const loadApprovedGuilds = async () =>
+  (await store.allowedDiscordGuilds()).map((guild) => guild.guildId);
 // Guild membership is checked against the gate, which also covers approved guilds.
 const guildGate = createGuildGate({
   envIds: config.DISCORD_ALLOWED_GUILD_IDS,
   homeGuildId,
-  load: async () =>
-    (await store.allowedDiscordGuilds()).map((guild) => guild.guildId),
+  load: loadApprovedGuilds,
 });
 const allowlists = {
   userIds: config.DISCORD_ALLOWED_USER_IDS,
@@ -188,12 +189,18 @@ const commands = new DiscordCommandService(agent, allowlists, {
   },
 });
 
+// A guild that refuses, or a rate limit, never keeps the bot from starting.
 if (process.env.REGISTER_DISCORD_COMMANDS === "true") {
-  await registerSlashCommands(
-    config.DISCORD_APPLICATION_ID,
-    config.DISCORD_BOT_TOKEN,
+  void registerAllowedGuildCommands({
+    applicationId: config.DISCORD_APPLICATION_ID,
+    botToken: config.DISCORD_BOT_TOKEN,
+    envGuildIds: config.DISCORD_ALLOWED_GUILD_IDS,
     homeGuildId,
-  );
+    loadApproved: loadApprovedGuilds,
+  }).then((failures) => {
+    for (const failure of failures)
+      process.stderr.write(`command registration: ${failure}\n`);
+  });
 }
 
 type LoopState = {

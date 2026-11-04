@@ -1,15 +1,23 @@
 import { loadEnvironment } from "@rapi/config";
 import { resolveHomeGuildId } from "@rapi/core";
-import { registerSlashCommands } from "../apps/bot/src/discord-http.js";
+import { PostgresStore } from "@rapi/db";
+import { registerAllowedGuildCommands } from "../apps/bot/src/discord-http.js";
 
 const config = loadEnvironment();
-await registerSlashCommands(
-  config.DISCORD_APPLICATION_ID,
-  config.DISCORD_BOT_TOKEN,
-  resolveHomeGuildId(
+const store = new PostgresStore(config.DATABASE_URL);
+const failures = await registerAllowedGuildCommands({
+  applicationId: config.DISCORD_APPLICATION_ID,
+  botToken: config.DISCORD_BOT_TOKEN,
+  envGuildIds: config.DISCORD_ALLOWED_GUILD_IDS,
+  homeGuildId: resolveHomeGuildId(
     config.DISCORD_HOME_GUILD_ID,
     config.COMMUNITY_GUILD_ID,
     config.DISCORD_ALLOWED_GUILD_IDS,
   ),
-);
-process.stdout.write("Discord slash commands를 등록했습니다.\n");
+  loadApproved: async () =>
+    (await store.allowedDiscordGuilds()).map((guild) => guild.guildId),
+});
+await store.close();
+for (const failure of failures) process.stderr.write(`${failure}\n`);
+if (failures.length) process.exitCode = 1;
+else process.stdout.write("Discord slash commands를 등록했습니다.\n");
