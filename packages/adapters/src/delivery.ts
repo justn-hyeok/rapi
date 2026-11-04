@@ -12,6 +12,9 @@ export class UncertainDeliveryError extends Error {
 
 export class PermanentDeliveryError extends Error {}
 
+/** Nothing was sent; the caller should stop asking for a while. */
+export class DiscordRateLimitError extends Error {}
+
 export class DiscordDeliveryAdapter implements DeliveryAdapter {
   constructor(private readonly botToken: string) {}
 
@@ -76,6 +79,8 @@ export class DiscordDeliveryAdapter implements DeliveryAdapter {
         );
       throw error;
     }
+    if (response.status === 429)
+      throw new DiscordRateLimitError("Discord returned 429");
     if (!response.ok) throw new Error(`Discord returned ${response.status}`);
     try {
       const message = (await response.json()) as Record<string, unknown>;
