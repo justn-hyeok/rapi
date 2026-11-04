@@ -869,7 +869,7 @@ docker exec rapi-postgres-1 psql -U rapi -d rapi -c "UPDATE discount_candidates 
 | `종류` | `할인`(기본), `새 서비스`, `문제` |
 | `메모` | 선택. 200자까지 |
 
-명령은 다른 명령과 같은 방식으로 등록한다. `.env`에 `REGISTER_DISCORD_COMMANDS=true`를 넣고 봇을 다시 시작한다. 홈 서버가 있으면 그 서버에만 등록된다. 허용 서버 목록과 `DISCORD_ALLOWED_CHANNEL_IDS`도 다른 명령처럼 적용된다. 라피 역할은 없어도 되고, DM에서는 받지 않는다.
+명령은 다른 명령과 같은 방식으로 등록한다([서버별 기능](#서버별-기능-009) 참고). 홈 서버가 아닌 서버에서는 `/기능`으로 켜야 쓸 수 있다. 허용 서버 목록과 `DISCORD_ALLOWED_CHANNEL_IDS`도 다른 명령처럼 적용된다. 라피 역할은 없어도 되고, DM에서는 받지 않는다.
 
 받을 때 지키는 것:
 
@@ -961,3 +961,55 @@ sudo systemctl restart rapi-bot
 ```
 
 되돌리면(`packages/db/rollbacks/0007_star_reminders.sql`) 저장한 스타와 보낸 기록이 지워진다.
+
+## 서버별 기능 (0.0.9)
+
+서버마다 켠 기능만 동작한다. 홈 서버는 언제나 전부 켜져 있어서 지금까지와 같다. 홈 서버는 `DISCORD_HOME_GUILD_ID`, 없으면 `COMMUNITY_GUILD_ID`, 없으면 `DISCORD_ALLOWED_GUILD_IDS`의 첫 번째 서버다.
+
+| 기능 | 값 | 포함하는 것 | 기본값 |
+| --- | --- | --- | --- |
+| 상태 | `status` | `/상태`, `/수집원`. 읽기만 하고 운영자만 쓸 수 있다 | 켜짐 |
+| 제보 | `report` | `/제보` | 꺼짐 |
+| 서버 구성 | `server_config` | `/서버구성`, 적용 버튼, 인증 버튼 | 꺼짐 |
+| 소식 카드 | `curation` | AI 블로그, 무료 토큰 채널로 나가는 카드 | 꺼짐 |
+
+할인 카드, 승인 버튼, 스타 리마인드는 소유자 채널과 DM으로 가므로 이 목록에 없다. `COMMUNITY_GUILD_ID` 서버에는 소식 카드가 스위치와 상관없이 나간다.
+
+바꾸는 방법은 해당 서버에서 쓰는 `/기능` 하나다.
+
+```text
+/기능 보기
+/기능 켜기 기능:제보
+/기능 끄기 기능:제보
+```
+
+- 소유자(`DISCORD_ALLOWED_USER_IDS`, `DISCORD_SUPERADMIN_USER_IDS`)만 쓸 수 있다. 승인 버튼과 같은 기준이다. 그 서버의 관리자라도 이번 버전에서는 바꿀 수 없다.
+- 홈 서버는 바꿀 수 없고 보기만 된다.
+- 바꾸면 다음 상호작용부터 적용된다. 캐시가 없다.
+- 설정은 `discord_guild_features`에 저장한다. 기능 행이 없는 서버는 위 기본값을 따른다.
+
+꺼진 기능은 명령이 등록되어 있거나 예전 버튼을 눌러도 본인에게만 보이는 안내만 받고 아무 일도 하지 않는다. 설정을 읽지 못하면 켜진 것으로 치지 않고 다시 시도하라고 답한다. 홈 서버는 설정을 읽지 않는다.
+
+`DISCORD_ALLOWED_CHANNEL_IDS`를 쓰면 다른 서버의 채널도 그 목록에 있어야 `/상태`, `/제보`, `/서버구성`이 동작한다. `/기능`만 이 목록을 보지 않는다.
+
+업그레이드하면 홈 서버가 아닌 허용 서버는 기본값으로 시작한다. 이미 쓰던 서버는 `/기능 켜기`로 다시 켠다.
+
+### 명령 등록
+
+`.env`에 `REGISTER_DISCORD_COMMANDS=true`를 넣고 봇을 다시 시작하면 허용된 모든 서버(`DISCORD_ALLOWED_GUILD_IDS`, 승인된 서버, 홈 서버)에 명령을 등록한다. 설정한 서버가 하나도 없으면 전체 명령으로 등록한다.
+
+- 서버마다 따로 등록하므로 한 곳이 실패해도 나머지는 계속한다. 실패는 서버 로그에 `command registration:`으로 남는다.
+- 시작을 막지 않는다. 봇은 등록이 끝나기를 기다리지 않고 뜬다.
+- 초대할 때 `applications.commands` 권한을 받지 않은 서버는 403으로 실패한다. 그 권한으로 다시 초대한 뒤 재시작한다.
+- 나중에 허용한 서버는 다음 재시작 때 등록된다. 승인할 때 바로 등록하는 것은 0.0.10에서 한다.
+
+`npm run discord:register-commands`도 같은 일을 하고, 실패가 있으면 0이 아닌 코드로 끝난다.
+
+결과를 볼 때:
+
+```sh
+docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT guild_id, feature, enabled, updated_by, updated_at FROM discord_guild_features ORDER BY guild_id, feature"
+journalctl -u rapi-bot --since "10 minutes ago" | grep "command registration"
+```
+
+되돌리면(`packages/db/rollbacks/0008_guild_features.sql`) 저장한 설정이 지워진다. 이전 버전은 서버별 기능을 보지 않으므로 다른 서버에서도 전부 동작한다.
