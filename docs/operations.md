@@ -737,3 +737,40 @@ GitHub 경로 둘은 `GITHUB_READ_TOKEN`이 있어야 돈다. 없으면 건너�
 ```sh
 docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT route, kind, domain, left(title, 70) AS title, first_seen_at FROM discount_candidates ORDER BY first_seen_at DESC LIMIT 50"
 ```
+
+## 할인 후보 검증 (0.0.4)
+
+수집이 끝나면 띠 색이 없는 후보를 이어서 확인하고 같은 행에 적는다. 규칙만 쓰고 AI 모델은 부르지 않으며, Discord로 보내지 않는다. 기준은 [로드맵의 카드 규칙](../ROADMAP.md#정해진-카드-규칙)이다.
+
+| 열 | 값 |
+| --- | --- |
+| `band` | `green`, `yellow`. `red`는 규칙이 절대 쓰지 않고 소유자만 정한다 |
+| `tags` | `#직접호스팅`, `#오픈모델`, `#재판매` |
+| `operator` | 확인한 운영 주체. 못 찾으면 비어 있음 |
+| `price_check` | `below_list`(정가보다 쌈), `list_price`(정가라고 밝힘), `unknown` |
+| `terms_url`, `terms_note` | 약관 링크, 또는 `확인 못 함`(페이지를 못 읽음), `링크 없음`(읽었지만 링크가 없음) |
+
+- 운영 주체는 `config/discount-sources.json`의 `operators`에 있으면 그대로 쓴다. 없으면 후보 도메인의 첫 화면에서 법인 표기(`Inc.`, `주식회사` 등)를 찾는다.
+- 초록은 아는 운영 주체이거나, 법인 표기가 있으면서 직접 호스팅, 정가 라우터, 공급처를 밝힌 오픈 모델 중계 중 하나일 때다. `official`이 아닌 곳이 비공개 모델을 할인하면 잘 알려진 곳이어도 노랑이고 `#재판매`다.
+- 코드 검색 후보는 비공개 모델 이름 옆에서 찾은 주소라서 비공개 모델을 파는 것으로 본다.
+- PR 후보는 서비스 주소를 모르므로 페이지를 읽지 않는다. 노랑, `확인 못 함`이다.
+- 약관은 색을 바꾸지 않는다. 약관 내용은 읽지 않으며, 링크가 있다는 것만 적는다.
+- 후보 하나를 못 읽어도 다음 후보로 넘어간다. 한 번 정한 색은 다시 정하지 않으며, 저장에 실패한 후보만 다음 실행에서 다시 확인한다. 한 번에 200건까지 본다.
+
+후보 페이지는 낯선 사람의 파일에서 나온 주소라서 다음을 지킨다.
+
+- HTTPS 443만 쓴다. IP 주소, `localhost`, 내부 이름, 사설 주소로 풀리는 이름은 연결하기 전에 거른다.
+- 리디렉션은 3번까지 직접 따라가며 매번 같은 검사를 한다.
+- 10초, 1 MB 제한을 둔다. 키나 쿠키를 보내지 않고, 페이지 원문을 저장하지 않는다.
+
+결과를 볼 때:
+
+```sh
+docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT route, band, tags, operator, price_check, terms_note, domain, left(title, 50) AS title FROM discount_candidates ORDER BY verified_at DESC NULLS FIRST LIMIT 50"
+```
+
+빨강은 해당 도메인을 지목한 근거를 보고 소유자가 직접 정한다. 먹튀나 키 탈취가 확인된 곳을 올리지 않는 판단도 소유자가 한다.
+
+```sh
+docker exec rapi-postgres-1 psql -U rapi -d rapi -c "UPDATE discount_candidates SET band = 'red' WHERE domain = '도메인'"
+```
