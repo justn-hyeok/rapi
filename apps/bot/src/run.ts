@@ -17,6 +17,7 @@ import {
   collectDiscountCandidates,
   createCommunityFeeds,
   loadDiscountSources,
+  sendDiscountCards,
   verifyDiscountCandidates,
 } from "@rapi/agent";
 import {
@@ -182,10 +183,14 @@ type LoopState = {
   lastSuccessAt?: string;
   lastError?: string;
 };
-const loops: Record<"collection" | "curation" | "candidates", LoopState> = {
+const loops: Record<
+  "collection" | "curation" | "candidates" | "cards",
+  LoopState
+> = {
   collection: {},
   curation: {},
   candidates: {},
+  cards: {},
 };
 
 async function runLoop(
@@ -236,6 +241,19 @@ async function collectCandidates(): Promise<void> {
   ];
   if (failures.length)
     throw new Error(`Candidate sources failed: ${failures.join("; ")}`);
+}
+
+// Independent of the daily collection, so cards held back by the hourly limit
+// still go out. Without a channel nothing is sent.
+async function sendCards(): Promise<void> {
+  if (!config.DISCOUNT_REVIEW_CHANNEL_ID) return;
+  const failures = await sendDiscountCards({
+    store,
+    delivery: discord,
+    channelId: config.DISCOUNT_REVIEW_CHANNEL_ID,
+  });
+  if (failures.length)
+    throw new Error(`Discount cards failed: ${failures.join("; ")}`);
 }
 
 const server = createDiscordInteractionServer(
@@ -331,9 +349,9 @@ const server = createDiscordInteractionServer(
             ...Object.entries(loops).map(([name, state]) => ({
               name,
               status: state.lastError ? ("failed" as const) : ("ok" as const),
-              // A daily loop is not stale just because it ran hours ago.
+              // A slower loop is not stale just because it has not run lately.
               checkedAt:
-                name === "candidates"
+                name === "candidates" || name === "cards"
                   ? now.toISOString()
                   : (state.lastStartedAt ?? now.toISOString()),
               required: name === "collection",
@@ -380,12 +398,18 @@ const candidatesTimer = setInterval(
   () => void runLoop("candidates", collectCandidates),
   24 * 60 * 60_000,
 );
+void runLoop("cards", sendCards);
+const cardsTimer = setInterval(
+  () => void runLoop("cards", sendCards),
+  10 * 60_000,
+);
 
 const shutdown = (): void => {
   clearInterval(collectionTimer);
   if (curationTimer) clearInterval(curationTimer);
   clearTimeout(candidatesStart);
   clearInterval(candidatesTimer);
+  clearInterval(cardsTimer);
   server.close(() => {
     void store.close().finally(() => process.exit(0));
   });
