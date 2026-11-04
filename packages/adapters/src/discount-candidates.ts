@@ -7,6 +7,7 @@ import {
 import {
   FeedSourceAdapter,
   HtmlSourceAdapter,
+  readSource,
   type ExternalItem,
   type SourceHttpOptions,
 } from "./sources.js";
@@ -150,4 +151,143 @@ function toCandidate(
     evidence,
     publishedAt: isoDate(item.publishedAt),
   };
+}
+
+function githubHeaders(token: string, accept: string): Record<string, string> {
+  return {
+    Accept: accept,
+    "User-Agent": "rapi",
+    "X-GitHub-Api-Version": "2022-11-28",
+    Authorization: `Bearer ${token}`,
+  };
+}
+
+// Checked against the 30 newest open models.dev PRs on 2026-11-05: it finds every
+// PR that adds a provider.toml except one titled "update antling new models".
+const ADDS_PROVIDER =
+  /\badd(?:s|ing)?\b[^:]*\bproviders?\b|^feat\(providers?\):\s*add\b/i;
+// One request a day: the newest page holds everything since the last run.
+const PULL_REQUESTS_PER_RUN = 100;
+
+export function addsProvider(title: string): boolean {
+  return ADDS_PROVIDER.test(title);
+}
+
+/** Unmerged PRs that add a provider to a catalog repository. */
+export class PullRequestRoute {
+  constructor(
+    private readonly token: string,
+    private readonly options: SourceHttpOptions = {},
+  ) {}
+
+  async collect(repository: string): Promise<CandidateResult> {
+    const { body } = await readSource(
+      `https://api.github.com/repos/${repository}/pulls?state=open&sort=created&direction=desc&per_page=${PULL_REQUESTS_PER_RUN}`,
+      githubHeaders(this.token, "application/vnd.github+json"),
+      this.options,
+    );
+    const pulls = JSON.parse(body) as Array<{
+      number: number;
+      title: string;
+      html_url: string;
+      created_at: string;
+      user?: { login?: string } | null;
+    }>;
+    return {
+      candidates: pulls
+        .filter((pull) => addsProvider(pull.title))
+        .map((pull) => ({
+          kind: "new_service",
+          route: "pull_request",
+          dedupeKey: `pull_request:${repository}#${pull.number}`,
+          domain: null,
+          title: plainText(pull.title, 300),
+          url: pull.html_url,
+          // The PR body is someone else's free text; the link leads to it.
+          evidence: `${repository} PR #${pull.number}, ${pull.user?.login ?? "알 수 없음"}`,
+          publishedAt: isoDate(pull.created_at),
+        })),
+    };
+  }
+}
+
+const CODE_SEARCH_PER_QUERY = 100;
+// Only an address written as the value of a base URL setting.
+const BASE_URL_ADDRESS =
+  /base_?url[^\n]{0,40}?(https?:\/\/[^\s"'`<>()[\]{},;$\\]+)/gi;
+const REAL_HOSTNAME = /^(?:[a-z0-9-]+\.)+[a-z]{2,}$/i;
+const PLACEHOLDER_HOSTNAME =
+  /(?:^|[.-])(?:example|your[a-z]*|test|xxx+)(?:[.-]|$)|\.(?:internal|local|lan|invalid)$/i;
+const API_PATH = /^(?:\/(?:[a-z][a-z-]{0,15}|v\d+[a-z0-9.]{0,8})){0,3}\/?$/i;
+
+/**
+ * The address alone: no credentials, query or fragment, and no path unless it
+ * looks like an API path, because a key can sit in any of those.
+ */
+export function apiAddress(
+  raw: string,
+  denylist: readonly string[],
+): { address: string; domain: string } | null {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return null;
+  }
+  const domain = url.hostname.toLowerCase();
+  if (
+    !REAL_HOSTNAME.test(domain) ||
+    PLACEHOLDER_HOSTNAME.test(domain) ||
+    denylist.some((name) => domain === name || domain.endsWith(`.${name}`))
+  )
+    return null;
+  const path = API_PATH.test(url.pathname)
+    ? url.pathname.replace(/\/$/, "")
+    : "";
+  return { address: `${url.protocol}//${url.host}${path}`, domain };
+}
+
+/** GitHub code search: API addresses people configure next to a model name. */
+export class CodeSearchRoute {
+  constructor(
+    private readonly token: string,
+    private readonly denylist: readonly string[],
+    private readonly options: SourceHttpOptions = {},
+  ) {}
+
+  async collect(query: string): Promise<CandidateResult> {
+    const { body } = await readSource(
+      `https://api.github.com/search/code?q=${encodeURIComponent(query)}&per_page=${CODE_SEARCH_PER_QUERY}`,
+      githubHeaders(this.token, "application/vnd.github.text-match+json"),
+      this.options,
+    );
+    const { items } = JSON.parse(body) as {
+      items: Array<{
+        html_url: string;
+        repository: { html_url: string };
+        text_matches?: Array<{ fragment?: string }>;
+      }>;
+    };
+    const found = new Map<string, DiscountCandidate>();
+    for (const item of items)
+      for (const match of item.text_matches ?? [])
+        for (const [, raw] of (match.fragment ?? "").matchAll(
+          BASE_URL_ADDRESS,
+        )) {
+          const api = apiAddress(raw!, this.denylist);
+          if (!api || found.has(api.domain)) continue;
+          // Public config files can hold keys: nothing else from the file is kept.
+          found.set(api.domain, {
+            kind: "new_service",
+            route: "code_search",
+            dedupeKey: `code_search:${api.domain}`,
+            domain: api.domain,
+            title: api.address,
+            url: item.html_url,
+            evidence: item.repository.html_url,
+            publishedAt: null,
+          });
+        }
+    return { candidates: [...found.values()] };
+  }
 }
