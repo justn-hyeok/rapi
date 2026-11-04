@@ -91,9 +91,10 @@ export function verifyCandidate(
   page: ServicePage | null,
 ): CandidateVerification {
   // A changelog entry describes its price. New services have only a title that
-  // names a repository or PR, which says nothing about the service.
+  // names a repository or PR, which says nothing about the service. A report's
+  // title is its domain, chosen by whoever registered it, so that counts for nothing.
   const own =
-    candidate.kind === "discount"
+    candidate.kind === "discount" && candidate.route !== "report"
       ? `${candidate.title} ${candidate.evidence}`
       : "";
   // A known operator's home page lists everything it sells, not this offer.

@@ -269,3 +269,21 @@ test("every replayed real offer reaches its expected band", () => {
     assert.equal(result.band, band, event.id);
   }
 });
+
+test("a report's own domain name says nothing about its price or models", () => {
+  const result = verifyCandidate(
+    {
+      id: "3",
+      kind: "discount",
+      route: "report",
+      domain: "cheaper-llama-3.ai",
+      title: "cheaper-llama-3.ai",
+      evidence: "",
+    },
+    null,
+    page("Sign up now."),
+  );
+  assert.equal(result.priceCheck, "unknown");
+  assert.deepEqual(result.tags, []);
+  assert.equal(result.band, "yellow");
+});

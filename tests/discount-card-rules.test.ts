@@ -5,6 +5,7 @@ import {
   discordEmbed,
   discountCard,
   findDeadline,
+  reviewCard,
   shouldCardCandidate,
   type CandidateForCard,
 } from "@rapi/core";
@@ -235,4 +236,39 @@ test("a confirmed deadline shows as one safe line; blank shows nothing", () => {
     1,
   );
   assert.ok(body("x".repeat(100))!.includes(`마감: ${"x".repeat(39)}…`));
+});
+
+const report = (fields: Partial<CandidateForCard> = {}) =>
+  offer({
+    route: "report",
+    domain: "new.ai",
+    title: "new.ai",
+    url: "https://new.ai/deal",
+    evidence: "",
+    tags: [],
+    operator: null,
+    priceCheck: "unknown",
+    termsNote: "확인 못 함",
+    ...fields,
+  });
+
+test("a report needs no discount wording, but red and unchecked stay out", () => {
+  assert.equal(shouldCardCandidate(report()), true);
+  assert.equal(shouldCardCandidate(report({ band: "red" })), false);
+  assert.equal(shouldCardCandidate(report({ band: null })), false);
+  assert.equal(shouldCardCandidate(report({ url: "http://new.ai/" })), false);
+});
+
+test("a memo shows on the review card alone, as text that cannot ping or link", () => {
+  const memo = "@everyone [클릭](https://evil.ai) <@1> `x`";
+  const shown = report({ memo });
+  assert.equal(discountCard(shown).author, "제보 · new.ai");
+  assert.doesNotMatch(discountCard(shown).description ?? "", /메모|evil/);
+
+  const line = reviewCard(shown).description!.split("\n").at(-1)!;
+  assert.equal(
+    line,
+    "메모: \\@everyone \\[클릭\\]\\(evil\\.ai\\) \\<\\@1\\> \\`x\\`",
+  );
+  assert.deepEqual(reviewCard(report()), discountCard(report()));
 });

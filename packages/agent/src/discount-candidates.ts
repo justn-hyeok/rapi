@@ -15,6 +15,7 @@ import {
   discordEmbed,
   discountCard,
   knownOperator,
+  reviewCard,
   shouldCardCandidate,
   verifyCandidate,
   type CandidateForCard,
@@ -201,13 +202,13 @@ export function cardPayloadFor(
 
 // The buttons carry only the row id; whoever presses them is checked on the click.
 function reviewPayloadFor(candidate: CandidateForCard): DeliveryPayload {
-  const payload = cardPayloadFor(candidate);
+  const message = messageBody([discordEmbed(reviewCard(candidate))]);
   return {
-    ...payload,
+    ...cardPayloadFor(candidate),
     discord: {
-      ...payload.discord!,
+      ...message,
       components: [
-        ...(payload.discord!.components ?? []),
+        ...(message.components ?? []),
         {
           type: 1,
           components: [
