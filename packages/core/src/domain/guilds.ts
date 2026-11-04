@@ -2,6 +2,9 @@
 export const GUILD_NOT_ALLOWED_MESSAGE =
   "아직 허용되지 않은 서버입니다. 라피 운영자의 승인을 기다리는 중이에요. 서버 주인이 라피 운영자에게 허용을 요청해 주세요.";
 
+export const GUILD_REQUEST_COMMAND = "서버신청";
+export const GUILD_REQUEST_REASON_MAX_CHARS = 100;
+
 /** Home guild: explicit setting, then the community guild, then the first allowed guild. */
 export function resolveHomeGuildId(
   home: string | undefined,
