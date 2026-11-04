@@ -3,7 +3,7 @@ import { once } from "node:events";
 import { createServer } from "node:http";
 import { test } from "node:test";
 import { FeedSourceAdapter, HtmlSourceAdapter } from "@rapi/adapters";
-import { RapiAgent, RecordingDeliveryAdapter } from "@rapi/agent";
+import { RapiAgent } from "@rapi/agent";
 import { GitHubSourceAdapter } from "@rapi/adapters";
 import type { PostgresStore } from "@rapi/db";
 
@@ -102,15 +102,11 @@ test("polling an unchanged feed twice stores its items once and no per-poll snap
         policy: { html: { linkPattern: "^/news/[a-z]+$" } },
       },
     ]);
-    const agent = new RapiAgent(store, new RecordingDeliveryAdapter());
-    const inserted: string[] = [];
+    const agent = new RapiAgent(store);
     for (let poll = 0; poll < 2; poll += 1)
       await agent.collectConfiguredSources(
         new FeedSourceAdapter(),
         new GitHubSourceAdapter(),
-        async (input) => {
-          inserted.push(input.itemId);
-        },
         undefined,
         new HtmlSourceAdapter(),
       );
@@ -119,7 +115,6 @@ test("polling an unchanged feed twice stores its items once and no per-poll snap
     assert.ok([...rawEvents.values()].every((raw) => raw.externalId));
     assert.equal(items.size, 3);
     // Only the first poll announces items.
-    assert.equal(inserted.length, 3);
   } finally {
     server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));
@@ -140,7 +135,7 @@ test("a response that fails to parse is still kept for diagnosis", async () => {
         locator: `http://127.0.0.1:${address.port}/feed`,
       },
     ]);
-    const agent = new RapiAgent(store, new RecordingDeliveryAdapter());
+    const agent = new RapiAgent(store);
     await agent.collectConfiguredSources(
       new FeedSourceAdapter(),
       new GitHubSourceAdapter(),

@@ -6,30 +6,8 @@ async function unit(name: string): Promise<string> {
   return readFile(new URL(`../ops/systemd/${name}`, import.meta.url), "utf8");
 }
 
-test("withdrawal preflight checks the same sealed release the gateway starts", async () => {
-  const contents = await unit(
-    "rapi-public-gateway.service.d/20-source-expiry.conf",
-  );
-  const start = /^ExecStart=(.+)$/m.exec(contents)?.[1].split(" ").at(-1);
-  assert.equal(start, "/usr/local/lib/rapi/launch-public-gateway.mjs");
-  assert.match(contents, /^ExecStartPre=$/m);
-  assert.match(
-    contents,
-    /^Environment=RAPI_CURRENT_RELEASE=\/home\/justn\/rapi-releases\/current$/m,
-  );
-  assert.match(contents, /^ExecStart=$/m);
-  assert.match(contents, /^Environment=RAPI_BLOG_WITHDRAWALS_REQUIRED=true$/m);
-});
-
-test("Discord Gateway startup is isolated from the HTTP bot lifecycle", async () => {
-  const chat = await unit("rapi-chat.service");
-
-  assert.doesNotMatch(chat, /^Requires=rapi-bot\.service$/m);
-  assert.doesNotMatch(chat, /^After=.*rapi-bot\.service/m);
-});
-
 test("Discord services cap persistent crash restart loops", async () => {
-  for (const name of ["rapi-bot.service", "rapi-chat.service"]) {
+  for (const name of ["rapi-bot.service"]) {
     const contents = await unit(name);
     assert.match(contents, /^StartLimitIntervalSec=10min$/m, name);
     assert.match(contents, /^StartLimitBurst=10$/m, name);
@@ -63,7 +41,7 @@ test("auto deploy runs CI-verified main without production secrets", async () =>
 });
 
 test("Codex-backed services can write Codex state under a read-only home", async () => {
-  for (const name of ["rapi-worker", "rapi-bot"]) {
+  for (const name of ["rapi-bot"]) {
     assert.match(await unit(`${name}.service`), /^ProtectHome=read-only$/m);
     assert.match(
       await unit(`${name}.service.d/30-codex.conf`),

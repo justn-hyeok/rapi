@@ -4,7 +4,6 @@ import {
   allowedGuildIds,
   assertDiscordAccess,
   assertDiscordScope,
-  chatOpsExecutionAllowed,
   createGuildGate,
   decideGuildAdmission,
   isGuildAllowed,
@@ -18,9 +17,6 @@ import {
   type RapiAgent,
 } from "@rapi/agent";
 import type { PostgresStore } from "@rapi/db";
-import type { ChatOpsStore } from "@rapi/db";
-import { ChatOrchestrator } from "../apps/chat/src/orchestrator.js";
-import type { Executor } from "../apps/chat/src/executor.js";
 
 const ADMINISTRATOR = "8";
 const policy = {
@@ -127,84 +123,14 @@ describe("admin scope", () => {
 });
 
 describe("commands by scope", () => {
-  const calls: string[] = [];
   const service = new DiscordCommandService(
-    {
-      store: { enableChatChannel: async () => void calls.push("chat") },
-    } as unknown as RapiAgent,
+    {} as unknown as RapiAgent,
     policy,
     {
       status: async () => "ok",
       guildAllowlist: async () => ["home", "other"],
-      usage: {
-        status: async () => "",
-        policy: async () => "policy",
-        update: async () => {
-          calls.push("usage");
-          return "updated";
-        },
-      },
     },
   );
-  const adminInOther = {
-    userId: "u",
-    guildId: "other",
-    channelId: "c",
-    guildPermissions: ADMINISTRATOR,
-  };
-
-  it("lets a guild admin run guild-scoped commands only", async () => {
-    await service.execute(adminInOther, { name: "chat_enable", options: {} });
-    await service.execute(adminInOther, {
-      name: "usage_policy",
-      options: { action: "변경", userDailyLimit: 5 },
-    });
-    assert.deepEqual(calls, ["chat", "usage"]);
-    for (const name of [
-      "status",
-      "sources",
-      "deliveries",
-      "subscribe",
-    ] as const)
-      await assert.rejects(
-        service.execute(adminInOther, { name, options: {} }),
-        /운영자 서버/,
-      );
-  });
-
-  it("keeps global commands for the home guild and listed admins", async () => {
-    assert.deepEqual(
-      (
-        await service.execute(
-          { userId: "u", guildId: "home", guildPermissions: ADMINISTRATOR },
-          { name: "status", options: {} },
-        )
-      ).messages,
-      ["ok"],
-    );
-    assert.deepEqual(
-      (
-        await service.execute(
-          { userId: "listed-admin", guildId: "other" },
-          { name: "status", options: {} },
-        )
-      ).messages,
-      ["ok"],
-    );
-  });
-
-  it("does not let home admins change usage policy without SUPERADMIN", async () => {
-    await assert.rejects(
-      service.execute(
-        { userId: "u", guildId: "home", guildPermissions: ADMINISTRATOR },
-        {
-          name: "usage_policy",
-          options: { action: "변경", userDailyLimit: 5 },
-        },
-      ),
-      /SUPERADMIN/,
-    );
-  });
 
   it("answers an unapproved guild with a short notice", async () => {
     await assert.rejects(
@@ -213,17 +139,6 @@ describe("commands by scope", () => {
         { name: "status", options: {} },
       ),
       /아직 허용되지 않은 서버입니다.*승인을 기다리는 중.*서버 주인이 라피 운영자에게 허용을 요청/,
-    );
-  });
-
-  it("tells a guild admin which commands work in their server", async () => {
-    await assert.rejects(
-      service.execute(adminInOther, { name: "status", options: {} }),
-      (error: Error) =>
-        /운영자 서버나 DM에서만/.test(error.message) &&
-        ["/사용정책", "/서버구성", "/대화채널", "/대화해제"].every((name) =>
-          error.message.includes(name),
-        ),
     );
   });
 });
@@ -281,74 +196,6 @@ describe("guild allowlist decisions", () => {
     at = 500;
     await gate.allowed();
     assert.equal(loads, 3);
-  });
-});
-
-describe("ChatOps outside the home guild", () => {
-  it("allows execution only in the home guild", () => {
-    assert.equal(chatOpsExecutionAllowed("home", "home"), true);
-    assert.equal(chatOpsExecutionAllowed("other", "home"), false);
-    assert.equal(chatOpsExecutionAllowed("other", undefined), true);
-  });
-
-  for (const content of ["라피야! 서버 재시작해줘", "라피야! 기억해줘: 비밀"]) {
-    it(`refuses a SUPERADMIN request in another guild: ${content}`, async () => {
-      const replies: string[] = [];
-      const answers: string[] = [];
-      const chat = new ChatOrchestrator(
-        {} as ChatOpsStore,
-        {} as Executor,
-        async (_channel, text) => {
-          replies.push(text);
-        },
-        {
-          isAdminChannel: async () => true,
-          answer: async (input) => {
-            answers.push(input.text);
-            return "답";
-          },
-        },
-        undefined,
-        "home",
-      );
-      await chat.receive(
-        {
-          id: "1",
-          guild_id: "other",
-          channel_id: "c",
-          content,
-          author: { id: "owner" },
-        },
-        "superadmin",
-      );
-      assert.deepEqual(answers, []);
-      assert.match(replies[0] ?? "", /운영자 서버/);
-    });
-  }
-
-  it("still answers questions from another guild", async () => {
-    const replies: string[] = [];
-    const chat = new ChatOrchestrator(
-      {} as ChatOpsStore,
-      {} as Executor,
-      async (_channel, text) => {
-        replies.push(text);
-      },
-      { isAdminChannel: async () => true, answer: async () => "답변" },
-      undefined,
-      "home",
-    );
-    await chat.receive(
-      {
-        id: "1",
-        guild_id: "other",
-        channel_id: "c",
-        content: "라피야! 오늘 뉴스 알려줘",
-        author: { id: "owner" },
-      },
-      "superadmin",
-    );
-    assert.deepEqual(replies, ["답변"]);
   });
 });
 

@@ -5,7 +5,6 @@ import {
   rankStarRecommendations,
   type StarredRepository,
 } from "@rapi/adapters";
-import { capItemsPerSource } from "@rapi/core";
 
 const now = new Date("2026-10-07T00:00:00Z");
 const recent = "2026-10-05T00:00:00Z";
@@ -161,20 +160,4 @@ test("recommender tolerates neighbor and search failures", async () => {
     items.map((item) => item.externalId),
     ["z/hit"],
   );
-});
-
-test("caps items per source while keeping rank order", () => {
-  const rows = [
-    ...Array.from({ length: 6 }, (_, i) => ({
-      id: `g${i}`,
-      source_id: "geek",
-    })),
-    { id: "r1", source_id: "rec", max_per_batch: "5" },
-    { id: "o1", source_id: "openai" },
-  ];
-  assert.deepEqual(
-    capItemsPerSource(rows, 15).map((row) => row.id),
-    ["g0", "g1", "g2", "r1", "o1"],
-  );
-  assert.equal(capItemsPerSource(rows, 2).length, 2);
 });

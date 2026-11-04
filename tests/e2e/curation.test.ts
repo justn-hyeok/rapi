@@ -3,11 +3,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import {
-  CommunityFeeds,
-  RapiAgent,
-  RecordingDeliveryAdapter,
-} from "@rapi/agent";
+import { CommunityFeeds, RapiAgent } from "@rapi/agent";
 import { PostgresStore } from "@rapi/db";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -17,7 +13,7 @@ if (!databaseUrl || new URL(databaseUrl).pathname !== "/rapi_test")
 describe("curation feeds", () => {
   it("posts each feed once to its managed channel and skips missing channels", async () => {
     const store = new PostgresStore(databaseUrl);
-    const agent = new RapiAgent(store, new RecordingDeliveryAdapter());
+    const agent = new RapiAgent(store);
     try {
       await store.resetForTests();
       await store.pool.query("DELETE FROM community_posts");
