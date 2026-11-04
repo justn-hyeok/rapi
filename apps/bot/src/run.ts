@@ -91,6 +91,7 @@ const communityFeeds = config.COMMUNITY_GUILD_ID
       summarizer,
       guildId: config.COMMUNITY_GUILD_ID,
       extraGuildIds: config.DISCORD_ALLOWED_GUILD_IDS ?? [],
+      guildFeatures,
       botToken: config.DISCORD_BOT_TOKEN,
       root: process.cwd(),
     })

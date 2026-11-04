@@ -5,6 +5,7 @@ import {
   assertDiscordAccess,
   assertDiscordScope,
   createGuildGate,
+  enabledGuildFeatures,
   isGuildAllowed,
   resolveDiscordAccess,
   resolveHomeGuildId,
@@ -13,6 +14,7 @@ import {
 import {
   DiscordCommandService,
   CommunityFeeds,
+  feedGuildTargets,
   type RapiAgent,
 } from "@rapi/agent";
 import type { PostgresStore } from "@rapi/db";
@@ -268,6 +270,31 @@ describe("per-guild feeds", () => {
       posted.map((p) => p.channel),
       ["home-ch", "g2-ch", "home-ch"],
     );
+  });
+
+  it("feed cards only go to allowed guilds with them switched on", async () => {
+    const allowedAt = new Date("2026-01-01T00:00:00Z");
+    const targets = await feedGuildTargets({
+      store: {
+        allowedDiscordGuilds: async () => [
+          { guildId: "approved-on", allowedAt },
+          { guildId: "approved-off", allowedAt },
+        ],
+      },
+      extraGuildIds: ["env-on", "env-off"],
+      guildFeatures: {
+        enabled: async (guildId) =>
+          enabledGuildFeatures(
+            guildId.endsWith("-on")
+              ? [{ feature: "curation", enabled: true }]
+              : [],
+          ),
+      },
+    });
+    assert.deepEqual(targets, [
+      { guildId: "env-on", allowedSince: null },
+      { guildId: "approved-on", allowedSince: allowedAt },
+    ]);
   });
 
   it("behaves as before when the community guild is the only guild", async () => {

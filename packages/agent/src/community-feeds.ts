@@ -18,6 +18,7 @@ import {
   type FeedGuildTarget,
 } from "@rapi/core";
 import type { PostgresStore } from "@rapi/db";
+import type { GuildFeatureSwitch } from "./guild-features.js";
 
 type Feed = "ai-blogs" | "free-tokens";
 type Embed = Record<string, unknown>;
@@ -680,13 +681,36 @@ export class CommunityFeeds {
   }
 }
 
+/** Allowed guilds with cards switched on, from the env list and the database. */
+export async function feedGuildTargets(input: {
+  store: Pick<PostgresStore, "allowedDiscordGuilds">;
+  /** Guilds from DISCORD_ALLOWED_GUILD_IDS; approved guilds are read from the database. */
+  extraGuildIds?: readonly string[];
+  guildFeatures: Pick<GuildFeatureSwitch, "enabled">;
+}): Promise<FeedGuildTarget[]> {
+  const targets = new Map<string, FeedGuildTarget>();
+  for (const guildId of input.extraGuildIds ?? [])
+    targets.set(guildId, { guildId, allowedSince: null });
+  for (const guild of await input.store.allowedDiscordGuilds())
+    if (!targets.has(guild.guildId))
+      targets.set(guild.guildId, {
+        guildId: guild.guildId,
+        allowedSince: guild.allowedAt,
+      });
+  const switchedOn: FeedGuildTarget[] = [];
+  for (const target of targets.values())
+    if ((await input.guildFeatures.enabled(target.guildId)).has("curation"))
+      switchedOn.push(target);
+  return switchedOn;
+}
+
 /** Builds the feeds from config/curation in a release root, posting as the bot. */
 export async function createCommunityFeeds(input: {
   store: PostgresStore;
   summarizer: ItemSummarizer | undefined;
   guildId: string;
-  /** Guilds from DISCORD_ALLOWED_GUILD_IDS; approved guilds are read from the database. */
   extraGuildIds?: readonly string[];
+  guildFeatures: Pick<GuildFeatureSwitch, "enabled">;
   botToken: string;
   root: string;
 }): Promise<CommunityFeeds> {
@@ -702,18 +726,7 @@ export async function createCommunityFeeds(input: {
   }
   return new CommunityFeeds(input.store, input.summarizer, {
     guildId: input.guildId,
-    guildTargets: async () => {
-      const targets = new Map<string, FeedGuildTarget>();
-      for (const guildId of input.extraGuildIds ?? [])
-        targets.set(guildId, { guildId, allowedSince: null });
-      for (const guild of await input.store.allowedDiscordGuilds())
-        if (!targets.has(guild.guildId))
-          targets.set(guild.guildId, {
-            guildId: guild.guildId,
-            allowedSince: guild.allowedAt,
-          });
-      return [...targets.values()];
-    },
+    guildTargets: () => feedGuildTargets(input),
     ...(config.autoPost ? { autoPost: config.autoPost } : {}),
     post: async (channelId, embeds) => {
       const response = await fetch(
