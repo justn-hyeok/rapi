@@ -4,6 +4,7 @@ import {
   cardLink,
   discordEmbed,
   discountCard,
+  findDeadline,
   shouldCardCandidate,
   type CandidateForCard,
 } from "@rapi/core";
@@ -188,4 +189,50 @@ test("a title with nothing left falls back instead of being empty", () => {
     discountCard(offer({ title: " ", domain: null })).title,
     "이름 없는 후보",
   );
+});
+
+test("a deadline is prefilled from a date in the title or evidence", () => {
+  for (const [title, evidence, expected] of [
+    ["50% off", "50% off through September 18.", "September 18"],
+    ["Ends Dec. 1, 2026", "", "Dec. 1, 2026"],
+    ["50% off", "Offer ends on 1 March 2027 for everyone.", "1 March 2027"],
+    ["할인", "2026년 12월 31일까지 무료", "2026년 12월 31일"],
+    ["할인", "12월 3일까지", "12월 3일"],
+    ["Sale", "valid until 2026-12-31", "2026-12-31"],
+    ["Sale", "마감: 2026.12.31 입니다", "2026.12.31"],
+    // The end wins over a date that only says when this was written.
+    ["Sale", "Posted Nov 1, 2026. Credits expire on Jan 15.", "Jan 15"],
+    // Any other date is still offered, for the owner to confirm or clear.
+    ["Sale on Nov 5", "50% off", "Nov 5"],
+  ] as const)
+    assert.equal(
+      findDeadline({ title, evidence }),
+      expected,
+      evidence || title,
+    );
+});
+
+test("no date, no deadline: version numbers and prices are not dates", () => {
+  for (const [title, evidence] of [
+    ["50% off", "50% off for everyone"],
+    ["Claude 3.5 is out", "v2026.13.45 costs $20 / 30 days"],
+    ["May the odds", "maybe 10 models"],
+    ["Released in May 2026", "for 2026"],
+  ] as const)
+    assert.equal(findDeadline({ title, evidence }), "", title);
+});
+
+test("a confirmed deadline shows as one safe line; blank shows nothing", () => {
+  const body = (deadline?: string) =>
+    discountCard(offer({ evidence: "50% off" }), deadline).description;
+  assert.doesNotMatch(body()!, /마감/);
+  assert.doesNotMatch(body("   ")!, /마감/);
+  assert.match(body("2026-12-31")!, /^마감: 2026\\-12\\-31$/m);
+  const hostile = body("<@123> [x](https://evil.test)\n@everyone")!;
+  assert.doesNotMatch(hostile, /https:|(?<!\\)<@|(?<!\\)@everyone|\]\(/);
+  assert.equal(
+    hostile.split("\n").filter((line) => line.startsWith("마감")).length,
+    1,
+  );
+  assert.ok(body("x".repeat(100))!.includes(`마감: ${"x".repeat(39)}…`));
 });
