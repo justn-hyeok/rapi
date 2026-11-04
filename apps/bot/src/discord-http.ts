@@ -18,6 +18,8 @@ import {
 import {
   allowedGuildIds,
   GUILD_FEATURES,
+  GUILD_REQUEST_COMMAND,
+  GUILD_REQUEST_REASON_MAX_CHARS,
   REPORT_MEMO_MAX_CHARS,
   runtimeRevision,
   type DiscordIdentity,
@@ -142,10 +144,33 @@ export const slashCommandDefinitions = [
   options?: Array<Record<string, unknown>>;
 }>;
 
-export async function registerSlashCommands(
+/**
+ * All a server sees before it is approved: global commands reach any server that adds
+ * the bot, so nothing else goes here. Discord hides it from members without Manage
+ * Server and from DMs; the request is still checked when it arrives.
+ */
+export const globalCommandDefinitions = [
+  {
+    name: GUILD_REQUEST_COMMAND,
+    description: "이 서버에서 라피를 쓸 수 있게 운영자에게 승인을 요청합니다",
+    type: 1,
+    contexts: [0],
+    integration_types: [0],
+    default_member_permissions: "32",
+    options: [
+      {
+        ...stringOption("사유", "운영자에게 전할 짧은 사유", false),
+        max_length: GUILD_REQUEST_REASON_MAX_CHARS,
+      },
+    ],
+  },
+];
+
+async function putCommands(
   applicationId: string,
   botToken: string,
-  guildId?: string,
+  guildId: string | undefined,
+  definitions: readonly unknown[],
 ): Promise<void> {
   const scope = guildId
     ? `/applications/${applicationId}/guilds/${guildId}/commands`
@@ -157,7 +182,7 @@ export async function registerSlashCommands(
         authorization: `Bot ${botToken}`,
         "content-type": "application/json",
       },
-      body: JSON.stringify(slashCommandDefinitions),
+      body: JSON.stringify(definitions),
       signal: AbortSignal.timeout(15_000),
     });
     if (response.ok) {
@@ -182,10 +207,33 @@ export async function registerSlashCommands(
   }
 }
 
+/** A guild gets every command; without one, only what an unapproved server may see. */
+export function registerSlashCommands(
+  applicationId: string,
+  botToken: string,
+  guildId?: string,
+): Promise<void> {
+  return putCommands(
+    applicationId,
+    botToken,
+    guildId,
+    guildId ? slashCommandDefinitions : globalCommandDefinitions,
+  );
+}
+
+/** Takes a blocked guild's commands away. */
+export function clearGuildCommands(
+  applicationId: string,
+  botToken: string,
+  guildId: string,
+): Promise<void> {
+  return putCommands(applicationId, botToken, guildId, []);
+}
+
 /**
- * Registers in every allowed guild and returns what failed. One guild failing never
- * stops the next, and without approved guilds the env list and home guild still go.
- * With no guild configured at all, registers globally.
+ * Replaces the global commands and registers in every allowed guild, returning what
+ * failed. One failing never stops the next, and without approved guilds the env list
+ * and home guild still go.
  */
 export async function registerAllowedGuildCommands(input: {
   applicationId: string;
@@ -208,7 +256,7 @@ export async function registerAllowedGuildCommands(input: {
     approved,
     input.homeGuildId,
   );
-  for (const guildId of guildIds ?? [undefined]) {
+  for (const guildId of [undefined, ...(guildIds ?? [])]) {
     try {
       await registerSlashCommands(input.applicationId, input.botToken, guildId);
     } catch (error) {
