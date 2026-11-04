@@ -2,6 +2,7 @@ import type { DeliveryPayload } from "./models.js";
 
 /** One Discord embed. Reports and notices share this shape so they read the same. */
 export interface DiscordCard {
+  author?: string;
   title: string;
   description?: string;
   fields?: Array<{ name: string; value: string; inline?: boolean }>;
@@ -15,6 +16,7 @@ export const CARD_COLOR = { info: 0x365d46, warn: 0xb5651d } as const;
 
 // Discord rejects a message above these sizes, so cut here instead of losing the whole report.
 const LIMIT = {
+  author: 256,
   title: 256,
   description: 4000,
   fieldName: 256,
@@ -24,12 +26,15 @@ const LIMIT = {
   total: 5800,
 } as const;
 
-function clip(value: string, limit: number): string {
+export function clip(value: string, limit: number): string {
   return value.length <= limit ? value : `${value.slice(0, limit - 1)}…`;
 }
 
 export function discordEmbed(card: DiscordCard): Record<string, unknown> {
   return {
+    ...(card.author
+      ? { author: { name: clip(card.author, LIMIT.author) } }
+      : {}),
     title: clip(card.title, LIMIT.title),
     ...(card.url ? { url: card.url } : {}),
     ...(card.description
