@@ -911,3 +911,53 @@ docker exec rapi-postgres-1 psql -U rapi -d rapi -c "UPDATE problem_reports SET 
 ```
 
 되돌리면(`packages/db/rollbacks/0006_reports.sql`) `problem_reports`와 제보 후보 행이 지워진다. 이미 빨강이 된 다른 행은 그대로다.
+
+## 스타 리마인드 (0.0.8)
+
+잊고 있던 GitHub 스타를 하루 한두 개 소유자 DM으로 보낸다. 새 릴리즈 알림이 아니다. 스타는 취향이 드러나므로 채널에는 보내지 않는다.
+
+```sh
+STAR_REMINDER_GITHUB_USER=GitHub_로그인
+DISCORD_SUPERADMIN_USER_IDS=소유자_ID
+```
+
+받는 사람은 `DISCORD_SUPERADMIN_USER_IDS`의 첫 번째 ID다. 둘 중 하나라도 없으면 아무것도 읽거나 보내지 않고 봇은 그대로 뜬다. 로그인만 있고 받을 사람이 없으면 시작할 때 서버 로그에 한 줄 남긴다. 로그인 형식이 틀리면 다른 설정처럼 봇이 시작하지 않는다. `.env`를 바꾸면 봇을 다시 시작해야 한다. 소유자가 봇과 같은 서버에 있고 그 서버 멤버의 DM을 허용해야 받을 수 있다.
+
+`GITHUB_READ_TOKEN`은 있으면 쓰고 없어도 된다. 스타는 공개 API로 읽는다.
+
+언제 도는가:
+
+- 봇이 시작할 때와 그 뒤 10분마다 확인한다. 한국 시간 09:00이 지났고 오늘 보낸 기록이 없을 때만 일한다. 그래서 09:00에서 10분 안에 오고, 09:00 넘어서 재시작하면 바로 온다.
+- 그때 스타 목록을 하루 한 번 읽고 보낸다. 오래된 스타부터 100개씩 최대 10쪽(요청 10번, 1000개)까지 읽는다. 재시작하면 아직 못 보낸 날에 한해 한 번 더 읽을 수 있다.
+- 다 읽었을 때만 목록에서 사라진 스타를 지운 것으로 표시한다(`unstarred_at`). 1000개를 넘으면 표시하지 않고, 넘는 최신 스타는 저장하지 않는다. 다시 스타를 누르면 기록을 이어 간다.
+- 읽기에 실패하면 저장된 목록은 그대로 두고 그 목록으로 보낸다. 빈 답도 실패로 친다. 저장된 것이 없으면 다음 날이나 재시작 때 다시 읽는다. 실패는 `/ready`의 `stars` 항목과 서버 로그에 남고, 준비 상태에는 영향을 주지 않는다. 항목은 다음 확인에서 지워지므로 지난 실패는 서버 로그에서 본다.
+
+무엇을 고르는가:
+
+- 스타를 누른 지 30일이 넘었고 최근 180일 안에 보낸 적이 없는 저장소만 고른다. 보관된 저장소와 스타를 지운 저장소는 뺀다.
+- 보낸 지 가장 오래된 순서(안 보낸 것 먼저, 그다음 오래된 스타)로 20개를 추리고, 그 안에서 무작위로 1개나 2개를 고른다. 고를 것이 없으면 보내지 않는다.
+- 하루 한 메시지에 카드와 저장소 링크 버튼을 함께 담는다. 할인 카드의 "한 메시지에 한 건"은 여기에 적용하지 않는다.
+
+중복을 막는 방식:
+
+- 보내기 전에 `star_reminder_days`에 그날 행을 만들고 `last_reminded_at`과 `reminded_count`를 올린다. 그래서 하루에 다시 시작해도 더 보내지 않는다.
+- Discord가 거절하면(403, 429 등) 행과 표시를 되돌리고 10분 뒤 다시 보낸다.
+- Discord 응답을 받지 못했거나 5xx를 받으면 갔는지 알 수 없으므로 되돌리지 않는다. 그날 것은 빠질 수 있지만 두 번 가지는 않는다. 보내는 도중 봇이 죽어도 같다. `message_id`가 없는 행이 그 경우다.
+
+설명과 저장소 이름은 낯선 사람이 쓴 글이라 멘션을 끄고 마크다운과 링크를 글자로만 보이게 한다. 설명은 300자로 잘라 저장한다.
+
+결과를 볼 때:
+
+```sh
+docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT day, claimed_at, message_id, repos FROM star_reminder_days ORDER BY day DESC LIMIT 10"
+docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT count(*), count(unstarred_at) AS unstarred, count(last_reminded_at) AS reminded, max(last_reminded_at) FROM github_stars"
+```
+
+오늘 것을 다시 받아 볼 때(09:00 이후에만 나간다). 이미 보낸 스타는 표시가 남아 있어 다른 스타가 온다.
+
+```sh
+docker exec rapi-postgres-1 psql -U rapi -d rapi -c "DELETE FROM star_reminder_days WHERE day = (now() AT TIME ZONE 'Asia/Seoul')::date"
+sudo systemctl restart rapi-bot
+```
+
+되돌리면(`packages/db/rollbacks/0007_star_reminders.sql`) 저장한 스타와 보낸 기록이 지워진다.
