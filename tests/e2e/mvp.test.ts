@@ -1,16 +1,16 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { RapiAgent } from "@rapi/agent";
-import { PostgresStore } from "@rapi/db";
+import { RedhoodAgent } from "@redhood/agent";
+import { PostgresStore } from "@redhood/db";
 
 const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl || new URL(databaseUrl).pathname !== "/rapi_test")
-  throw new Error("MVP E2E requires rapi_test");
+if (!databaseUrl || new URL(databaseUrl).pathname !== "/redhood_test")
+  throw new Error("MVP E2E requires redhood_test");
 
-describe("rapi-agent MVP", () => {
+describe("redhood MVP", () => {
   it("retains original malformed source payloads before normalization fails", async () => {
     const store = new PostgresStore(databaseUrl);
-    const agent = new RapiAgent(store);
+    const agent = new RedhoodAgent(store);
     try {
       await store.resetForTests();
       const source = await agent.createSource(

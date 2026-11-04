@@ -1,13 +1,13 @@
 [Unit]
-Description=Rapi allowlist public gateway
-After=network-online.target rapi-bot.service
+Description=Redhood allowlist public gateway
+After=network-online.target redhood-bot.service
 Wants=network-online.target
-Requires=rapi-bot.service
+Requires=redhood-bot.service
 
 [Service]
 Type=simple
 User=justn
-WorkingDirectory=/home/justn/rapi-agent
+WorkingDirectory=/home/justn/redhood
 ExecStart=/usr/local/bin/node --env-file=.env ops/gateway/run.mjs
 Restart=on-failure
 RestartSec=5

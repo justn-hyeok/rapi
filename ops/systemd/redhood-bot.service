@@ -1,5 +1,5 @@
 [Unit]
-Description=Rapi Discord bot and webhook API
+Description=Redhood Discord bot and webhook API
 After=network-online.target
 Wants=network-online.target
 StartLimitIntervalSec=10min
@@ -8,7 +8,7 @@ StartLimitBurst=10
 [Service]
 Type=simple
 User=justn
-WorkingDirectory=/home/justn/rapi-agent
+WorkingDirectory=/home/justn/redhood
 ExecStart=/usr/local/bin/npm run start:bot
 Restart=on-failure
 RestartSec=30
@@ -16,8 +16,8 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=/home/justn/rapi-agent /var/lib/rapi
-SupplementaryGroups=rapi
+ReadWritePaths=/home/justn/redhood /var/lib/redhood
+SupplementaryGroups=redhood
 
 [Install]
 WantedBy=multi-user.target

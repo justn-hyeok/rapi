@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { Pool, type PoolClient } from "pg";
-import type { NormalizedItem, Visibility } from "@rapi/core";
-import { parseHtmlSourcePolicy, validateHtmlSourceLocator } from "@rapi/core";
+import type { NormalizedItem, Visibility } from "@redhood/core";
+import {
+  parseHtmlSourcePolicy,
+  validateHtmlSourceLocator,
+} from "@redhood/core";
 
 interface RawEventResult {
   id: string;

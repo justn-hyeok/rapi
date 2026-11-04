@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { findDateText, parseHtmlList } from "@rapi/adapters";
-import { parseHtmlSourcePolicy } from "@rapi/core";
+import { findDateText, parseHtmlList } from "@redhood/adapters";
+import { parseHtmlSourcePolicy } from "@redhood/core";
 
 const BASE = "https://www.anthropic.com/news";
 const POLICY = {

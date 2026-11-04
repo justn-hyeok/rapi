@@ -17,7 +17,7 @@ import { randomUUID } from "node:crypto";
 import { verifyRelease } from "./release-artifact.mjs";
 
 const execute = promisify(execFile);
-const ports = { bot: 3000, monitor: 3300 };
+const ports = { bot: 4000, monitor: 4300 };
 
 // A release is ready when the new revision is serving. External source
 // outages (a feed or crawl target failing) are reported by the monitor, but
@@ -134,7 +134,7 @@ export async function switchRelease({
   const point = async (target) => {
     const temporary = join(
       dirname(currentPath),
-      `.rapi-pointer-${randomUUID()}`,
+      `.redhood-pointer-${randomUUID()}`,
     );
     await symlink(target, temporary);
     try {
@@ -222,9 +222,12 @@ export async function switchRelease({
   return receipt;
 }
 
-// These units Require= rapi-bot (directly or through the gateway), so stopping
+// These units Require= redhood-bot (directly or through the gateway), so stopping
 // bot stops them too. They are not switched themselves and must come back.
-const dependentUnits = ["rapi-public-gateway.service", "rapi-tunnel.service"];
+const dependentUnits = [
+  "redhood-public-gateway.service",
+  "redhood-tunnel.service",
+];
 
 export function systemdDriver(
   endpointPorts = configuredHealthPorts(process.env),
@@ -232,7 +235,7 @@ export function systemdDriver(
   run = (args) =>
     execute("systemctl", args, { timeout: 60_000, maxBuffer: 64_000 }),
 ) {
-  const unit = (name) => `rapi-${name}.service`;
+  const unit = (name) => `redhood-${name}.service`;
   let stoppedDependents = [];
   let baselineSha;
   const baselineSourceFailures = {};
@@ -408,37 +411,37 @@ if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(resolve(process.argv[1])).href
 ) {
-  if (process.env.RAPI_SWITCH_APPROVED !== "true")
+  if (process.env.REDHOOD_SWITCH_APPROVED !== "true")
     throw new Error(
       "Explicit operational approval is required before switching services",
     );
   const {
-    RAPI_CURRENT_RELEASE,
-    RAPI_CANDIDATE_RELEASE,
-    RAPI_RELEASE_SHA,
-    RAPI_SWITCH_RECEIPT,
-    RAPI_SWITCH_SERVICES,
-    RAPI_SERVICE_ENV_FILE,
+    REDHOOD_CURRENT_RELEASE,
+    REDHOOD_CANDIDATE_RELEASE,
+    REDHOOD_RELEASE_SHA,
+    REDHOOD_SWITCH_RECEIPT,
+    REDHOOD_SWITCH_SERVICES,
+    REDHOOD_SERVICE_ENV_FILE,
   } = process.env;
   if (
-    !RAPI_CURRENT_RELEASE ||
-    !RAPI_CANDIDATE_RELEASE ||
-    !RAPI_RELEASE_SHA ||
-    !RAPI_SWITCH_RECEIPT ||
-    !RAPI_SWITCH_SERVICES ||
-    !RAPI_SERVICE_ENV_FILE
+    !REDHOOD_CURRENT_RELEASE ||
+    !REDHOOD_CANDIDATE_RELEASE ||
+    !REDHOOD_RELEASE_SHA ||
+    !REDHOOD_SWITCH_RECEIPT ||
+    !REDHOOD_SWITCH_SERVICES ||
+    !REDHOOD_SERVICE_ENV_FILE
   )
     throw new Error(
       "Explicit release paths, SHA, receipt, services and service environment file are required",
     );
   const serviceEnvironment = parseEnv(
-    await readFile(RAPI_SERVICE_ENV_FILE, "utf8"),
+    await readFile(REDHOOD_SERVICE_ENV_FILE, "utf8"),
   );
   const schemaMigration =
-    process.env.RAPI_SWITCH_APPLY_MIGRATIONS !== "false"
+    process.env.REDHOOD_SWITCH_APPLY_MIGRATIONS !== "false"
       ? await additiveSchemaMigration({
-          currentPath: RAPI_CURRENT_RELEASE,
-          candidatePath: RAPI_CANDIDATE_RELEASE,
+          currentPath: REDHOOD_CURRENT_RELEASE,
+          candidatePath: REDHOOD_CANDIDATE_RELEASE,
           connectionString:
             serviceEnvironment.MIGRATION_DATABASE_URL ??
             serviceEnvironment.DATABASE_URL,
@@ -446,13 +449,15 @@ if (
       : undefined;
   await switchRelease({
     schemaMigration,
-    currentPath: RAPI_CURRENT_RELEASE,
-    candidatePath: RAPI_CANDIDATE_RELEASE,
-    expectedSha: RAPI_RELEASE_SHA,
-    receiptPath: RAPI_SWITCH_RECEIPT,
+    currentPath: REDHOOD_CURRENT_RELEASE,
+    candidatePath: REDHOOD_CANDIDATE_RELEASE,
+    expectedSha: REDHOOD_RELEASE_SHA,
+    receiptPath: REDHOOD_SWITCH_RECEIPT,
     // The release that removed OMP is deployed by the previous release's
     // auto-deploy.sh, which still lists omp.
-    services: RAPI_SWITCH_SERVICES.split(",").filter((name) => name !== "omp"),
+    services: REDHOOD_SWITCH_SERVICES.split(",").filter(
+      (name) => name !== "omp",
+    ),
     driver: systemdDriver(configuredHealthPorts(serviceEnvironment)),
   });
 }

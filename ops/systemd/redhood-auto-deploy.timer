@@ -1,5 +1,5 @@
 [Unit]
-Description=Check for a CI-verified Rapi release every 5 minutes
+Description=Check for a CI-verified Redhood release every 5 minutes
 
 [Timer]
 OnBootSec=5min

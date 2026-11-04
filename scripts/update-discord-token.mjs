@@ -48,7 +48,7 @@ export async function updateDiscordToken(envFile, token) {
   const target = resolve(envFile);
   const info = await lstat(target);
   if (!info.isFile() || info.isSymbolicLink())
-    throw new Error("RAPI_ENV_FILE must be a regular file");
+    throw new Error("REDHOOD_ENV_FILE must be a regular file");
   const updated = replaceEnvironmentValue(
     await readFile(target, "utf8"),
     "DISCORD_BOT_TOKEN",
@@ -75,6 +75,6 @@ const invokedPath = process.argv[1]
   : undefined;
 if (invokedPath === import.meta.url) {
   const token = await readStandardInput();
-  await updateDiscordToken(process.env.RAPI_ENV_FILE ?? ".env", token);
+  await updateDiscordToken(process.env.REDHOOD_ENV_FILE ?? ".env", token);
   process.stdout.write("Discord token verified and .env updated.\n");
 }

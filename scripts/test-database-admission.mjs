@@ -14,8 +14,8 @@ export function assertTestDatabaseUrl(value) {
     throw new Error("Test database URL must use postgresql://");
   if (!LOOPBACK_HOSTS.has(url.hostname))
     throw new Error("Test database URL must use a loopback host");
-  if (url.pathname !== "/rapi_test")
-    throw new Error("Test database URL must target /rapi_test");
+  if (url.pathname !== "/redhood_test")
+    throw new Error("Test database URL must target /redhood_test");
   for (const key of ["database", "dbname"]) {
     if (url.searchParams.has(key))
       throw new Error("Test database URL must not override its database name");

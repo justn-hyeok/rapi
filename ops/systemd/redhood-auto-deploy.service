@@ -1,13 +1,13 @@
 [Unit]
-Description=Rapi deploy of CI-verified origin/main
+Description=Redhood deploy of CI-verified origin/main
 After=network-online.target docker.service
 Wants=network-online.target
 
 [Service]
 Type=oneshot
 User=justn
-WorkingDirectory=/home/justn/rapi-releases/current
+WorkingDirectory=/home/justn/redhood-releases/current
 # No EnvironmentFile: release verification must not inherit production secrets.
-ExecStart=/bin/bash /home/justn/rapi-releases/current/scripts/auto-deploy.sh
+ExecStart=/bin/bash /home/justn/redhood-releases/current/scripts/auto-deploy.sh
 TimeoutStartSec=40min
 UMask=0077

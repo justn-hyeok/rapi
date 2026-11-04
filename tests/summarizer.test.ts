@@ -6,7 +6,7 @@ import {
   parseSummaries,
   plainText,
   summaryPrompt,
-} from "@rapi/adapters";
+} from "@redhood/adapters";
 
 const items = [
   {

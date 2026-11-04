@@ -10,22 +10,22 @@ if [[ $EUID -ne 0 ]]; then root=(sudo); fi
 
 cleanup() {
   "${root[@]}" systemctl disable --now \
-    rapi-bot.service >/dev/null 2>&1 || true
+    redhood-bot.service >/dev/null 2>&1 || true
 }
 trap cleanup ERR
 
 "${root[@]}" systemctl enable --now \
-  rapi-bot.service \
+  redhood-bot.service \
 
-if node --env-file=.env -e 'process.exit(process.env.RAPI_PUBLIC_BASE_URL ? 0 : 1)'; then
-  "${root[@]}" systemctl enable --now rapi-public-gateway.service
-  if [[ -f /var/lib/rapi/cloudflared/config.yml ]]; then
-    "${root[@]}" systemctl enable --now rapi-tunnel.service
+if node --env-file=.env -e 'process.exit(process.env.REDHOOD_PUBLIC_BASE_URL ? 0 : 1)'; then
+  "${root[@]}" systemctl enable --now redhood-public-gateway.service
+  if [[ -f /var/lib/redhood/cloudflared/config.yml ]]; then
+    "${root[@]}" systemctl enable --now redhood-tunnel.service
   fi
 fi
 
 for attempt in {1..30}; do
-  if curl --silent --fail --max-time 3 "http://127.0.0.1:${PORT:-3000}/ready" >/dev/null; then
+  if curl --silent --fail --max-time 3 "http://127.0.0.1:${PORT:-4000}/ready" >/dev/null; then
     trap - ERR
     echo "새 Discord 토큰을 등록했고 봇 준비 상태를 확인했습니다."
     exit 0

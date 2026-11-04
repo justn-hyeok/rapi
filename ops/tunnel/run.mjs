@@ -3,13 +3,13 @@ import { spawn } from "node:child_process";
 const botToken = process.env.DISCORD_BOT_TOKEN;
 if (!botToken) throw new Error("DISCORD_BOT_TOKEN is required");
 const tunnelToken = process.env.CLOUDFLARE_TUNNEL_TOKEN;
-const fixedOrigin = process.env.RAPI_PUBLIC_BASE_URL?.replace(/\/$/, "");
+const fixedOrigin = process.env.REDHOOD_PUBLIC_BASE_URL?.replace(/\/$/, "");
 
 const tunnel = spawn(
   "/usr/bin/cloudflared",
   tunnelToken
     ? ["tunnel", "--no-autoupdate", "run", "--token", tunnelToken]
-    : ["tunnel", "--no-autoupdate", "--url", "http://127.0.0.1:3000"],
+    : ["tunnel", "--no-autoupdate", "--url", "http://127.0.0.1:4000"],
   { stdio: ["ignore", "pipe", "pipe"] },
 );
 

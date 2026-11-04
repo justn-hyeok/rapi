@@ -1,0 +1,15 @@
+[Unit]
+Description=Redhood PostgreSQL readiness gate
+Requires=docker.service
+After=docker.service
+Before=redhood-bot.service redhood-monitor.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/home/justn/redhood
+ExecStart=/usr/bin/docker compose --project-name redhood --file /home/justn/redhood/compose.yaml up --detach --no-build --pull never --wait --wait-timeout 120 postgres
+TimeoutStartSec=180
+
+[Install]
+WantedBy=multi-user.target

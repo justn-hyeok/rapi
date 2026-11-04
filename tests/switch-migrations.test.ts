@@ -57,7 +57,9 @@ async function stage(
 }
 
 test("switch migrations require a rollback and undo in reverse order", async () => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "rapi-migrate-")));
+  const root = await realpath(
+    await mkdtemp(join(tmpdir(), "redhood-migrate-")),
+  );
   const previous = await stage(
     root,
     "previous",

@@ -1,6 +1,6 @@
 {
-  "name": "rapi-agent",
-  "version": "0.0.0",
+  "name": "redhood",
+  "version": "0.0.1",
   "private": true,
   "type": "module",
   "workspaces": [

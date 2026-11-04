@@ -27,7 +27,7 @@ cp .env "$previous"
 chmod 600 "$previous"
 node scripts/update-environment.mjs --from-file DATABASE_URL "$runtime_file"
 
-services=(rapi-bot.service rapi-monitor.service)
+services=(redhood-bot.service redhood-monitor.service)
 root=()
 if [[ $EUID -ne 0 ]]; then root=(sudo); fi
 rollback() {
@@ -40,9 +40,8 @@ trap 'rollback; rm -rf "$temporary"' ERR
 "${root[@]}" systemctl start "${services[@]}"
 
 for attempt in {1..12}; do
-  if curl --fail --silent --show-error --max-time 3 http://127.0.0.1:3000/ready >/dev/null &&
-     curl --fail --silent --show-error --max-time 3 http://127.0.0.1:3100/ready >/dev/null &&
-     curl --fail --silent --show-error --max-time 3 http://127.0.0.1:3400/ready >/dev/null; then
+  if curl --fail --silent --show-error --max-time 3 http://127.0.0.1:4000/ready >/dev/null &&
+     curl --fail --silent --show-error --max-time 3 http://127.0.0.1:4300/health >/dev/null; then
     trap 'rm -rf "$temporary"; unset admin_url' EXIT
     echo "빈 Supabase DB로 전환했습니다."
     exit 0

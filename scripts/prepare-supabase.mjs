@@ -23,8 +23,11 @@ if (
 admin.searchParams.set("sslmode", "verify-full");
 const runtimePassword = randomBytes(32).toString("base64url");
 const runtime = new URL(admin);
-runtime.username = admin.username.replace(/^postgres(?=\.|$)/, "rapi_runtime");
-if (!runtime.username.startsWith("rapi_runtime"))
+runtime.username = admin.username.replace(
+  /^postgres(?=\.|$)/,
+  "redhood_runtime",
+);
+if (!runtime.username.startsWith("redhood_runtime"))
   throw new Error(
     "관리자 Session pooler username은 postgres 또는 postgres.<ref>여야 합니다.",
   );
@@ -44,16 +47,16 @@ try {
   if (!version.rows[0]) throw new Error("Supabase 연결 확인에 실패했습니다.");
   serverMajor = Math.floor(Number(version.rows[0].version_num) / 10_000);
   const exists = await client.query(
-    "SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='rapi_runtime') AS exists",
+    "SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='redhood_runtime') AS exists",
   );
   const password = runtimePassword.replaceAll("'", "''");
   if (exists.rows[0]?.exists)
     await client.query(
-      `ALTER ROLE rapi_runtime WITH LOGIN PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION`,
+      `ALTER ROLE redhood_runtime WITH LOGIN PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION`,
     );
   else
     await client.query(
-      `CREATE ROLE rapi_runtime WITH LOGIN PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION`,
+      `CREATE ROLE redhood_runtime WITH LOGIN PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION`,
     );
 } finally {
   await client.end();
@@ -73,7 +76,7 @@ function run(script, extraEnv = {}) {
     cwd: process.cwd(),
     env: {
       ...process.env,
-      RAPI_ENV: "production",
+      REDHOOD_ENV: "production",
       MIGRATION_DATABASE_URL: admin.toString(),
       ...extraEnv,
     },
@@ -83,7 +86,7 @@ function run(script, extraEnv = {}) {
 }
 run("scripts/migrate.mjs");
 run("scripts/grant-runtime.mjs", {
-  RAPI_RUNTIME_DATABASE_ROLE: "rapi_runtime",
+  REDHOOD_RUNTIME_DATABASE_ROLE: "redhood_runtime",
 });
 
 const runtimeClient = new pg.Client({

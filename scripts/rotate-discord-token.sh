@@ -2,7 +2,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-env_file=${RAPI_ENV_FILE:-.env}
+env_file=${REDHOOD_ENV_FILE:-.env}
 if [[ ! -f "$env_file" ]]; then
   echo "Environment file not found: $env_file" >&2
   exit 1
@@ -15,7 +15,7 @@ if [[ -z "$token" ]]; then
   exit 1
 fi
 
-printf '%s' "$token" | RAPI_ENV_FILE="$env_file" node scripts/update-discord-token.mjs
+printf '%s' "$token" | REDHOOD_ENV_FILE="$env_file" node scripts/update-discord-token.mjs
 unset token
 
 if ! command -v systemctl >/dev/null 2>&1; then
@@ -24,13 +24,13 @@ if ! command -v systemctl >/dev/null 2>&1; then
 fi
 
 services=()
-for service in rapi-bot.service rapi-monitor.service; do
+for service in redhood-bot.service redhood-monitor.service; do
   if systemctl is-active --quiet "$service"; then
     services+=("$service")
   fi
 done
 if [[ ${#services[@]} -eq 0 ]]; then
-  echo "실행 중인 라피 서비스가 없어 .env만 갱신했습니다."
+  echo "실행 중인 레드후드 서비스가 없어 .env만 갱신했습니다."
   exit 0
 fi
 
@@ -39,4 +39,4 @@ if [[ $EUID -eq 0 ]]; then
 else
   sudo systemctl restart "${services[@]}"
 fi
-echo "토큰 교체 완료: 실행 중이던 라피 서비스 ${#services[@]}개를 재시작했습니다."
+echo "토큰 교체 완료: 실행 중이던 레드후드 서비스 ${#services[@]}개를 재시작했습니다."

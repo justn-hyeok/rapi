@@ -8,28 +8,28 @@ import {
   HtmlSourceAdapter,
   createModelClient,
   superadminDmNotifier,
-} from "@rapi/adapters";
+} from "@redhood/adapters";
 import {
   DEFAULT_SUMMARY_MODEL,
   DiscordCommandService,
   DiscordLayoutManager,
-  RapiAgent,
+  RedhoodAgent,
   createCommunityFeeds,
-} from "@rapi/agent";
+} from "@redhood/agent";
 import {
   createGuildGate,
   GUILD_NOT_ALLOWED_MESSAGE,
   isGuildAllowed,
   resolveHomeGuildId,
   summarizeReadiness,
-} from "@rapi/core";
-import { loadEnvironment } from "@rapi/config";
+} from "@redhood/core";
+import { loadEnvironment } from "@redhood/config";
 import {
   compareMigrationNames,
   expectedMigrationNames,
   ModelUsageStore,
   PostgresStore,
-} from "@rapi/db";
+} from "@redhood/db";
 import { readFile } from "node:fs/promises";
 import {
   createDiscordInteractionServer,
@@ -63,7 +63,7 @@ const summarizer =
           `api:${config.MODEL_FOR_SUMMARY ?? config.MODEL_DEFAULT}`,
         )
       : new CodexSummarizer(process.env.SUMMARY_MODEL || DEFAULT_SUMMARY_MODEL);
-const agent = new RapiAgent(store);
+const agent = new RedhoodAgent(store);
 // The curation channels: AI blogs and free tokens.
 const communityFeeds = config.COMMUNITY_GUILD_ID
   ? await createCommunityFeeds({
@@ -134,7 +134,7 @@ const commands = new DiscordCommandService(agent, allowlists, {
         Date.now() - new Date(monitor.updatedAt).getTime() >
         config.MONITOR_INTERVAL_SECONDS * 3000;
       return [
-        `라피 상태: ${stale ? "확인 불가" : "감시 중"}`,
+        `레드후드 상태: ${stale ? "확인 불가" : "감시 중"}`,
         ...monitor.components.map(
           (component) =>
             `${component.name}: ${stale ? "unknown" : component.status} · 확인 ${component.checkedAt}` +
@@ -153,9 +153,9 @@ const commands = new DiscordCommandService(agent, allowlists, {
     }
     try {
       const health = await store.checkHealth();
-      return `라피 상태: 정상\nDB 응답: ${health.latencyMs}ms\nDB 사용량: ${health.databaseBytes} bytes`;
+      return `레드후드 상태: 정상\nDB 응답: ${health.latencyMs}ms\nDB 사용량: ${health.databaseBytes} bytes`;
     } catch {
-      return "라피 상태: 확인 불가\nDB 연결을 확인하지 못했습니다.";
+      return "레드후드 상태: 확인 불가\nDB 연결을 확인하지 못했습니다.";
     }
   },
   serverConfig: {
@@ -224,7 +224,7 @@ const server = createDiscordInteractionServer(
         throw new Error("서버에서만 사용할 수 있는 버튼입니다.");
       if (!isGuildAllowed(identity.guildId, await guildGate.allowed()))
         throw new Error(GUILD_NOT_ALLOWED_MESSAGE);
-      if (customId === "rapi_verify:v1")
+      if (customId === "redhood_verify:v1")
         return layout.verifyMember(identity.guildId, identity.userId);
       if (customId.startsWith("server_config_apply:")) {
         const result = await commands.execute(identity, {
@@ -334,7 +334,7 @@ const server = createDiscordInteractionServer(
   },
 );
 server.listen(config.PORT, "127.0.0.1", () => {
-  process.stdout.write(`rapi-bot listening on 127.0.0.1:${config.PORT}\n`);
+  process.stdout.write(`redhood-bot listening on 127.0.0.1:${config.PORT}\n`);
 });
 
 void runLoop("collection", collect);

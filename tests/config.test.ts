@@ -3,8 +3,8 @@ import { describe, it } from "node:test";
 import { loadEnvironment } from "../packages/config/src/index.js";
 
 const validEnvironment = {
-  RAPI_ENV: "test",
-  DATABASE_URL: "postgresql://rapi:rapi@localhost:5432/rapi",
+  REDHOOD_ENV: "test",
+  DATABASE_URL: "postgresql://redhood:redhood@localhost:5432/redhood",
   DISCORD_BOT_TOKEN: "test-token",
   DISCORD_APPLICATION_ID: "1234567890",
   DISCORD_PUBLIC_KEY: "a".repeat(64),
@@ -53,13 +53,13 @@ describe("environment configuration", () => {
       () =>
         loadEnvironment({
           ...validEnvironment,
-          RAPI_PUBLIC_BASE_URL: "https://rapi.example.com",
+          REDHOOD_PUBLIC_BASE_URL: "https://redhood.example.com",
         }),
-      /WEBHOOK_ENCRYPTION_KEY and RAPI_PUBLIC_BASE_URL/,
+      /WEBHOOK_ENCRYPTION_KEY and REDHOOD_PUBLIC_BASE_URL/,
     );
     const config = loadEnvironment({
       ...validEnvironment,
-      RAPI_PUBLIC_BASE_URL: "https://rapi.example.com",
+      REDHOOD_PUBLIC_BASE_URL: "https://redhood.example.com",
       WEBHOOK_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString("base64"),
     });
     assert.equal(config.DB_POOL_MAX, 5);
@@ -71,23 +71,23 @@ describe("environment configuration", () => {
       () =>
         loadEnvironment({
           ...validEnvironment,
-          RAPI_ENV: "production",
-          DATABASE_URL: "postgresql://rapi:rapi@example.com:5432/rapi",
+          REDHOOD_ENV: "production",
+          DATABASE_URL: "postgresql://redhood:redhood@example.com:5432/redhood",
         }),
       /sslmode=verify-full or verify-ca/,
     );
     assert.doesNotThrow(() =>
       loadEnvironment({
         ...validEnvironment,
-        RAPI_ENV: "production",
+        REDHOOD_ENV: "production",
       }),
     );
     assert.doesNotThrow(() =>
       loadEnvironment({
         ...validEnvironment,
-        RAPI_ENV: "production",
+        REDHOOD_ENV: "production",
         DATABASE_URL:
-          "postgresql://rapi:rapi@example.com:5432/rapi?sslmode=verify-full",
+          "postgresql://redhood:redhood@example.com:5432/redhood?sslmode=verify-full",
       }),
     );
   });

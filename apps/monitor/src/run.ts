@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { DiscordWebhookClient, decryptSecret } from "@rapi/adapters";
-import { loadEnvironment } from "@rapi/config";
+import { DiscordWebhookClient, decryptSecret } from "@redhood/adapters";
+import { loadEnvironment } from "@redhood/config";
 import {
   assessBackupStatus,
   createLocalHealthServer,
@@ -10,8 +10,8 @@ import {
   HealthTransitionTracker,
   summarizeReadiness,
   type ComponentHealth,
-} from "@rapi/core";
-import { PostgresStore } from "@rapi/db";
+} from "@redhood/core";
+import { PostgresStore } from "@redhood/db";
 
 interface PendingAlert {
   id: string;
@@ -187,8 +187,8 @@ async function checkDatabaseCapacity(
     if (level !== state.capacityLevel) {
       const content =
         level === 0
-          ? `[라피 복구] DB 사용량이 정상 범위로 돌아왔습니다: ${percent.toFixed(1)}%`
-          : `[라피 경고] DB 사용량이 ${level}% 기준에 진입했습니다: ${percent.toFixed(1)}%`;
+          ? `[레드후드 복구] DB 사용량이 정상 범위로 돌아왔습니다: ${percent.toFixed(1)}%`
+          : `[레드후드 경고] DB 사용량이 ${level}% 기준에 진입했습니다: ${percent.toFixed(1)}%`;
       state.pendingAlerts.push({
         id: `capacity:${level}:${now.toISOString()}`,
         content,
@@ -261,7 +261,7 @@ async function check(): Promise<void> {
   try {
     const now = new Date();
     const checks = [checkEndpoint("bot", config.BOT_READY_URL), checkBackup()];
-    if (config.RAPI_PUBLIC_BASE_URL) {
+    if (config.REDHOOD_PUBLIC_BASE_URL) {
       checks.push(
         checkEndpoint("public_gateway", config.PUBLIC_GATEWAY_READY_URL),
         checkEndpoint("cloudflare_tunnel", config.CLOUDFLARE_TUNNEL_READY_URL),
@@ -287,8 +287,8 @@ async function check(): Promise<void> {
           id: `${component.name}:${transition}:${now.toISOString()}`,
           content:
             transition === "down"
-              ? `[라피 장애] ${component.name}: ${component.reason ?? "응답 없음"}`
-              : `[라피 복구] ${component.name} 상태가 정상으로 돌아왔습니다.`,
+              ? `[레드후드 장애] ${component.name}: ${component.reason ?? "응답 없음"}`
+              : `[레드후드 복구] ${component.name} 상태가 정상으로 돌아왔습니다.`,
         });
       }
     }

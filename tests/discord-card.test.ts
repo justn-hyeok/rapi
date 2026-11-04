@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { cardPayload, contentCard, discordEmbed } from "@rapi/core";
+import { cardPayload, contentCard, discordEmbed } from "@redhood/core";
 
 test("a card becomes an embed with the accent color and clipped fields", () => {
   const embed = discordEmbed({

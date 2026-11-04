@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { once } from "node:events";
 import { createServer } from "node:http";
 import { test } from "node:test";
-import { FeedSourceAdapter, HtmlSourceAdapter } from "@rapi/adapters";
-import { RapiAgent } from "@rapi/agent";
-import { GitHubSourceAdapter } from "@rapi/adapters";
-import type { PostgresStore } from "@rapi/db";
+import { FeedSourceAdapter, HtmlSourceAdapter } from "@redhood/adapters";
+import { RedhoodAgent } from "@redhood/agent";
+import { GitHubSourceAdapter } from "@redhood/adapters";
+import type { PostgresStore } from "@redhood/db";
 
 // In-memory store with the same uniqueness rules as the raw_events indexes:
 // (source_id, external_event_id) and, without an id, (source_id, payload hash).
@@ -102,7 +102,7 @@ test("polling an unchanged feed twice stores its items once and no per-poll snap
         policy: { html: { linkPattern: "^/news/[a-z]+$" } },
       },
     ]);
-    const agent = new RapiAgent(store);
+    const agent = new RedhoodAgent(store);
     for (let poll = 0; poll < 2; poll += 1)
       await agent.collectConfiguredSources(
         new FeedSourceAdapter(),
@@ -135,7 +135,7 @@ test("a response that fails to parse is still kept for diagnosis", async () => {
         locator: `http://127.0.0.1:${address.port}/feed`,
       },
     ]);
-    const agent = new RapiAgent(store);
+    const agent = new RedhoodAgent(store);
     await agent.collectConfiguredSources(
       new FeedSourceAdapter(),
       new GitHubSourceAdapter(),

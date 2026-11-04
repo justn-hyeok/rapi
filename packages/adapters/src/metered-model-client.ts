@@ -5,7 +5,7 @@ import {
   type BudgetAlertLevel,
   type DeliveryAdapter,
   type DeliveryPayload,
-} from "@rapi/core";
+} from "@redhood/core";
 import {
   ModelBudgetExceededError,
   PUBLIC_MODEL_FEATURES,
@@ -26,7 +26,7 @@ export interface ModelUsageEntry {
   note?: string | undefined;
 }
 
-/** What `MeteredModelClient` needs from storage (`ModelUsageStore` in @rapi/db). */
+/** What `MeteredModelClient` needs from storage (`ModelUsageStore` in @redhood/db). */
 export interface ModelUsageLedger {
   record(entry: ModelUsageEntry): Promise<void>;
   spendMicroUsd(from: Date, to: Date): Promise<number>;

@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
-import { splitDiscordMessage } from "@rapi/core";
+import { splitDiscordMessage } from "@redhood/core";
 
 function encryptionKey(value: string): Buffer {
   const key = Buffer.from(value, "base64");

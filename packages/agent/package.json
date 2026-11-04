@@ -1,15 +1,15 @@
 {
-  "name": "@rapi/agent",
+  "name": "@redhood/agent",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "exports": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "dependencies": {
-    "@rapi/adapters": "0.1.0",
-    "@rapi/contracts": "0.1.0",
-    "@rapi/core": "0.1.0",
-    "@rapi/db": "0.1.0",
+    "@redhood/adapters": "0.1.0",
+    "@redhood/contracts": "0.1.0",
+    "@redhood/core": "0.1.0",
+    "@redhood/db": "0.1.0",
     "yaml": "2.9.0",
     "zod": "4.6.7"
   }
