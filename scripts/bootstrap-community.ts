@@ -132,7 +132,7 @@ async function githubHook(
     "user-agent": "rapi-agent-community-bootstrap",
   };
   const existingResponse = await fetch(
-    "https://api.github.com/repos/justn-hyeok/rapi-agent/hooks?per_page=100",
+    "https://api.github.com/repos/justn-hyeok/rapi-agent-private/hooks?per_page=100",
     { headers, redirect: "manual", signal: AbortSignal.timeout(10_000) },
   );
   if (!existingResponse.ok)
@@ -150,8 +150,8 @@ async function githubHook(
   });
   const response = await fetch(
     same
-      ? `https://api.github.com/repos/justn-hyeok/rapi-agent/hooks/${same.id}`
-      : "https://api.github.com/repos/justn-hyeok/rapi-agent/hooks",
+      ? `https://api.github.com/repos/justn-hyeok/rapi-agent-private/hooks/${same.id}`
+      : "https://api.github.com/repos/justn-hyeok/rapi-agent-private/hooks",
     {
       method: same ? "PATCH" : "POST",
       headers,

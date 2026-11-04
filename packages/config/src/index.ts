@@ -178,7 +178,7 @@ export const environmentSchema = z
     HARNESS_UPDATES_REPO: z
       .string()
       .regex(/^[\w.-]+\/[\w.-]+$/)
-      .default("justn-hyeok/rapi-agent"),
+      .default("justn-hyeok/rapi-agent-private"),
     HARNESS_UPDATES_BASE_BRANCH: z.string().min(1).default("main"),
     MODEL_API_BASE_URL: z.url().optional(),
     MODEL_API_KEY: z.string().min(1).optional(),
@@ -215,7 +215,7 @@ export const environmentSchema = z
     BLOG_REPO: z
       .string()
       .regex(/^[\w.-]+\/[\w.-]+$/)
-      .default("justn-hyeok/rapi-agent"),
+      .default("justn-hyeok/rapi-agent-private"),
     BLOG_BASE_BRANCH: z.string().min(1).default("main"),
     RAPI_BLOG_WITHDRAWALS_FILE: z
       .string()
