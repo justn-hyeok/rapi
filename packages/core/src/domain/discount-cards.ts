@@ -109,7 +109,7 @@ export function shouldCardCandidate(candidate: CandidateForCard): boolean {
 }
 
 // One line of a stranger's text. A bare address loses its scheme so it stays text.
-function plainLine(value: string): string {
+export function plainLine(value: string): string {
   return value
     .replace(/\p{Cf}+/gu, "")
     .replace(/[\p{Cc}\s]+/gu, " ")
@@ -119,7 +119,7 @@ function plainLine(value: string): string {
 
 // Backslashes show as nothing in a title or body, and stop markdown, masked and
 // bare links, and mentions from forming. Author names render no markdown at all.
-function escapeMarkdown(value: string): string {
+export function escapeMarkdown(value: string): string {
   return value.replace(/[\\`*_~|<>#[\]()@:.-]/g, "\\$&");
 }
 
