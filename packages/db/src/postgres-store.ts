@@ -93,7 +93,7 @@ export class PostgresStore {
     if (!database.rows[0]?.name.endsWith("_test"))
       throw new Error("Refusing to reset a database without an _test suffix");
     await this.pool
-      .query(`TRUNCATE github_stars, star_reminder_days, discount_candidates, problem_reports, discord_layout_plans, discord_managed_resources, summaries, classifications,
+      .query(`TRUNCATE discord_guild_features, github_stars, star_reminder_days, discount_candidates, problem_reports, discord_layout_plans, discord_managed_resources, summaries, classifications,
       item_relations, source_items, source_cursors, raw_events, sources RESTART IDENTITY CASCADE`);
   }
 
@@ -579,6 +579,31 @@ export class PostgresStore {
       guildId: row.guild_id,
       allowedAt: row.decided_at,
     }));
+  }
+
+  async guildFeatureSettings(
+    guildId: string,
+  ): Promise<Array<{ feature: string; enabled: boolean }>> {
+    const result = await this.pool.query<{
+      feature: string;
+      enabled: boolean;
+    }>("SELECT feature,enabled FROM discord_guild_features WHERE guild_id=$1", [
+      guildId,
+    ]);
+    return result.rows;
+  }
+
+  async setGuildFeature(
+    guildId: string,
+    feature: string,
+    enabled: boolean,
+    actorId: string,
+  ): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO discord_guild_features(guild_id,feature,enabled,updated_by) VALUES($1,$2,$3,$4)
+       ON CONFLICT (guild_id,feature) DO UPDATE SET enabled=$3,updated_by=$4,updated_at=now()`,
+      [guildId, feature, enabled, actorId],
+    );
   }
 
   async communityGuildPostSent(guildId: string, key: string): Promise<boolean> {
