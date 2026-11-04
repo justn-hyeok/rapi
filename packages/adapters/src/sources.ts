@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { XMLParser } from "fast-xml-parser";
-import { type HtmlSourcePolicy } from "@rapi/core";
+import { type HtmlSourcePolicy, type ServicePage } from "@rapi/core";
+import { isPublicUrl } from "./public-fetch.js";
 
 export interface SourceHttpOptions {
   timeoutMs?: number;
@@ -586,6 +587,35 @@ export function parseHtmlArticle(html: string): string {
     throw new Error("HTML exceeds the 2 MB input limit");
   const root = buildHtmlTree(html);
   return nodeText(findNodes(root, (node) => node.tag === "main")[0] ?? root);
+}
+
+const TERMS_LINK = /\b(?:terms|tos)\b|약관|条款|服务协议|用户协议|利用規約/i;
+const TERMS_URL_MAX_CHARS = 500;
+
+// A service's home page: its visible text and the first public link to its terms.
+export function parseServicePage(html: string, pageUrl: string): ServicePage {
+  if (Buffer.byteLength(html) > 2_000_000)
+    throw new Error("HTML exceeds the 2 MB input limit");
+  const root = buildHtmlTree(html);
+  let termsUrl: string | null = null;
+  for (const anchor of findNodes(root, (node) => node.tag === "a")) {
+    const href = attribute(anchor.attrs, "href");
+    if (!href) continue;
+    let url: URL;
+    try {
+      url = new URL(href, pageUrl);
+    } catch {
+      continue;
+    }
+    if (!TERMS_LINK.test(`${nodeText(anchor)} ${url.pathname}`)) continue;
+    // The address alone: a query can carry a referral code.
+    const clean = `${url.origin}${url.pathname}`;
+    if (isPublicUrl(clean) && clean.length <= TERMS_URL_MAX_CHARS) {
+      termsUrl = clean;
+      break;
+    }
+  }
+  return { text: nodeText(root), termsUrl };
 }
 
 export function parseGitHubEvent(

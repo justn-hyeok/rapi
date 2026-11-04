@@ -3,10 +3,13 @@ import {
   parseHtmlSourcePolicy,
   plainText,
   type DiscountCandidate,
+  type ServicePage,
 } from "@rapi/core";
+import { publicFetch, type ResolveHostname } from "./public-fetch.js";
 import {
   FeedSourceAdapter,
   HtmlSourceAdapter,
+  parseServicePage,
   readSource,
   type ExternalItem,
   type SourceHttpOptions,
@@ -245,6 +248,47 @@ export function apiAddress(
     ? url.pathname.replace(/\/$/, "")
     : "";
   return { address: `${url.protocol}//${url.host}${path}`, domain };
+}
+
+const SERVICE_PAGE_TIMEOUT_MS = 10_000;
+const SERVICE_PAGE_MAX_BYTES = 1_000_000;
+
+/**
+ * The service's home page, or null when it cannot be read. The domain comes from
+ * strangers' files, so every hop goes through publicFetch, only to port 443, and
+ * no key or other credential is sent: these two headers are the whole request.
+ */
+export async function readServicePage(
+  domain: string,
+  options: SourceHttpOptions & { resolve?: ResolveHostname } = {},
+): Promise<ServicePage | null> {
+  const { resolve, ...http } = options;
+  const guarded = {
+    timeoutMs: SERVICE_PAGE_TIMEOUT_MS,
+    maxBodyBytes: SERVICE_PAGE_MAX_BYTES,
+    truncate: true,
+    ...http,
+    fetch: publicFetch(http.fetch, resolve),
+  };
+  // An API host rarely has a page of its own; the bare name usually does.
+  const hosts = domain.startsWith("api.")
+    ? [domain, domain.slice("api.".length)]
+    : [domain];
+  for (const host of hosts) {
+    const url = `https://${host}/`;
+    try {
+      const { response, body } = await readSource(
+        url,
+        { Accept: "text/html", "User-Agent": "rapi" },
+        guarded,
+      );
+      if (/html/i.test(response.headers.get("content-type") ?? ""))
+        return parseServicePage(body, response.url || url);
+    } catch {
+      // Down, blocked or refused all read the same: this page was not seen.
+    }
+  }
+  return null;
 }
 
 /** GitHub code search: API addresses people configure next to a model name. */
