@@ -1,4 +1,4 @@
-import { randomUUID, createHmac } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { Pool, type PoolClient } from "pg";
 import type { NormalizedItem, Visibility } from "@rapi/core";
 import { parseHtmlSourcePolicy, validateHtmlSourceLocator } from "@rapi/core";
@@ -6,7 +6,6 @@ import { parseHtmlSourcePolicy, validateHtmlSourceLocator } from "@rapi/core";
 interface RawEventResult {
   id: string;
   inserted: boolean;
-  retired?: boolean;
 }
 
 export interface ManagedDiscordResourceRecord {
@@ -30,7 +29,6 @@ export interface DiscordLayoutPlanRecord {
 
 export class PostgresStore {
   readonly pool: Pool;
-  private readonly privacyKey: string | undefined;
 
   constructor(
     connectionString: string,
@@ -38,10 +36,8 @@ export class PostgresStore {
       max?: number;
       connectionTimeoutMs?: number;
       queryTimeoutMs?: number;
-      privacyHmacKey?: string;
     } = {},
   ) {
-    this.privacyKey = options.privacyHmacKey ?? process.env.PRIVACY_HMAC_KEY;
     this.pool = new Pool({
       connectionString,
       max: options.max ?? 5,
@@ -76,12 +72,8 @@ export class PostgresStore {
     if (!database.rows[0]?.name.endsWith("_test"))
       throw new Error("Refusing to reset a database without an _test suffix");
     await this.pool
-      .query(`TRUNCATE privacy_requests,privacy_event_tombstones,chatops_memory_events, chatops_memory, chatops_events, chatops_runs,
-      chat_messages, chat_channels, callback_events, execution_attempts, approvals, task_revisions,
-      task_requests, mdx_publications, delivery_attempts, delivery_batch_items, delivery_batches,
-      discord_layout_plans, discord_managed_resources, ai_usage_events, ai_usage_policies,
-      webhook_receipts, webhook_connections, subscriptions, summaries, classifications, item_relations, source_items, queue_jobs,
-      source_cursors, raw_events, sources RESTART IDENTITY CASCADE`);
+      .query(`TRUNCATE discord_layout_plans, discord_managed_resources, summaries, classifications,
+      item_relations, source_items, source_cursors, raw_events, sources RESTART IDENTITY CASCADE`);
   }
 
   async createSource(
@@ -119,43 +111,6 @@ export class PostgresStore {
     return result.rows[0].visibility;
   }
 
-  private async retiredEvent(
-    client: PoolClient,
-    sourceId: string,
-    externalId: string | null,
-    checksum: string,
-  ): Promise<string | null> {
-    if (!this.privacyKey) {
-      const exists = await client.query<{ table_name: string | null }>(
-        "SELECT to_regclass('privacy_event_tombstones')::text AS table_name",
-      );
-      if (
-        exists.rows[0]?.table_name &&
-        (
-          await client.query(
-            "SELECT raw_id FROM privacy_event_tombstones WHERE source_id=$1 LIMIT 1",
-            [sourceId],
-          )
-        ).rowCount
-      )
-        throw new Error("Privacy key is required for retired source ingestion");
-      return null;
-    }
-    const ref =
-      "hmac:v1:" +
-      createHmac("sha256", Buffer.from(this.privacyKey, "hex"))
-        .update(
-          "event\0" +
-            (externalId === null ? "hash:" + checksum : "id:" + externalId),
-        )
-        .digest("hex");
-    const found = await client.query<{ raw_id: string }>(
-      "SELECT raw_id FROM privacy_event_tombstones WHERE source_id=$1 AND event_ref=$2",
-      [sourceId, ref],
-    );
-    return found.rows[0]?.raw_id ?? null;
-  }
-
   async insertRawEvent(
     sourceId: string,
     externalId: string | null,
@@ -172,13 +127,6 @@ export class PostgresStore {
       if (!source.rows[0] || source.rows[0].state !== "active")
         throw new Error("Source is unavailable");
       const id = randomUUID();
-      const retired = await this.retiredEvent(
-        client,
-        sourceId,
-        externalId,
-        checksum,
-      );
-      if (retired) return { id: retired, inserted: false, retired: true };
       const inserted = await client.query<{ id: string }>(
         `INSERT INTO raw_events (id, source_id, external_event_id, canonical_payload_hash, payload, collected_at)
        VALUES ($1, $2, $3, $4, $5::jsonb, $6)

@@ -35,28 +35,6 @@ try {
   const exists = await client.query(
     "SELECT to_regclass('public.schema_migrations') IS NOT NULL AS exists",
   );
-  if (!exists.rows[0]?.exists) {
-    const legacy = await client.query(
-      "SELECT to_regclass('public.sources') IS NOT NULL AS exists",
-    );
-    if (legacy.rows[0]?.exists) {
-      await client.query(`CREATE TABLE IF NOT EXISTS schema_migrations (
-        name text PRIMARY KEY,
-        applied_at timestamptz NOT NULL DEFAULT now()
-      )`);
-      await client.query(
-        "INSERT INTO schema_migrations(name) VALUES('0001_phase_zero.sql') ON CONFLICT DO NOTHING",
-      );
-      exists.rows[0].exists = true;
-    }
-  }
-  if (exists.rows[0]?.exists) {
-    await client.query(`INSERT INTO schema_migrations(name)
-      SELECT '0003_chatops.sql'
-      WHERE to_regclass('public.chat_channels') IS NOT NULL
-        AND to_regclass('public.chat_messages') IS NOT NULL
-      ON CONFLICT DO NOTHING`);
-  }
   const applied = new Set();
   if (exists.rows[0]?.exists) {
     const rows = await client.query("SELECT name FROM schema_migrations");

@@ -74,7 +74,6 @@ export class RapiAgent {
       collectedAt,
       transactionClient,
     );
-    if (raw.retired) return { itemId: raw.id, inserted: false };
     const visibility = await this.store.sourceVisibility(
       sourceId,
       transactionClient,

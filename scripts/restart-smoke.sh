@@ -39,7 +39,7 @@ DATABASE_URL="$restart_url" node scripts/migrate.mjs >/dev/null
 "${compose[@]}" exec -T postgres psql -U rapi -d "$restart_database" -v ON_ERROR_STOP=1 -c \
   "CREATE TABLE IF NOT EXISTS restart_smoke_probe(id integer PRIMARY KEY); INSERT INTO restart_smoke_probe(id) VALUES (1) ON CONFLICT DO NOTHING;" >/dev/null
 before=$("${compose[@]}" exec -T postgres psql -U rapi -d "$restart_database" -Atc \
-  "SELECT (SELECT count(*) FROM raw_events) || ':' || (SELECT count(*) FROM delivery_attempts) || ':' || (SELECT count(*) FROM restart_smoke_probe);")
+  "SELECT (SELECT count(*) FROM raw_events) || ':' || (SELECT count(*) FROM source_items) || ':' || (SELECT count(*) FROM restart_smoke_probe);")
 
 "${compose[@]}" restart postgres >/dev/null
 for _ in $(seq 1 30); do
@@ -49,7 +49,7 @@ done
 "${compose[@]}" exec -T postgres pg_isready -h 127.0.0.1 -p 5432 -U rapi -d "$restart_database" >/dev/null
 
 after=$("${compose[@]}" exec -T postgres psql -U rapi -d "$restart_database" -Atc \
-  "SELECT (SELECT count(*) FROM raw_events) || ':' || (SELECT count(*) FROM delivery_attempts) || ':' || (SELECT count(*) FROM restart_smoke_probe);")
+  "SELECT (SELECT count(*) FROM raw_events) || ':' || (SELECT count(*) FROM source_items) || ':' || (SELECT count(*) FROM restart_smoke_probe);")
 
 if [[ "$before" != "$after" ]]; then
   echo "Persistent state changed across PostgreSQL restart: $before -> $after" >&2
