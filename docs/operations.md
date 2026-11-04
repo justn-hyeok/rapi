@@ -717,3 +717,23 @@ GITHUB_REPORT_TARGET=dm
 그다음 쌓인 응답 스냅샷을 서비스를 멈추지 않고 지운다: `node --env-file=/home/justn/rapi/.env scripts/cleanup-response-snapshots.mjs`(건수 확인) → `--apply` → `VACUUM (ANALYZE) raw_events`. 마이그레이션 안에서 지우면 3 GB 테이블에서 배포 전환이 몇 분 이상 멈춘다(2026-10-25 실제로 13분 중단).
 
 `html` 수집원은 `collection_policy.html`에 `linkPattern`(경로 정규식, 200자 미만), `maxItems`(기본 20), `exclude`(경로 정규식 목록)를 둔다. 추가는 `createSource("html", url, "public", { html: {...} })`로 하며, 현재 관리자 화면(`/수집원`, `/admin/sources`)에는 수집원 추가 기능이 없다(상태 조회만).
+
+## 할인 후보 수집 (0.0.3)
+
+봇이 시작 1분 뒤와 그 뒤 24시간마다 후보를 찾아 `discount_candidates`에 기록만 한다. Discord로 보내지 않는다. 출처 목록은 `config/discount-sources.json`에 있다.
+
+| 경로 (`route`) | 찾는 것 | 출처 |
+| --- | --- | --- |
+| `changelog` | 할인 (`discount`) | OpenAI, Vercel, Cloudflare, AWS, Anthropic, DeepSeek, APIYI 공식 변경로그. 할인 문구가 있고 30일 안에 나온 항목만 |
+| `pull_request` | 새 서비스 (`new_service`) | `anomalyco/models.dev`의 열린 PR 중 provider를 추가하는 것 |
+| `code_search` | 새 서비스 (`new_service`) | GitHub 코드 검색. API 주소, 저장소, 파일 링크만 남기고 원문은 저장하지 않음 |
+
+GitHub 경로 둘은 `GITHUB_READ_TOKEN`이 있어야 돈다. 없으면 건너뛰고 공식 변경로그만 돈다. 공개 저장소 읽기 권한이면 충분하다.
+
+출처마다 `sources`에 `candidate_`로 시작하는 행이 있어 `/수집원`에서 최근 성공과 오류를 볼 수 있다. 토큰이 없어 건너뛴 것도 `last_error`에 남는다. 이 행들은 준비 상태(`/ready`)에 영향을 주지 않는다.
+
+기록을 볼 때:
+
+```sh
+docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT route, kind, domain, left(title, 70) AS title, first_seen_at FROM discount_candidates ORDER BY first_seen_at DESC LIMIT 50"
+```
