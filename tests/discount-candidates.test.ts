@@ -8,7 +8,12 @@ import {
   CodeSearchRoute,
   PullRequestRoute,
 } from "@rapi/adapters";
-import { discountEvidence } from "@rapi/core";
+import {
+  collectDiscountCandidates,
+  loadDiscountSources,
+  type DiscountSources,
+} from "@rapi/agent";
+import { discountEvidence, type DiscountCandidate } from "@rapi/core";
 
 const now = () => new Date("2026-11-05T00:00:00Z");
 const pages = (byUrl: Record<string, string>): typeof fetch =>
@@ -335,4 +340,144 @@ test("code search stores only the address, the repository and the file", async (
   assert.doesNotMatch(JSON.stringify(candidates), /secret|gpt-6|apiKey/);
   assert.equal(seen.length, 1);
   assert.match(seen[0]!.url, /search\/code\?q=%22gpt-6\.1-sol%22%20baseURL/);
+});
+
+// Same uniqueness rule as discount_candidates.dedupe_key.
+function fakeStore() {
+  const rows = new Map<string, DiscountCandidate>();
+  const ok: string[] = [];
+  const failed: Array<[string, string]> = [];
+  const store = {
+    createSource: async (kind: string, locator: string) => `${kind}|${locator}`,
+    saveDiscountCandidate: async (candidate: DiscountCandidate) => {
+      if (rows.has(candidate.dedupeKey)) return false;
+      rows.set(candidate.dedupeKey, candidate);
+      return true;
+    },
+    saveCursor: async (id: string) => void ok.push(id),
+    recordSourceFailure: async (id: string, message: string) =>
+      void failed.push([id, message]),
+  };
+  return { store, rows, ok, failed };
+}
+
+const SOURCES: DiscountSources = {
+  changelogs: [
+    { url: "https://broken.test/atom", format: "feed", maxAgeDays: 30 },
+    { url: "https://x.test/atom", format: "feed", maxAgeDays: 30 },
+  ],
+  pullRequests: { repository: "a/b" },
+  codeSearch: { queries: ['"gpt-6.1-sol" baseURL'], denylist: [] },
+};
+const atom = `<feed><entry><id>a</id><title>50% off</title><link href="https://x.test/a"/><updated>2026-11-01T00:00:00Z</updated></entry></feed>`;
+const web = (async (url: string) => {
+  if (url === "https://x.test/atom") return new Response(atom);
+  if (url.includes("/pulls"))
+    return new Response(
+      JSON.stringify([
+        {
+          number: 7,
+          title: "Add Infersia provider",
+          html_url: "https://github.com/a/b/pull/7",
+          created_at: "2026-11-04T04:48:11Z",
+        },
+      ]),
+    );
+  if (url.includes("/search/code"))
+    return new Response(
+      JSON.stringify({
+        items: [
+          {
+            html_url: "https://github.com/o/r/blob/abc/c.ts",
+            repository: { html_url: "https://github.com/o/r" },
+            text_matches: [{ fragment: 'baseURL: "https://api.relay.io/v1"' }],
+          },
+        ],
+      }),
+    );
+  return new Response("down", { status: 503 });
+}) as typeof fetch;
+
+test("one source failing leaves the others running and shows the failure", async () => {
+  const { store, rows, ok, failed } = fakeStore();
+  const failures = await collectDiscountCandidates({
+    store: store as never,
+    sources: SOURCES,
+    githubToken: "read-token",
+    http: { fetch: web },
+    now,
+  });
+  assert.deepEqual(failed, [
+    ["candidate_changelog|https://broken.test/atom", "Source returned 503"],
+  ]);
+  assert.deepEqual(failures, ["https://broken.test/atom: Source returned 503"]);
+  assert.deepEqual(ok, [
+    "candidate_changelog|https://x.test/atom",
+    "candidate_pull_request|a/b",
+    'candidate_code_search|"gpt-6.1-sol" baseURL',
+  ]);
+  assert.deepEqual(
+    [...rows.keys()],
+    ["changelog:a", "pull_request:a/b#7", "code_search:api.relay.io"],
+  );
+});
+
+test("seeing the same candidates again adds nothing", async () => {
+  const { store, rows } = fakeStore();
+  const run = () =>
+    collectDiscountCandidates({
+      store: store as never,
+      sources: SOURCES,
+      githubToken: "read-token",
+      http: { fetch: web },
+      now,
+    });
+  await run();
+  const first = [...rows.keys()];
+  await run();
+  assert.deepEqual([...rows.keys()], first);
+  assert.equal(first.length, 3);
+});
+
+test("without a token the GitHub routes are skipped visibly, not failed", async () => {
+  const { store, rows, failed } = fakeStore();
+  const requested: string[] = [];
+  const failures = await collectDiscountCandidates({
+    store: store as never,
+    sources: { ...SOURCES, changelogs: [SOURCES.changelogs[1]!] },
+    http: {
+      fetch: ((url: string, init?: RequestInit) => {
+        requested.push(url);
+        return web(url, init);
+      }) as typeof fetch,
+    },
+    now,
+  });
+  assert.deepEqual(failures, []);
+  assert.deepEqual(requested, ["https://x.test/atom"]);
+  assert.deepEqual([...rows.keys()], ["changelog:a"]);
+  assert.deepEqual(
+    failed.map(([id]) => id),
+    [
+      "candidate_pull_request|a/b",
+      'candidate_code_search|"gpt-6.1-sol" baseURL',
+    ],
+  );
+  assert.match(failed[0]![1], /GITHUB_READ_TOKEN/);
+});
+
+test("the shipped source list loads and names every changelog", async () => {
+  const sources = await loadDiscountSources(process.cwd());
+  assert.deepEqual(sources.changelogs.map((source) => source.url).sort(), [
+    "https://api-docs.deepseek.com/updates/",
+    "https://aws.amazon.com/about-aws/whats-new/recent/feed/",
+    "https://developers.cloudflare.com/changelog/rss/index.xml",
+    "https://developers.openai.com/api/docs/changelog",
+    "https://docs.apiyi.com/en/changelog",
+    "https://vercel.com/atom",
+    "https://www.anthropic.com/news",
+  ]);
+  assert.ok(sources.codeSearch.queries.length <= 4);
+  for (const source of sources.changelogs)
+    if (source.format === "list") assert.ok(source.maxArticles <= 5);
 });

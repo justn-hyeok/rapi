@@ -51,3 +51,13 @@ test("html sources are collectable like rss sources", () => {
     "failed",
   );
 });
+
+test("candidate sources never make the bot unready", () => {
+  assert.deepEqual(
+    assessSourceHealth([
+      { kind: "candidate_changelog", active: true, failureCount: 9 },
+      { kind: "candidate_code_search", active: true, failureCount: 0 },
+    ]),
+    { configured: 0, failing: 0, unsupported: 0, status: "ok" },
+  );
+});

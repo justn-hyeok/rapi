@@ -19,7 +19,10 @@ export interface SourceHealthAssessment {
 export function assessSourceHealth(
   sources: readonly SourceHealthInput[],
 ): SourceHealthAssessment {
-  const active = sources.filter((source) => source.active);
+  // Discount candidates are a daily extra with their own status; they never make the bot unready.
+  const active = sources.filter(
+    (source) => source.active && !source.kind.startsWith("candidate_"),
+  );
   const supported = active.filter((source) =>
     COLLECTABLE_KINDS.has(source.kind),
   );

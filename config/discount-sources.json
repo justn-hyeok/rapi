@@ -1,0 +1,94 @@
+{
+  "changelogs": [
+    {
+      "url": "https://vercel.com/atom",
+      "format": "feed",
+      "maxAgeDays": 30
+    },
+    {
+      "url": "https://developers.cloudflare.com/changelog/rss/index.xml",
+      "format": "feed",
+      "maxAgeDays": 30
+    },
+    {
+      "url": "https://aws.amazon.com/about-aws/whats-new/recent/feed/",
+      "format": "feed",
+      "maxAgeDays": 30
+    },
+    {
+      "url": "https://developers.openai.com/api/docs/changelog",
+      "format": "page",
+      "entryStart": "<div[^>]*>(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \\d{1,2}</div>",
+      "maxAgeDays": 30
+    },
+    {
+      "url": "https://api-docs.deepseek.com/updates/",
+      "format": "page",
+      "entryStart": "<h[23]\\b",
+      "maxAgeDays": 30
+    },
+    {
+      "url": "https://docs.apiyi.com/en/changelog",
+      "format": "page",
+      "entryStart": "<div\\b[^>]*\\bid=\"[a-z]{3}-\\d{1,2}-\\d{4}",
+      "maxAgeDays": 30
+    },
+    {
+      "url": "https://www.anthropic.com/news",
+      "format": "list",
+      "html": {
+        "linkPattern": "^/(?:news/[a-z0-9-]+|claude-[a-z0-9-]+)$",
+        "maxItems": 60,
+        "exclude": [
+          "^/news/(?:announcements|features|events|partnerships|policy|product|safeguards|security)$"
+        ]
+      },
+      "maxArticles": 5,
+      "articleChars": 2000,
+      "maxAgeDays": 30
+    }
+  ],
+  "pullRequests": { "repository": "anomalyco/models.dev" },
+  "codeSearch": {
+    "queries": [
+      "\"gpt-6.1-sol\" baseURL",
+      "\"gpt-6.1-sol\" base_url",
+      "\"claude-opus-5-5\" baseURL",
+      "\"claude-opus-5-5\" base_url"
+    ],
+    "denylist": [
+      "aliyuncs.com",
+      "amazonaws.com",
+      "anthropic.com",
+      "api.aws",
+      "azure.com",
+      "bigmodel.cn",
+      "cerebras.ai",
+      "chatgpt.com",
+      "cloudflare.com",
+      "cohere.ai",
+      "cohere.com",
+      "deepseek.com",
+      "fireworks.ai",
+      "github.com",
+      "githubcopilot.com",
+      "googleapis.com",
+      "groq.com",
+      "huggingface.co",
+      "mistral.ai",
+      "moonshot.ai",
+      "moonshot.cn",
+      "nvidia.com",
+      "openai.com",
+      "openrouter.ai",
+      "perplexity.ai",
+      "siliconflow.cn",
+      "together.ai",
+      "together.xyz",
+      "volces.com",
+      "windows.net",
+      "x.ai",
+      "z.ai"
+    ]
+  }
+}
