@@ -1,4 +1,10 @@
 import {
+  clip,
+  plainLine,
+  STAR_DESCRIPTION_MAX_CHARS,
+  type GitHubStar,
+} from "@rapi/core";
+import {
   readSource,
   type ExternalItem,
   type SourceHttpOptions,
@@ -228,4 +234,67 @@ export class GitHubStarRecommender {
       limit,
     });
   }
+}
+
+// 100 a page: enough for the owner's stars without spending the unauthenticated limit.
+const OWN_STAR_PAGES = 10;
+const FULL_NAME = /^[\w.-]+\/[\w.-]+$/;
+
+function toOwnStar(value: unknown): GitHubStar {
+  const record = value as Record<string, unknown> | null;
+  const repo = record?.repo as Record<string, unknown> | undefined;
+  const fullName = repo?.full_name;
+  if (typeof fullName !== "string" || !FULL_NAME.test(fullName))
+    throw new Error("GitHub star has no repository name");
+  if (typeof record?.starred_at !== "string")
+    throw new Error("GitHub star has no starred_at");
+  return {
+    fullName,
+    url: `https://github.com/${fullName}`,
+    description:
+      typeof repo?.description === "string"
+        ? clip(plainLine(repo.description), STAR_DESCRIPTION_MAX_CHARS)
+        : "",
+    language:
+      typeof repo?.language === "string"
+        ? clip(plainLine(repo.language), 50)
+        : null,
+    stars: Number(repo?.stargazers_count ?? 0),
+    archived: repo?.archived === true,
+    starredAt: record.starred_at,
+  };
+}
+
+/**
+ * The owner's stars, oldest first, because a bounded read should not lose the old
+ * ones. Any failed page or odd answer throws, so a bad day never looks like the
+ * owner removing their stars. `complete` says whether the last page was reached.
+ */
+export async function readOwnStars(
+  login: string,
+  token?: string,
+  options: SourceHttpOptions = {},
+): Promise<{ stars: GitHubStar[]; complete: boolean }> {
+  // A star added between two pages can show the same repository twice.
+  const stars = new Map<string, GitHubStar>();
+  for (let page = 1; page <= OWN_STAR_PAGES; page += 1) {
+    const { response, body } = await readSource(
+      `https://api.github.com/users/${encodeURIComponent(login)}/starred?direction=asc&per_page=100&page=${page}`,
+      {
+        Accept: "application/vnd.github.star+json",
+        "User-Agent": "rapi",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      options,
+    );
+    const batch = JSON.parse(body) as unknown;
+    if (!Array.isArray(batch))
+      throw new Error("GitHub stars response is not a list");
+    for (const star of batch.map(toOwnStar)) stars.set(star.fullName, star);
+    if (!response.headers.get("link")?.includes('rel="next"')) {
+      if (stars.size === 0) throw new Error("GitHub returned no stars");
+      return { stars: [...stars.values()], complete: true };
+    }
+  }
+  return { stars: [...stars.values()], complete: false };
 }
