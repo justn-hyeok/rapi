@@ -91,6 +91,10 @@ export const environmentSchema = z
     COMMUNITY_GUILD_ID: z.string().regex(/^\d+$/).optional(),
     DISCOUNT_REVIEW_CHANNEL_ID: z.string().regex(/^\d+$/).optional(),
     DISCOUNT_PUBLIC_CHANNEL_ID: z.string().regex(/^\d+$/).optional(),
+    STAR_REMINDER_GITHUB_USER: z
+      .string()
+      .regex(/^[a-z\d](?:[a-z\d-]{0,37}[a-z\d])?$/i)
+      .optional(),
   })
   .superRefine((value, context) => {
     if (value.MODEL_API_BASE_URL) {
