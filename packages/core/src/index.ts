@@ -3,6 +3,7 @@ export * from "./domain/content.js";
 export * from "./domain/discord-card.js";
 export * from "./domain/curation.js";
 export * from "./domain/discount-candidates.js";
+export * from "./domain/candidate-verification.js";
 export * from "./domain/access.js";
 export * from "./domain/guilds.js";
 export * from "./domain/health.js";
