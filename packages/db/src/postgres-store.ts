@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Pool, type PoolClient } from "pg";
-import type { NormalizedItem, Visibility } from "@rapi/core";
+import type { DiscountCandidate, NormalizedItem, Visibility } from "@rapi/core";
 import { parseHtmlSourcePolicy, validateHtmlSourceLocator } from "@rapi/core";
 
 interface RawEventResult {
@@ -72,7 +72,7 @@ export class PostgresStore {
     if (!database.rows[0]?.name.endsWith("_test"))
       throw new Error("Refusing to reset a database without an _test suffix");
     await this.pool
-      .query(`TRUNCATE discord_layout_plans, discord_managed_resources, summaries, classifications,
+      .query(`TRUNCATE discount_candidates, discord_layout_plans, discord_managed_resources, summaries, classifications,
       item_relations, source_items, source_cursors, raw_events, sources RESTART IDENTITY CASCADE`);
   }
 
@@ -174,6 +174,27 @@ export class PostgresStore {
        SET last_error = EXCLUDED.last_error, failure_count = source_cursors.failure_count + 1, updated_at = now()`,
       [sourceId, message.slice(0, 500)],
     );
+  }
+
+  /** Re-seeing a candidate changes nothing; returns whether this one is new. */
+  async saveDiscountCandidate(candidate: DiscountCandidate): Promise<boolean> {
+    const result = await this.pool.query(
+      `INSERT INTO discount_candidates
+         (kind, route, dedupe_key, domain, title, url, evidence, published_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       ON CONFLICT (dedupe_key) DO NOTHING`,
+      [
+        candidate.kind,
+        candidate.route,
+        candidate.dedupeKey,
+        candidate.domain,
+        candidate.title,
+        candidate.url,
+        candidate.evidence,
+        candidate.publishedAt,
+      ],
+    );
+    return result.rowCount === 1;
   }
 
   async saveItem(
