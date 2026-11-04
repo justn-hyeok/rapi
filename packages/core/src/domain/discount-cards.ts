@@ -31,6 +31,16 @@ export interface CandidateForDecision extends CandidateForCard {
   status: string;
 }
 
+export interface ProblemReportForCard {
+  id: string;
+  url: string;
+  domain: string;
+  reporterId: string;
+  memo: string | null;
+}
+
+export type ProblemDecision = "red" | "no_problem";
+
 const BAND_COLOR = { green: 0x2e9e5b, yellow: 0xe0b020 } as const;
 const ROUTE_LABEL: Record<DiscountCandidateRoute, string> = {
   changelog: "공식 변경로그",

@@ -16,6 +16,17 @@ export interface DiscountCandidate {
   publishedAt: string | null;
 }
 
+/** What /제보 keeps: nothing from the page, which is read later and only by the rules. */
+export interface NewReport {
+  kind: DiscountCandidateKind | "problem";
+  url: string;
+  domain: string;
+  reporterId: string;
+  memo: string | null;
+}
+
+export type ReportOutcome = "saved" | "duplicate" | "limited";
+
 export const DISCOUNT_EVIDENCE_MAX_CHARS = 600;
 export const DISCOUNT_BODY_DEFAULT_CHARS = 600;
 export const REPORT_MEMO_MAX_CHARS = 200;

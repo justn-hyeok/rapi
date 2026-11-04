@@ -6,7 +6,12 @@ import type {
   CandidateToVerify,
   CandidateVerification,
   DiscountCandidate,
+  DiscountCandidateRoute,
+  NewReport,
   NormalizedItem,
+  ProblemDecision,
+  ProblemReportForCard,
+  ReportOutcome,
   Visibility,
 } from "@rapi/core";
 import { parseHtmlSourcePolicy, validateHtmlSourceLocator } from "@rapi/core";
@@ -86,7 +91,7 @@ export class PostgresStore {
     if (!database.rows[0]?.name.endsWith("_test"))
       throw new Error("Refusing to reset a database without an _test suffix");
     await this.pool
-      .query(`TRUNCATE discount_candidates, discord_layout_plans, discord_managed_resources, summaries, classifications,
+      .query(`TRUNCATE discount_candidates, problem_reports, discord_layout_plans, discord_managed_resources, summaries, classifications,
       item_relations, source_items, source_cursors, raw_events, sources RESTART IDENTITY CASCADE`);
   }
 
@@ -211,26 +216,73 @@ export class PostgresStore {
     return result.rowCount === 1;
   }
 
+  /**
+   * The limit and the insert share a lock per reporter, so sending six at once
+   * still saves five. A link already reported saves nothing and does not count.
+   */
+  async saveReport(report: NewReport, perHour: number): Promise<ReportOutcome> {
+    return this.transaction(async (client) => {
+      await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+        `report:${report.reporterId}`,
+      ]);
+      const { rows } = await client.query<{ count: number }>(
+        `SELECT ((SELECT count(*) FROM discount_candidates
+                  WHERE reporter_id = $1 AND first_seen_at > now() - interval '1 hour')
+               + (SELECT count(*) FROM problem_reports
+                  WHERE reporter_id = $1 AND reported_at > now() - interval '1 hour'))::int AS count`,
+        [report.reporterId],
+      );
+      if (rows[0]!.count >= perHour) return "limited";
+      const { url, domain, reporterId, memo } = report;
+      const result =
+        report.kind === "problem"
+          ? await client.query(
+              `INSERT INTO problem_reports (url, domain, reporter_id, memo)
+               VALUES ($1, $2, $3, $4)
+               ON CONFLICT (url) WHERE decision IS NULL DO NOTHING`,
+              [url, domain, reporterId, memo],
+            )
+          : await client.query(
+              `INSERT INTO discount_candidates
+                 (kind, route, dedupe_key, domain, title, url, evidence, reporter_id, memo)
+               VALUES ($1, 'report', $2, $3, $3, $4, '', $5, $6)
+               ON CONFLICT (dedupe_key) DO NOTHING`,
+              [report.kind, `report:${url}`, domain, url, reporterId, memo],
+            );
+      return result.rowCount === 1 ? "saved" : "duplicate";
+    });
+  }
+
   /** Oldest first. A row with a band has been decided, by the rules or the owner. */
   async unverifiedDiscountCandidates(
     limit: number,
+    route?: DiscountCandidateRoute,
   ): Promise<CandidateToVerify[]> {
     const { rows } = await this.pool.query<CandidateToVerify>(
       `SELECT id, kind, route, domain, title, evidence FROM discount_candidates
-       WHERE band IS NULL ORDER BY first_seen_at, id LIMIT $1`,
-      [limit],
+       WHERE band IS NULL AND ($2::text IS NULL OR route = $2)
+       ORDER BY first_seen_at, id LIMIT $1`,
+      [limit, route ?? null],
     );
     return rows;
   }
 
-  /** Never overwrites a band, so a red set by hand stays red. */
+  /**
+   * Never overwrites a band, so a red set by hand stays red. A domain the owner
+   * already decided against stays red for rows found after that decision.
+   */
   async saveCandidateVerification(
     id: string,
     verification: CandidateVerification,
   ): Promise<void> {
     await this.pool.query(
       `UPDATE discount_candidates
-       SET band = $2, tags = $3, operator = $4, price_check = $5,
+       SET band = CASE WHEN EXISTS (
+             SELECT 1 FROM problem_reports
+             WHERE problem_reports.domain = discount_candidates.domain
+               AND problem_reports.decision = 'red'
+           ) THEN 'red' ELSE $2::text END,
+           tags = $3, operator = $4, price_check = $5,
            terms_url = $6, terms_note = $7, verified_at = now()
        WHERE id = $1 AND band IS NULL`,
       [
@@ -253,7 +305,7 @@ export class PostgresStore {
   async candidatesForCards(limit: number): Promise<CandidateForCard[]> {
     const { rows } = await this.pool.query<CandidateForCard>(
       `SELECT id, kind, route, domain, title, url, evidence, band, tags, operator,
-              price_check AS "priceCheck", terms_note AS "termsNote"
+              price_check AS "priceCheck", terms_note AS "termsNote", memo
        FROM discount_candidates
        WHERE carded_at IS NULL AND band IN ('green', 'yellow')
          AND COALESCE(published_at, first_seen_at) >= now() - interval '7 days'
@@ -263,10 +315,13 @@ export class PostgresStore {
     return rows;
   }
 
+  /** Both kinds of card go to the same channel, and the limit is the channel's. */
   async cardsInLastHour(): Promise<number> {
     const { rows } = await this.pool.query<{ count: number }>(
-      `SELECT count(*)::int AS count FROM discount_candidates
-       WHERE carded_at > now() - interval '1 hour'`,
+      `SELECT ((SELECT count(*) FROM discount_candidates
+                WHERE carded_at > now() - interval '1 hour')
+             + (SELECT count(*) FROM problem_reports
+                WHERE carded_at > now() - interval '1 hour'))::int AS count`,
     );
     return rows[0]!.count;
   }
@@ -369,6 +424,81 @@ export class PostgresStore {
       [id],
     );
     return result.rowCount === 1;
+  }
+
+  /** Oldest first: each is a question waiting for the owner. */
+  async problemReportsForCards(limit: number): Promise<ProblemReportForCard[]> {
+    const { rows } = await this.pool.query<ProblemReportForCard>(
+      `SELECT id, url, domain, reporter_id AS "reporterId", memo
+       FROM problem_reports
+       WHERE carded_at IS NULL AND decision IS NULL
+       ORDER BY reported_at, id LIMIT $1`,
+      [limit],
+    );
+    return rows;
+  }
+
+  async claimProblemCard(id: string): Promise<boolean> {
+    const result = await this.pool.query(
+      `UPDATE problem_reports SET carded_at = now()
+       WHERE id = $1 AND carded_at IS NULL AND decision IS NULL`,
+      [id],
+    );
+    return result.rowCount === 1;
+  }
+
+  async releaseProblemCard(id: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE problem_reports SET carded_at = NULL
+       WHERE id = $1 AND card_message_id IS NULL`,
+      [id],
+    );
+  }
+
+  async saveProblemCardMessage(id: string, messageId: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE problem_reports SET card_message_id = $2 WHERE id = $1`,
+      [id, messageId],
+    );
+  }
+
+  /**
+   * Null when it was already decided. Red turns every row of the domain red at
+   * once, and says how many of them had already gone to the public channel.
+   */
+  async decideProblemReport(
+    id: string,
+    decision: ProblemDecision,
+    decidedBy: string,
+  ): Promise<{
+    url: string;
+    domain: string;
+    turnedRed: number;
+    alreadyPublished: number;
+  } | null> {
+    return this.transaction(async (client) => {
+      const { rows } = await client.query<{ url: string; domain: string }>(
+        `UPDATE problem_reports
+         SET decision = $2, decided_by = $3, decided_at = now()
+         WHERE id = $1 AND decision IS NULL
+         RETURNING url, domain`,
+        [id, decision, decidedBy],
+      );
+      const report = rows[0];
+      if (!report) return null;
+      if (decision !== "red")
+        return { ...report, turnedRed: 0, alreadyPublished: 0 };
+      const red = await client.query<{ status: string }>(
+        `UPDATE discount_candidates SET band = 'red' WHERE domain = $1 RETURNING status`,
+        [report.domain],
+      );
+      return {
+        ...report,
+        turnedRed: red.rows.length,
+        alreadyPublished: red.rows.filter((row) => row.status === "published")
+          .length,
+      };
+    });
   }
 
   async saveItem(
