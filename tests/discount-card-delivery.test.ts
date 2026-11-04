@@ -56,7 +56,12 @@ interface Sent {
   channel: string;
   embeds: Array<{ url: string; color: number; description: string }>;
   components: Array<{
-    components: Array<{ style: number; label: string; url: string }>;
+    components: Array<{
+      style: number;
+      label: string;
+      url?: string;
+      custom_id?: string;
+    }>;
   }>;
   allowed_mentions: unknown;
 }
@@ -106,6 +111,16 @@ test("each card is one message with a button, and mentions stay off", async (t) 
     label: "원문 보기",
     url: "https://x.test/a",
   });
+  assert.deepEqual(
+    message!.components[1]!.components.map((button) => [
+      button.label,
+      button.custom_id,
+    ]),
+    [
+      ["게시", "discount_publish:a"],
+      ["버리기", "discount_discard:a"],
+    ],
+  );
   assert.equal(store.messages.get("a"), "message-a");
 });
 
