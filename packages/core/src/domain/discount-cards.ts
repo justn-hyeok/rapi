@@ -24,6 +24,10 @@ export interface CandidateForCard {
   termsNote: CandidateTermsNote | null;
 }
 
+export interface CandidateForDecision extends CandidateForCard {
+  status: string;
+}
+
 const BAND_COLOR = { green: 0x2e9e5b, yellow: 0xe0b020 } as const;
 const ROUTE_LABEL: Record<DiscountCandidateRoute, string> = {
   changelog: "공식 변경로그",

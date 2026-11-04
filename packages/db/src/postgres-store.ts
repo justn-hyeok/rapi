@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Pool, type PoolClient } from "pg";
 import type {
   CandidateForCard,
+  CandidateForDecision,
   CandidateToVerify,
   CandidateVerification,
   DiscountCandidate,
@@ -33,6 +34,12 @@ export interface DiscordLayoutPlanRecord {
   expiresAt: Date;
   appliedAt: Date | null;
 }
+
+// The moment the publication that is $1 places back leaves the hour, if there is one.
+const PUBLICATION_RETRY_AT = `SELECT decided_at + interval '1 hour' AS "retryAt"
+  FROM discount_candidates
+  WHERE status = 'published' AND decided_at > now() - interval '1 hour'
+  ORDER BY decided_at DESC OFFSET $1 LIMIT 1`;
 
 export class PostgresStore {
   readonly pool: Pool;
@@ -288,6 +295,80 @@ export class PostgresStore {
       `UPDATE discount_candidates SET card_message_id = $2 WHERE id = $1`,
       [id, messageId],
     );
+  }
+
+  async candidateForDecision(id: string): Promise<CandidateForDecision | null> {
+    const { rows } = await this.pool.query<CandidateForDecision>(
+      `SELECT id, kind, route, domain, title, url, evidence, band, tags, operator,
+              price_check AS "priceCheck", terms_note AS "termsNote", status
+       FROM discount_candidates WHERE id = $1`,
+      [id],
+    );
+    return rows[0] ?? null;
+  }
+
+  /** When another card can go out, or null while the last hour has room. */
+  async publicationRetryAt(perHour: number): Promise<Date | null> {
+    const { rows } = await this.pool.query<{ retryAt: Date }>(
+      PUBLICATION_RETRY_AT,
+      [perHour - 1],
+    );
+    return rows[0]?.retryAt ?? null;
+  }
+
+  /**
+   * Taken before sending, so double clicks and two open tabs send once. The lock
+   * keeps two different cards from both taking the hour's last place. Over the
+   * limit nothing changes and `retryAt` says when to try.
+   */
+  async claimCandidatePublication(
+    id: string,
+    perHour: number,
+  ): Promise<{ claimed: boolean; retryAt: Date | null }> {
+    return this.transaction(async (client) => {
+      await client.query(
+        "SELECT pg_advisory_xact_lock(hashtext('discount_publication'))",
+      );
+      const { rows } = await client.query<{ retryAt: Date }>(
+        PUBLICATION_RETRY_AT,
+        [perHour - 1],
+      );
+      if (rows[0]) return { claimed: false, retryAt: rows[0].retryAt };
+      const result = await client.query(
+        `UPDATE discount_candidates SET status = 'published', decided_at = now()
+         WHERE id = $1 AND status = 'new' AND band IN ('green', 'yellow')`,
+        [id],
+      );
+      return { claimed: result.rowCount === 1, retryAt: null };
+    });
+  }
+
+  /** Only for a send Discord refused, so the owner can press the button again. */
+  async releaseCandidatePublication(id: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE discount_candidates SET status = 'new', decided_at = NULL
+       WHERE id = $1 AND status = 'published' AND public_message_id IS NULL`,
+      [id],
+    );
+  }
+
+  async saveCandidatePublicMessage(
+    id: string,
+    messageId: string,
+  ): Promise<void> {
+    await this.pool.query(
+      `UPDATE discount_candidates SET public_message_id = $2 WHERE id = $1`,
+      [id, messageId],
+    );
+  }
+
+  async discardCandidate(id: string): Promise<boolean> {
+    const result = await this.pool.query(
+      `UPDATE discount_candidates SET status = 'discarded', decided_at = now()
+       WHERE id = $1 AND status = 'new'`,
+      [id],
+    );
+    return result.rowCount === 1;
   }
 
   async saveItem(

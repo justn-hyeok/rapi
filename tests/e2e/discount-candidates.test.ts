@@ -158,4 +158,142 @@ describe("discount candidates", () => {
       await store.close();
     }
   });
+
+  describe("the owner's decision", () => {
+    const add = async (store: PostgresStore, key: string, band = "green") => {
+      await store.saveDiscountCandidate({
+        kind: "discount",
+        route: "changelog",
+        dedupeKey: key,
+        domain: "x.test",
+        title: key,
+        url: `https://x.test/${key}`,
+        evidence: "50% off",
+        publishedAt: null,
+      });
+      const { rows } = await store.pool.query<{ id: string }>(
+        "UPDATE discount_candidates SET band = $2 WHERE dedupe_key = $1 RETURNING id",
+        [key, band],
+      );
+      return rows[0]!.id;
+    };
+    const state = async (store: PostgresStore, id: string) =>
+      (
+        await store.pool.query<{
+          status: string;
+          decided: boolean;
+          public_message_id: string | null;
+        }>(
+          `SELECT status, decided_at IS NOT NULL AS decided, public_message_id
+           FROM discount_candidates WHERE id = $1`,
+          [id],
+        )
+      ).rows[0]!;
+
+    it("publishes a row once, even when two tabs submit together", async () => {
+      const store = new PostgresStore(databaseUrl);
+      try {
+        await store.resetForTests();
+        const id = await add(store, "a");
+        const claims = await Promise.all([
+          store.claimCandidatePublication(id, 5),
+          store.claimCandidatePublication(id, 5),
+        ]);
+        assert.equal(claims.filter((claim) => claim.claimed).length, 1);
+        assert.equal(
+          (await store.candidateForDecision(id))!.status,
+          "published",
+        );
+        assert.equal(await store.discardCandidate(id), false);
+
+        await store.saveCandidatePublicMessage(id, "123");
+        await store.releaseCandidatePublication(id);
+        assert.deepEqual(await state(store, id), {
+          status: "published",
+          decided: true,
+          public_message_id: "123",
+        });
+      } finally {
+        await store.close();
+      }
+    });
+
+    it("gives a refused send back, and a discarded row cannot be published", async () => {
+      const store = new PostgresStore(databaseUrl);
+      try {
+        await store.resetForTests();
+        const refused = await add(store, "refused");
+        await store.claimCandidatePublication(refused, 5);
+        await store.releaseCandidatePublication(refused);
+        assert.deepEqual(await state(store, refused), {
+          status: "new",
+          decided: false,
+          public_message_id: null,
+        });
+
+        const discarded = await add(store, "discarded");
+        assert.equal(await store.discardCandidate(discarded), true);
+        assert.equal(await store.discardCandidate(discarded), false);
+        assert.equal((await state(store, discarded)).decided, true);
+        assert.deepEqual(await store.claimCandidatePublication(discarded, 5), {
+          claimed: false,
+          retryAt: null,
+        });
+        // A release must not reopen what the owner threw away.
+        await store.releaseCandidatePublication(discarded);
+        assert.equal((await state(store, discarded)).status, "discarded");
+      } finally {
+        await store.close();
+      }
+    });
+
+    it("never publishes a red row, even one turned red after its card", async () => {
+      const store = new PostgresStore(databaseUrl);
+      try {
+        await store.resetForTests();
+        const red = await add(store, "red", "red");
+        assert.deepEqual(await store.claimCandidatePublication(red, 5), {
+          claimed: false,
+          retryAt: null,
+        });
+        assert.equal((await state(store, red)).status, "new");
+        assert.equal((await store.candidateForDecision(red))!.band, "red");
+      } finally {
+        await store.close();
+      }
+    });
+
+    it("holds the sixth publication of the hour without changing the row", async () => {
+      const store = new PostgresStore(databaseUrl);
+      try {
+        await store.resetForTests();
+        assert.equal(await store.publicationRetryAt(5), null);
+        const ids = await Promise.all(
+          ["a", "b", "c", "d", "e", "f", "g"].map((key) => add(store, key)),
+        );
+        // Two more than the limit at once still only fills the limit.
+        const claims = await Promise.all(
+          ids.map((id) => store.claimCandidatePublication(id, 5)),
+        );
+        assert.equal(claims.filter((claim) => claim.claimed).length, 5);
+        const held = claims.find((claim) => !claim.claimed)!;
+        assert.ok(held.retryAt! > new Date());
+        assert.ok((await store.publicationRetryAt(5))! > new Date());
+
+        // Discarding is not limited and does not count.
+        const unclaimed = ids[claims.findIndex((claim) => !claim.claimed)]!;
+        assert.equal((await state(store, unclaimed)).status, "new");
+        assert.equal(await store.discardCandidate(unclaimed), true);
+
+        // An hour later the place is free again.
+        await store.pool.query(
+          `UPDATE discount_candidates SET decided_at = now() - interval '61 minutes'
+           WHERE status = 'published'`,
+        );
+        assert.equal(await store.publicationRetryAt(5), null);
+      } finally {
+        await store.close();
+      }
+    });
+  });
 });
