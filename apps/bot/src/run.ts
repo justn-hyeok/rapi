@@ -22,6 +22,7 @@ import {
   receiveReport,
   sendDiscountCards,
   verifyDiscountCandidates,
+  verifyReports,
 } from "@rapi/agent";
 import {
   createGuildGate,
@@ -252,15 +253,27 @@ async function collectCandidates(): Promise<void> {
     throw new Error(`Candidate sources failed: ${failures.join("; ")}`);
 }
 
+async function checkReports(): Promise<string[]> {
+  try {
+    const { operators } = await loadDiscountSources(process.cwd());
+    return await verifyReports({ store, operators });
+  } catch (error) {
+    return [`reports: ${error instanceof Error ? error.message : "failed"}`];
+  }
+}
+
 // Independent of the daily collection, so cards held back by the hourly limit
-// still go out. Without a channel nothing is sent.
+// still go out and a report does not wait a day. Without a channel nothing is sent.
 async function sendCards(): Promise<void> {
-  if (!config.DISCOUNT_REVIEW_CHANNEL_ID) return;
-  const failures = await sendDiscountCards({
-    store,
-    delivery: discord,
-    channelId: config.DISCOUNT_REVIEW_CHANNEL_ID,
-  });
+  const failures = await checkReports();
+  if (config.DISCOUNT_REVIEW_CHANNEL_ID)
+    failures.push(
+      ...(await sendDiscountCards({
+        store,
+        delivery: discord,
+        channelId: config.DISCOUNT_REVIEW_CHANNEL_ID,
+      })),
+    );
   if (failures.length)
     throw new Error(`Discount cards failed: ${failures.join("; ")}`);
 }

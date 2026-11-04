@@ -12,6 +12,7 @@ import {
   collectDiscountCandidates,
   loadDiscountSources,
   verifyDiscountCandidates,
+  verifyReports,
   type DiscountSources,
 } from "@rapi/agent";
 import {
@@ -578,4 +579,20 @@ test("the store failing to list is reported, not thrown", async () => {
     }),
     ["verification: db down"],
   );
+});
+
+test("the short timer asks only for reports, and few at a time", async () => {
+  const asked: unknown[] = [];
+  const failures = await verifyReports({
+    store: {
+      unverifiedDiscountCandidates: async (...args: unknown[]) => {
+        asked.push(args);
+        return [];
+      },
+      saveCandidateVerification: async () => {},
+    } as never,
+    operators: [],
+  });
+  assert.deepEqual(failures, []);
+  assert.deepEqual(asked, [[20, "report"]]);
 });

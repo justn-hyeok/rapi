@@ -21,6 +21,7 @@ import {
   type CandidateForCard,
   type DeliveryAdapter,
   type DeliveryPayload,
+  type DiscountCandidateRoute,
   type KnownOperator,
 } from "@rapi/core";
 import type { PostgresStore } from "@rapi/db";
@@ -123,23 +124,31 @@ type VerificationStore = Pick<
 
 // Pages are read one at a time; anything past this waits for tomorrow's run.
 const VERIFICATIONS_PER_RUN = 200;
+// On the short timer, so a page taking its full time cannot outlast the run.
+const REPORT_VERIFICATIONS_PER_RUN = 20;
 
 /**
  * Decides the band and tags of every candidate without one. Nothing is posted. A
  * page that cannot be read is a result, recorded as such; only a row that could
  * not be checked or saved is a failure, and it is tried again on the next run.
  */
-export async function verifyDiscountCandidates(input: {
-  store: VerificationStore;
-  operators: readonly KnownOperator[];
-  http?: SourceHttpOptions & { resolve?: ResolveHostname };
-}): Promise<string[]> {
+export async function verifyDiscountCandidates(
+  input: {
+    store: VerificationStore;
+    operators: readonly KnownOperator[];
+    http?: SourceHttpOptions & { resolve?: ResolveHostname };
+  },
+  only: { limit: number; route?: DiscountCandidateRoute } = {
+    limit: VERIFICATIONS_PER_RUN,
+  },
+): Promise<string[]> {
   const { store, operators, http } = input;
   const failures: string[] = [];
   let candidates;
   try {
     candidates = await store.unverifiedDiscountCandidates(
-      VERIFICATIONS_PER_RUN,
+      only.limit,
+      only.route,
     );
   } catch (error) {
     return [
@@ -233,6 +242,20 @@ function reviewPayloadFor(candidate: CandidateForCard): DeliveryPayload {
 
 const failureText = (id: string, error: unknown) =>
   `${id}: ${error instanceof Error ? error.message : "failed"}`;
+
+/**
+ * Reports check out on the card timer: someone is waiting, and it is not a day's
+ * worth of rows. The daily run would get to them too; the band is only written once.
+ */
+export const verifyReports = (input: {
+  store: VerificationStore;
+  operators: readonly KnownOperator[];
+  http?: SourceHttpOptions & { resolve?: ResolveHostname };
+}): Promise<string[]> =>
+  verifyDiscountCandidates(input, {
+    limit: REPORT_VERIFICATIONS_PER_RUN,
+    route: "report",
+  });
 
 /**
  * Sends what `budget` allows; the rest stay unclaimed for a later run. A row is
