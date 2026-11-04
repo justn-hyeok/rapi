@@ -42,6 +42,26 @@ describe("environment configuration", () => {
     );
   });
 
+  it("starts without a public discount channel and rejects a malformed one", () => {
+    assert.equal(
+      loadEnvironment(validEnvironment).DISCOUNT_PUBLIC_CHANNEL_ID,
+      undefined,
+    );
+    assert.equal(
+      loadEnvironment({
+        ...validEnvironment,
+        DISCOUNT_PUBLIC_CHANNEL_ID: "456",
+      }).DISCOUNT_PUBLIC_CHANNEL_ID,
+      "456",
+    );
+    assert.throws(() =>
+      loadEnvironment({
+        ...validEnvironment,
+        DISCOUNT_PUBLIC_CHANNEL_ID: "everyone",
+      }),
+    );
+  });
+
   it("parses allowlists before application startup", () => {
     const config = loadEnvironment({
       ...validEnvironment,

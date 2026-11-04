@@ -16,7 +16,9 @@ import {
   RapiAgent,
   collectDiscountCandidates,
   createCommunityFeeds,
+  discountCardButton,
   loadDiscountSources,
+  publishDiscountCard,
   sendDiscountCards,
   verifyDiscountCandidates,
 } from "@rapi/agent";
@@ -256,10 +258,25 @@ async function sendCards(): Promise<void> {
     throw new Error(`Discount cards failed: ${failures.join("; ")}`);
 }
 
+const discountApproval = {
+  store,
+  delivery: discord,
+  // Both lists are superadmins to the access rules; there is no other owner setting.
+  ownerIds: [...allowlists.userIds, ...(allowlists.superadminUserIds ?? [])],
+  reviewChannelId: config.DISCOUNT_REVIEW_CHANNEL_ID,
+  publicChannelId: config.DISCOUNT_PUBLIC_CHANNEL_ID,
+};
+
 const server = createDiscordInteractionServer(
   commands,
   config.DISCORD_PUBLIC_KEY,
   {
+    discountCards: {
+      button: (identity, customId) =>
+        discountCardButton(discountApproval, identity, customId),
+      publish: (identity, customId, deadline) =>
+        publishDiscountCard(discountApproval, identity, customId, deadline),
+    },
     component: async (identity, customId) => {
       if (!identity.guildId)
         throw new Error("서버에서만 사용할 수 있는 버튼입니다.");

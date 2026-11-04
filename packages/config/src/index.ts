@@ -90,6 +90,7 @@ export const environmentSchema = z
     SUMMARIZER_BACKEND: z.enum(["codex", "api"]).default("codex"),
     COMMUNITY_GUILD_ID: z.string().regex(/^\d+$/).optional(),
     DISCOUNT_REVIEW_CHANNEL_ID: z.string().regex(/^\d+$/).optional(),
+    DISCOUNT_PUBLIC_CHANNEL_ID: z.string().regex(/^\d+$/).optional(),
   })
   .superRefine((value, context) => {
     if (value.MODEL_API_BASE_URL) {

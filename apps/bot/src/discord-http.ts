@@ -4,8 +4,16 @@ import {
   type IncomingMessage,
   type ServerResponse,
 } from "node:http";
-import { DiscordCommandService, type DiscordCommand } from "@rapi/agent";
-import { runtimeRevision } from "@rapi/core";
+import {
+  DISCOUNT_DEADLINE_INPUT,
+  DISCOUNT_DISCARD_PREFIX,
+  DISCOUNT_MODAL_PREFIX,
+  DISCOUNT_PUBLISH_PREFIX,
+  DiscordCommandService,
+  type DiscordCommand,
+  type DiscountPublishResult,
+} from "@rapi/agent";
+import { runtimeRevision, type DiscordIdentity } from "@rapi/core";
 import { redactChat } from "@rapi/contracts";
 
 const ed25519SpkiPrefix = Buffer.from("302a300506032b6570032100", "hex");
@@ -132,6 +140,30 @@ function json(response: ServerResponse, status: number, body: unknown): void {
   response.end(JSON.stringify(body));
 }
 
+// A modal's answer is sent only after the acknowledgement, through its own token.
+async function deliverDiscountResult(
+  interaction: { application_id: string; token: string },
+  result: DiscountPublishResult,
+): Promise<void> {
+  const webhook = `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}`;
+  const send = async (path: string, method: string, body: object) => {
+    const response = await fetch(`${webhook}${path}`, {
+      method,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...body, allowed_mentions: { parse: [] } }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    await response.arrayBuffer();
+    if (!response.ok) throw new Error(`Discord returned ${response.status}`);
+  };
+  const [edit, notice] = await Promise.allSettled([
+    result.edit && send("/messages/@original", "PATCH", result.edit),
+    result.notice && send("", "POST", { content: result.notice, flags: 64 }),
+  ]);
+  for (const outcome of [edit, notice])
+    if (outcome.status === "rejected") throw outcome.reason;
+}
+
 export function createDiscordInteractionServer(
   service: DiscordCommandService,
   publicKey: string,
@@ -147,6 +179,14 @@ export function createDiscordInteractionServer(
       },
       customId: string,
     ) => Promise<string>;
+    discountCards?: {
+      button: (identity: DiscordIdentity, customId: string) => Promise<unknown>;
+      publish: (
+        identity: DiscordIdentity,
+        customId: string,
+        deadline: string,
+      ) => Promise<DiscountPublishResult>;
+    };
   },
 ) {
   return createServer(async (request, response) => {
@@ -221,6 +261,47 @@ export function createDiscordInteractionServer(
           ? { guildPermissions: interaction.member.permissions }
           : {}),
       };
+      const customId = interaction.data?.custom_id ?? "";
+      const discountCards = integrations?.discountCards;
+      if (
+        interaction.type === 3 &&
+        discountCards &&
+        (customId.startsWith(DISCOUNT_PUBLISH_PREFIX) ||
+          customId.startsWith(DISCOUNT_DISCARD_PREFIX))
+      )
+        return json(
+          response,
+          200,
+          await discountCards.button(identity, customId),
+        );
+      // Sending can take longer than Discord waits, so this is answered first.
+      if (
+        interaction.type === 5 &&
+        discountCards &&
+        customId.startsWith(DISCOUNT_MODAL_PREFIX) &&
+        interaction.application_id &&
+        interaction.token
+      ) {
+        json(response, 200, { type: 6 });
+        const deadline =
+          interaction.data?.components
+            ?.flatMap((row) => row.components ?? [])
+            .find((field) => field.custom_id === DISCOUNT_DEADLINE_INPUT)
+            ?.value ?? "";
+        const webhook = {
+          application_id: interaction.application_id,
+          token: interaction.token,
+        };
+        void discountCards
+          .publish(identity, customId, deadline)
+          .then((result) => deliverDiscountResult(webhook, result))
+          .catch(() =>
+            process.stderr.write(
+              "Discount card result could not be delivered\n",
+            ),
+          );
+        return;
+      }
       if (interaction.type === 3 && interaction.data?.custom_id) {
         if (!integrations?.component)
           return json(response, 400, { error: "component unavailable" });
