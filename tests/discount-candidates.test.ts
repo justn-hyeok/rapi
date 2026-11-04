@@ -11,9 +11,16 @@ import {
 import {
   collectDiscountCandidates,
   loadDiscountSources,
+  verifyDiscountCandidates,
   type DiscountSources,
 } from "@rapi/agent";
-import { discountEvidence, type DiscountCandidate } from "@rapi/core";
+import {
+  discountEvidence,
+  knownOperator,
+  type CandidateToVerify,
+  type CandidateVerification,
+  type DiscountCandidate,
+} from "@rapi/core";
 
 const now = () => new Date("2026-11-05T00:00:00Z");
 const pages = (byUrl: Record<string, string>): typeof fetch =>
@@ -368,6 +375,7 @@ const SOURCES: DiscountSources = {
   ],
   pullRequests: { repository: "a/b" },
   codeSearch: { queries: ['"gpt-6.1-sol" baseURL'], denylist: [] },
+  operators: [],
 };
 const atom = `<feed><entry><id>a</id><title>50% off</title><link href="https://x.test/a"/><updated>2026-11-01T00:00:00Z</updated></entry></feed>`;
 const web = (async (url: string) => {
@@ -478,6 +486,96 @@ test("the shipped source list loads and names every changelog", async () => {
     "https://www.anthropic.com/news",
   ]);
   assert.ok(sources.codeSearch.queries.length <= 4);
-  for (const source of sources.changelogs)
+  for (const source of sources.changelogs) {
     if (source.format === "list") assert.ok(source.maxArticles <= 5);
+    // An official changelog with no known operator would be read as a stranger.
+    assert.ok(
+      knownOperator(new URL(source.url).hostname, sources.operators),
+      source.url,
+    );
+  }
+});
+
+const toVerify = (
+  id: string,
+  domain: string | null,
+  route: CandidateToVerify["route"] = "code_search",
+): CandidateToVerify => ({
+  id,
+  kind: "new_service",
+  route,
+  domain,
+  title: domain ?? "Add Infersia provider",
+  evidence: "https://github.com/o/r",
+});
+
+const HOME = { "content-type": "text/html" };
+const resolve = async () => ["93.184.216.34"];
+
+function verificationStore(rows: CandidateToVerify[]) {
+  const saved = new Map<string, CandidateVerification>();
+  return {
+    saved,
+    store: {
+      unverifiedDiscountCandidates: async () => rows,
+      saveCandidateVerification: async (
+        id: string,
+        verification: CandidateVerification,
+      ) => {
+        if (id === "unsavable") throw new Error("db down");
+        saved.set(id, verification);
+      },
+    },
+  };
+}
+
+test("one candidate failing to read or save leaves the others checked", async () => {
+  const { store, saved } = verificationStore([
+    toVerify("down", "down.io"),
+    toVerify("unsavable", "up.io"),
+    toVerify("local", "localhost"),
+    toVerify("pr", null, "pull_request"),
+    toVerify("up", "up.io"),
+  ]);
+  const requested: string[] = [];
+  const failures = await verifyDiscountCandidates({
+    store: store as never,
+    operators: [],
+    http: {
+      resolve,
+      fetch: (async (url: string) => {
+        requested.push(url);
+        if (url === "https://down.io/") throw new Error("ECONNREFUSED");
+        return new Response('<a href="/terms">Terms</a>', { headers: HOME });
+      }) as typeof fetch,
+    },
+  });
+  assert.deepEqual(failures, ["up.io: db down"]);
+  assert.deepEqual([...saved.keys()], ["down", "local", "pr", "up"]);
+  assert.equal(saved.get("down")!.termsNote, "확인 못 함");
+  assert.equal(saved.get("local")!.termsNote, "확인 못 함");
+  assert.equal(saved.get("pr")!.termsNote, "확인 못 함");
+  assert.equal(saved.get("up")!.termsUrl, "https://up.io/terms");
+  assert.equal(saved.get("up")!.termsNote, null);
+  for (const verification of saved.values())
+    assert.equal(verification.band, "yellow");
+  assert.deepEqual(requested, [
+    "https://down.io/",
+    "https://up.io/",
+    "https://up.io/",
+  ]);
+});
+
+test("the store failing to list is reported, not thrown", async () => {
+  assert.deepEqual(
+    await verifyDiscountCandidates({
+      store: {
+        unverifiedDiscountCandidates: async () => {
+          throw new Error("db down");
+        },
+      } as never,
+      operators: [],
+    }),
+    ["verification: db down"],
+  );
 });

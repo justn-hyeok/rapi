@@ -3,16 +3,20 @@ import {
   ChangelogRoute,
   CodeSearchRoute,
   PullRequestRoute,
+  readServicePage,
   type CandidateResult,
   type ChangelogSource,
+  type ResolveHostname,
   type SourceHttpOptions,
 } from "@rapi/adapters";
+import { knownOperator, verifyCandidate, type KnownOperator } from "@rapi/core";
 import type { PostgresStore } from "@rapi/db";
 
 export interface DiscountSources {
   changelogs: ChangelogSource[];
   pullRequests: { repository: string };
   codeSearch: { queries: string[]; denylist: string[] };
+  operators: KnownOperator[];
 }
 
 export async function loadDiscountSources(
@@ -93,6 +97,58 @@ export async function collectDiscountCandidates(input: {
       failures.push(`${job.locator}: ${message}`);
       if (sourceId)
         await store.recordSourceFailure(sourceId, message).catch(() => {});
+    }
+  }
+  return failures;
+}
+
+type VerificationStore = Pick<
+  PostgresStore,
+  "unverifiedDiscountCandidates" | "saveCandidateVerification"
+>;
+
+// Pages are read one at a time; anything past this waits for tomorrow's run.
+const VERIFICATIONS_PER_RUN = 200;
+
+/**
+ * Decides the band and tags of every candidate without one. Nothing is posted. A
+ * page that cannot be read is a result, recorded as such; only a row that could
+ * not be checked or saved is a failure, and it is tried again on the next run.
+ */
+export async function verifyDiscountCandidates(input: {
+  store: VerificationStore;
+  operators: readonly KnownOperator[];
+  http?: SourceHttpOptions & { resolve?: ResolveHostname };
+}): Promise<string[]> {
+  const { store, operators, http } = input;
+  const failures: string[] = [];
+  let candidates;
+  try {
+    candidates = await store.unverifiedDiscountCandidates(
+      VERIFICATIONS_PER_RUN,
+    );
+  } catch (error) {
+    return [
+      `verification: ${error instanceof Error ? error.message : "failed"}`,
+    ];
+  }
+  for (const candidate of candidates) {
+    try {
+      const page = candidate.domain
+        ? await readServicePage(candidate.domain, http)
+        : null;
+      await store.saveCandidateVerification(
+        candidate.id,
+        verifyCandidate(
+          candidate,
+          knownOperator(candidate.domain, operators),
+          page,
+        ),
+      );
+    } catch (error) {
+      failures.push(
+        `${candidate.domain ?? candidate.id}: ${error instanceof Error ? error.message : "failed"}`,
+      );
     }
   }
   return failures;

@@ -90,5 +90,49 @@
       "x.ai",
       "z.ai"
     ]
-  }
+  },
+  "operators": [
+    {
+      "domain": "openai.com",
+      "name": "OpenAI",
+      "service": "official",
+      "tags": []
+    },
+    {
+      "domain": "anthropic.com",
+      "name": "Anthropic",
+      "service": "official",
+      "tags": []
+    },
+    {
+      "domain": "deepseek.com",
+      "name": "DeepSeek",
+      "service": "official",
+      "tags": ["#직접호스팅", "#오픈모델"]
+    },
+    {
+      "domain": "cloudflare.com",
+      "name": "Cloudflare",
+      "service": "hosting",
+      "tags": ["#직접호스팅"]
+    },
+    {
+      "domain": "amazon.com",
+      "name": "Amazon Web Services",
+      "service": "hosting",
+      "tags": ["#직접호스팅"]
+    },
+    {
+      "domain": "vercel.com",
+      "name": "Vercel",
+      "service": "router",
+      "tags": []
+    },
+    {
+      "domain": "apiyi.com",
+      "name": "APIYI",
+      "service": "reseller",
+      "tags": []
+    }
+  ]
 }
