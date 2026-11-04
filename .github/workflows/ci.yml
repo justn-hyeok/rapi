@@ -74,6 +74,10 @@ jobs:
             tests/artifacts/restore-smoke.json
   secret-scan:
     runs-on: ubuntu-latest
+    # The action lists a pull request's commits; a private repository's default token cannot.
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
         with:

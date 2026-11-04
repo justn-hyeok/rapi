@@ -16,7 +16,7 @@
 
 ## 서버 밖 장애 감시
 
-`External monitor` Actions 워크플로는 5분 간격으로 공개 `/blog/`의 HTML과
+이 워크플로는 Actions 사용량 때문에 이 저장소가 아니라 공개 저장소 `justn-hyeok/rapi-agent`에서 돈다. `External monitor` Actions 워크플로는 5분 간격으로 공개 `/blog/`의 HTML과
 서명 없는 `POST /interactions`의 401 거부를 확인한다. VM·터널 전체 중단도 감지할
 수 있다. 내부 프로세스별 readiness는 기존 서버 monitor가 확인한다.
 

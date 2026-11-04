@@ -103,7 +103,7 @@ npm run community:configure
 
 - OpenAI News, GitHub Changelog, Cloudflare Blog, Supabase RSS를 public 수집원으로 등록
 - `github-피드`, `기술-rss`, `운영-알림` Discord 발송 웹훅 생성 및 암호화 저장
-- `justn-hyeok/rapi-agent` GitHub 수신 연결과 GitHub repository webhook 생성
+- `justn-hyeok/rapi-agent-private` GitHub 수신 연결과 GitHub repository webhook 생성
 - URL과 비밀값을 한 번 표시하는 범용 수신 연결 생성 후 즉시 중지
 - USER/운영진 역할 ID, 관리·운영 채널 ID와 RSS 15분 주기를 `.env`에 기록
 
