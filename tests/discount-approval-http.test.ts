@@ -235,3 +235,79 @@ test("other buttons still go to their own handler", async (t) => {
   });
   assert.equal(app.calls.length, 0);
 });
+
+test("/제보 is answered privately with its options, and with mentions off", async (t) => {
+  const keys = generateKeyPairSync("ed25519");
+  const seen: unknown[] = [];
+  const service = {
+    execute: async (identity: unknown, command: { options: object }) => {
+      seen.push(identity, command.options);
+      return { messages: ["제보를 받았습니다."] };
+    },
+  } as unknown as DiscordCommandService;
+  const server = createDiscordInteractionServer(
+    service,
+    (keys.publicKey.export({ type: "spki", format: "der" }) as Buffer)
+      .subarray(-32)
+      .toString("hex"),
+  );
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => new Promise<void>((resolve) => server.close(() => resolve())));
+  const address = server.address();
+  assert(address && typeof address === "object");
+  const body = Buffer.from(
+    JSON.stringify({
+      type: 2,
+      guild_id: "g",
+      channel_id: "100",
+      member: { user: { id: "7" }, roles: [] },
+      data: {
+        name: "제보",
+        options: [
+          { name: "링크", type: 3, value: "https://new.ai/" },
+          { name: "종류", type: 3, value: "problem" },
+          { name: "메모", type: 3, value: "m" },
+        ],
+      },
+    }),
+  );
+  const timestamp = String(Math.floor(Date.now() / 1000));
+  const response = await fetch(
+    `http://127.0.0.1:${address.port}/interactions`,
+    {
+      method: "POST",
+      headers: {
+        "x-signature-timestamp": timestamp,
+        "x-signature-ed25519": sign(
+          null,
+          Buffer.concat([Buffer.from(timestamp), body]),
+          keys.privateKey,
+        ).toString("hex"),
+      },
+      body,
+    },
+  );
+  assert.deepEqual(await response.json(), {
+    type: 4,
+    data: {
+      content: "제보를 받았습니다.",
+      flags: 64,
+      allowed_mentions: { parse: [] },
+    },
+  });
+  assert.deepEqual(seen[0], {
+    userId: "7",
+    guildId: "g",
+    channelId: "100",
+    roleIds: [],
+  });
+  assert.deepEqual(
+    {
+      link: (seen[1] as { link: unknown }).link,
+      kind: (seen[1] as { kind: unknown }).kind,
+      memo: (seen[1] as { memo: unknown }).memo,
+    },
+    { link: "https://new.ai/", kind: "problem", memo: "m" },
+  );
+});
