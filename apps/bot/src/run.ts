@@ -17,6 +17,7 @@ import {
   RapiAgent,
   collectDiscountCandidates,
   createCommunityFeeds,
+  createGuildFeatures,
   discountCardButton,
   loadDiscountSources,
   problemCardButton,
@@ -77,6 +78,12 @@ const summarizer =
         )
       : new CodexSummarizer(process.env.SUMMARY_MODEL || DEFAULT_SUMMARY_MODEL);
 const agent = new RapiAgent(store);
+const homeGuildId = resolveHomeGuildId(
+  config.DISCORD_HOME_GUILD_ID,
+  config.COMMUNITY_GUILD_ID,
+  config.DISCORD_ALLOWED_GUILD_IDS,
+);
+const guildFeatures = createGuildFeatures({ store, homeGuildId });
 // The curation channels: AI blogs and free tokens.
 const communityFeeds = config.COMMUNITY_GUILD_ID
   ? await createCommunityFeeds({
@@ -93,11 +100,6 @@ const htmlList = new HtmlSourceAdapter();
 const github = new GitHubSourceAdapter(config.GITHUB_READ_TOKEN);
 const stars = new GitHubStarRecommender(config.GITHUB_READ_TOKEN);
 
-const homeGuildId = resolveHomeGuildId(
-  config.DISCORD_HOME_GUILD_ID,
-  config.COMMUNITY_GUILD_ID,
-  config.DISCORD_ALLOWED_GUILD_IDS,
-);
 // Guild membership is checked against the gate, which also covers approved guilds.
 const guildGate = createGuildGate({
   envIds: config.DISCORD_ALLOWED_GUILD_IDS,
@@ -128,6 +130,7 @@ const allowlists = {
 };
 const commands = new DiscordCommandService(agent, allowlists, {
   guildAllowlist: () => guildGate.allowed(),
+  guildFeatures,
   report: (identity, options) =>
     receiveReport(
       { store, reviewChannelId: config.DISCOUNT_REVIEW_CHANNEL_ID },
@@ -339,8 +342,10 @@ const server = createDiscordInteractionServer(
         throw new Error("서버에서만 사용할 수 있는 버튼입니다.");
       if (!isGuildAllowed(identity.guildId, await guildGate.allowed()))
         throw new Error(GUILD_NOT_ALLOWED_MESSAGE);
-      if (customId === "rapi_verify:v1")
+      if (customId === "rapi_verify:v1") {
+        await commands.assertGuildFeature(identity.guildId, "server_config");
         return layout.verifyMember(identity.guildId, identity.userId);
+      }
       if (customId.startsWith("server_config_apply:")) {
         const result = await commands.execute(identity, {
           name: "server_config",
