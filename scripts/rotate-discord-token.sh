@@ -24,7 +24,7 @@ if ! command -v systemctl >/dev/null 2>&1; then
 fi
 
 services=()
-for service in rapi-bot.service rapi-chat.service rapi-worker.service rapi-monitor.service; do
+for service in rapi-bot.service rapi-monitor.service; do
   if systemctl is-active --quiet "$service"; then
     services+=("$service")
   fi

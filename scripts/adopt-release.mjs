@@ -70,9 +70,7 @@ export async function adoptRelease({
       !Array.isArray(legacy.active) ||
       !legacy.active.includes("bot") ||
       new Set(legacy.active).size !== legacy.active.length ||
-      legacy.active.some(
-        (name) => !["bot", "chat", "monitor", "worker"].includes(name),
-      )
+      legacy.active.some((name) => !["bot", "monitor"].includes(name))
     )
       throw new Error("Invalid legacy service set");
     if (
