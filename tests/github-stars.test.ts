@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   GitHubStarRecommender,
   rankStarRecommendations,
+  readOwnStars,
   type StarredRepository,
 } from "@rapi/adapters";
 
@@ -159,5 +160,126 @@ test("recommender tolerates neighbor and search failures", async () => {
   assert.deepEqual(
     items.map((item) => item.externalId),
     ["z/hit"],
+  );
+});
+
+const ownStar = (name: string, fields: Record<string, unknown> = {}) => ({
+  starred_at: recent,
+  repo: {
+    full_name: name,
+    description: "",
+    language: "TypeScript",
+    stargazers_count: 5,
+    ...fields,
+  },
+});
+const answered = (body: unknown, next = false, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: next
+      ? { link: '<https://api.github.com/x?page=2>; rel="next"' }
+      : {},
+  });
+
+test("reads own stars with the date header and stops at the last page", async () => {
+  const calls: Array<{ url: string; headers: Record<string, string> }> = [];
+  const { stars, complete } = await readOwnStars("me", undefined, {
+    fetch: (async (url: string, init: RequestInit) => {
+      calls.push({ url, headers: init.headers as Record<string, string> });
+      return calls.length === 1
+        ? answered([ownStar("a/one")], true)
+        : answered([ownStar("b/two", { archived: true })]);
+    }) as typeof fetch,
+  });
+  assert.equal(calls.length, 2);
+  assert.match(calls[0]!.url, /users\/me\/starred\?direction=asc/);
+  assert.match(calls[1]!.url, /page=2$/);
+  assert.equal(calls[0]!.headers.Accept, "application/vnd.github.star+json");
+  assert.equal(calls[0]!.headers.Authorization, undefined);
+  assert.equal(complete, true);
+  assert.deepEqual(stars[0], {
+    fullName: "a/one",
+    url: "https://github.com/a/one",
+    description: "",
+    language: "TypeScript",
+    stars: 5,
+    archived: false,
+    starredAt: recent,
+  });
+  assert.equal(stars[1]!.archived, true);
+});
+
+test("uses the token only when there is one", async () => {
+  let header: string | undefined;
+  await readOwnStars("me", "secret", {
+    fetch: (async (_url: string, init: RequestInit) => {
+      header = (init.headers as Record<string, string>).Authorization;
+      return answered([ownStar("a/one")]);
+    }) as typeof fetch,
+  });
+  assert.equal(header, "Bearer secret");
+});
+
+test("stops at the page bound and says the list is not complete", async () => {
+  let calls = 0;
+  const { stars, complete } = await readOwnStars("me", undefined, {
+    fetch: (async () => {
+      calls += 1;
+      return answered([ownStar(`a/${calls}`)], true);
+    }) as typeof fetch,
+  });
+  assert.equal(calls, 10);
+  assert.equal(stars.length, 10);
+  assert.equal(complete, false);
+});
+
+test("a repository seen on two pages counts once", async () => {
+  let calls = 0;
+  const { stars } = await readOwnStars("me", undefined, {
+    fetch: (async () => {
+      calls += 1;
+      return answered([ownStar("a/one")], calls === 1);
+    }) as typeof fetch,
+  });
+  assert.equal(stars.length, 1);
+});
+
+test("clips a description and strips what it cannot store", async () => {
+  const { stars } = await readOwnStars("me", undefined, {
+    fetch: (async () =>
+      answered([
+        ownStar("a/one", { description: `\u0000${"x".repeat(400)}` }),
+      ])) as typeof fetch,
+  });
+  assert.equal(stars[0]!.description.length, 300);
+  assert.ok(stars[0]!.description.startsWith("x"));
+});
+
+test("a failed page, an empty list or an odd answer is an error, not no stars", async () => {
+  const read = (fetcher: () => Response) =>
+    readOwnStars("me", undefined, {
+      fetch: (async () => fetcher()) as typeof fetch,
+    });
+  await assert.rejects(read(() => answered({}, false, 403)));
+  await assert.rejects(
+    read(() => answered([])),
+    /no stars/,
+  );
+  await assert.rejects(
+    read(() => answered({ message: "x" })),
+    /not a list/,
+  );
+  await assert.rejects(
+    read(() => answered([{ repo: { full_name: "a/one" } }])),
+    /starred_at/,
+  );
+  let calls = 0;
+  await assert.rejects(
+    read(() => {
+      calls += 1;
+      return calls === 1
+        ? answered([ownStar("a/one")], true)
+        : answered({}, false, 500);
+    }),
   );
 });
