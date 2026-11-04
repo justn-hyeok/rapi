@@ -35,4 +35,58 @@ describe("discount candidates", () => {
       await store.close();
     }
   });
+
+  it("records a verification once and never overwrites a red set by hand", async () => {
+    const store = new PostgresStore(databaseUrl);
+    try {
+      await store.resetForTests();
+      const candidate = {
+        kind: "new_service",
+        route: "code_search",
+        domain: "relay.io",
+        title: "https://relay.io",
+        url: "https://github.com/o/r/blob/a/c.ts",
+        evidence: "https://github.com/o/r",
+        publishedAt: null,
+      } as const;
+      await store.saveDiscountCandidate({ ...candidate, dedupeKey: "a" });
+      await store.saveDiscountCandidate({ ...candidate, dedupeKey: "b" });
+      const [first, second] = await store.unverifiedDiscountCandidates(10);
+      assert.equal(first!.route, "code_search");
+
+      const verification = {
+        band: "yellow",
+        tags: ["#재판매"],
+        operator: null,
+        priceCheck: "unknown",
+        termsUrl: null,
+        termsNote: "확인 못 함",
+      } as const;
+      await store.saveCandidateVerification(first!.id, verification);
+      await store.pool.query(
+        "UPDATE discount_candidates SET band = 'red' WHERE id = $1",
+        [second!.id],
+      );
+      assert.deepEqual(await store.unverifiedDiscountCandidates(10), []);
+
+      await store.saveCandidateVerification(second!.id, verification);
+      const { rows } = await store.pool.query<{
+        band: string;
+        tags: string[];
+        terms_note: string | null;
+        verified_at: Date | null;
+      }>(
+        "SELECT band, tags, terms_note, verified_at FROM discount_candidates WHERE id = ANY($1::uuid[]) ORDER BY band DESC",
+        [[first!.id, second!.id]],
+      );
+      assert.equal(rows[0]!.band, "yellow");
+      assert.deepEqual(rows[0]!.tags, ["#재판매"]);
+      assert.equal(rows[0]!.terms_note, "확인 못 함");
+      assert.ok(rows[0]!.verified_at);
+      assert.equal(rows[1]!.band, "red");
+      assert.equal(rows[1]!.verified_at, null);
+    } finally {
+      await store.close();
+    }
+  });
 });
