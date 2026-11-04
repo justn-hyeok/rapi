@@ -160,7 +160,7 @@ test("a database failure gets an answer, not an exception", async (t) => {
 
 function service(
   t: TestContext,
-  allowed: string[] | undefined = ["g"],
+  allowed: string[] = ["g"],
   allowlists: { userIds: string[]; channelIds?: string[] } = { userIds: ["1"] },
 ) {
   const report = t.mock.fn(async () => "받았습니다");
@@ -196,7 +196,7 @@ test("anyone in an allowed server can report, without any Rapi role", async (t) 
 
 test("a server that is not allowed, a DM or a closed channel cannot report", async (t) => {
   const { commands, report } = service(t, ["other"]);
-  await assert.rejects(commands.execute(MEMBER, command), /허용되지 않은 서버/);
+  await assert.rejects(commands.execute(MEMBER, command), /승인되지 않은 서버/);
   const dm = service(t);
   await assert.rejects(
     dm.commands.execute({ userId: "7", channelId: "c" }, command),

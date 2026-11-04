@@ -17,7 +17,10 @@ import {
 } from "@rapi/agent";
 import {
   allowedGuildIds,
+  isGuildAllowed,
+  GUILD_CHECK_FAILED_MESSAGE,
   GUILD_FEATURES,
+  GUILD_NOT_ALLOWED_MESSAGE,
   GUILD_REQUEST_COMMAND,
   GUILD_REQUEST_REASON_MAX_CHARS,
   REPORT_MEMO_MAX_CHARS,
@@ -256,7 +259,7 @@ export async function registerAllowedGuildCommands(input: {
     approved,
     input.homeGuildId,
   );
-  for (const guildId of [undefined, ...(guildIds ?? [])]) {
+  for (const guildId of [undefined, ...guildIds]) {
     try {
       await registerSlashCommands(input.applicationId, input.botToken, guildId);
     } catch (error) {
@@ -312,6 +315,8 @@ export function createDiscordInteractionServer(
   publicKey: string,
   integrations?: {
     readiness?: () => Promise<unknown>;
+    /** Checked before any handler, so none of them has to remember it. */
+    guildGate?: { allowed(): Promise<readonly string[]> };
     component?: (
       identity: {
         userId: string;
@@ -407,6 +412,24 @@ export function createDiscordInteractionServer(
           ? { guildPermissions: interaction.member.permissions }
           : {}),
       };
+      if (interaction.guild_id && integrations?.guildGate) {
+        const refusal = await integrations.guildGate.allowed().then(
+          (allowed) =>
+            isGuildAllowed(interaction.guild_id!, allowed)
+              ? undefined
+              : GUILD_NOT_ALLOWED_MESSAGE,
+          () => GUILD_CHECK_FAILED_MESSAGE,
+        );
+        if (refusal)
+          return json(response, 200, {
+            type: 4,
+            data: {
+              content: refusal,
+              flags: 64,
+              allowed_mentions: { parse: [] },
+            },
+          });
+      }
       const customId = interaction.data?.custom_id ?? "";
       const discountCards = integrations?.discountCards;
       if (
