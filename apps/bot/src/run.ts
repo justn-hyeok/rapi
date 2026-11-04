@@ -30,6 +30,7 @@ import {
 } from "@rapi/agent";
 import {
   createGuildGate,
+  discordOwnerIds,
   GUILD_NOT_ALLOWED_MESSAGE,
   isGuildAllowed,
   resolveHomeGuildId,
@@ -314,8 +315,7 @@ async function sendStarReminder(): Promise<void> {
 const discountApproval = {
   store,
   delivery: discord,
-  // Both lists are superadmins to the access rules; there is no other owner setting.
-  ownerIds: [...allowlists.userIds, ...(allowlists.superadminUserIds ?? [])],
+  ownerIds: discordOwnerIds(allowlists),
   reviewChannelId: config.DISCOUNT_REVIEW_CHANNEL_ID,
   publicChannelId: config.DISCOUNT_PUBLIC_CHANNEL_ID,
 };

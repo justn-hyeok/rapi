@@ -31,6 +31,11 @@ export interface DiscordAllowlists {
   channelIds?: readonly string[];
 }
 
+/** Both lists are superadmins to the access rules; there is no other owner setting. */
+export function discordOwnerIds(allowlists: DiscordAllowlists): string[] {
+  return [...allowlists.userIds, ...(allowlists.superadminUserIds ?? [])];
+}
+
 const rank: Record<DiscordAccessLevel, number> = {
   user: 1,
   admin: 2,
