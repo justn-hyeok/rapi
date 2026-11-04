@@ -22,6 +22,26 @@ describe("environment configuration", () => {
     assert.equal(config.DATABASE_URL, validEnvironment.DATABASE_URL);
   });
 
+  it("starts without a discount card channel and rejects a malformed one", () => {
+    assert.equal(
+      loadEnvironment(validEnvironment).DISCOUNT_REVIEW_CHANNEL_ID,
+      undefined,
+    );
+    assert.equal(
+      loadEnvironment({
+        ...validEnvironment,
+        DISCOUNT_REVIEW_CHANNEL_ID: "123",
+      }).DISCOUNT_REVIEW_CHANNEL_ID,
+      "123",
+    );
+    assert.throws(() =>
+      loadEnvironment({
+        ...validEnvironment,
+        DISCOUNT_REVIEW_CHANNEL_ID: "owner-only",
+      }),
+    );
+  });
+
   it("parses allowlists before application startup", () => {
     const config = loadEnvironment({
       ...validEnvironment,
