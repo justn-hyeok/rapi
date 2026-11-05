@@ -4,8 +4,10 @@ import { test } from "node:test";
 import {
   addsProvider,
   apiAddress,
+  CatalogRoute,
   ChangelogRoute,
   CodeSearchRoute,
+  isPriceCut,
   PullRequestRoute,
 } from "@rapi/adapters";
 import {
@@ -600,4 +602,78 @@ test("the short timer asks only for reports, and few at a time", async () => {
   });
   assert.deepEqual(failures, []);
   assert.deepEqual(asked, [[20, "report"]]);
+});
+
+const CATALOG = {
+  providersUrl: "https://or.test/providers",
+  modelsUrl: "https://or.test/models",
+  minPriceCutPercent: 20,
+};
+const catalogFetch = (providers: unknown[], models: unknown[]): typeof fetch =>
+  pages({
+    [CATALOG.providersUrl]: JSON.stringify({ data: providers }),
+    [CATALOG.modelsUrl]: JSON.stringify({ data: models }),
+  });
+const relay = {
+  slug: "relay",
+  name: "Relay",
+  privacy_policy_url: "https://relay.test/privacy",
+};
+const model = (id: string, prompt: string, completion: string) => ({
+  id,
+  name: id,
+  pricing: { prompt, completion },
+});
+
+test("the first look at the catalog records it and reports nothing", async () => {
+  const { candidates, cursor } = await new CatalogRoute({
+    fetch: catalogFetch([relay], [model("a/b:free", "0", "0")]),
+  }).collect(CATALOG, null);
+  assert.deepEqual(candidates, []);
+  assert.deepEqual((JSON.parse(cursor!) as { providers: string[] }).providers, [
+    "relay",
+  ]);
+});
+
+test("the catalog reports a new provider, a new free model and a price cut", async () => {
+  const { cursor } = await new CatalogRoute({
+    fetch: catalogFetch(
+      [{ slug: "old", name: "Old" }],
+      [model("a/b", "0.000002", "0.000004")],
+    ),
+  }).collect(CATALOG, null);
+  const { candidates } = await new CatalogRoute({
+    fetch: catalogFetch(
+      [{ slug: "old", name: "Old" }, relay],
+      [
+        model("a/b", "0.000001", "0.000004"),
+        { ...model("c/d:free", "0", "0"), expiration_date: "2026-12-31" },
+      ],
+    ),
+  }).collect(CATALOG, cursor!);
+  assert.deepEqual(
+    candidates.map((c) => [c.kind, c.dedupeKey, c.domain]),
+    [
+      ["new_service", "catalog:provider:relay", "relay.test"],
+      ["discount", "catalog:price:a/b:0.000001:0.000004", "openrouter.ai"],
+      ["discount", "catalog:free:c/d:free", "openrouter.ai"],
+    ],
+  );
+  assert.match(candidates[1]!.evidence, /입력 \$2 → \$1, 출력 \$4 → \$4/);
+  assert.equal(candidates[2]!.evidence, "2026-12-31까지");
+});
+
+test("a price counts as cut only when nothing rose and the drop is large enough", () => {
+  assert.ok(isPriceCut(["2", "4"], ["1", "4"], 20));
+  assert.ok(!isPriceCut(["2", "4"], ["1", "5"], 20));
+  assert.ok(!isPriceCut(["2", "4"], ["1.9", "4"], 20));
+  assert.ok(!isPriceCut(["-1", "-1"], ["1", "1"], 20));
+  assert.ok(!isPriceCut(["2", "4"], ["0", "0"], 20));
+});
+
+test("an empty catalog answer fails and keeps the last snapshot", async () => {
+  await assert.rejects(
+    new CatalogRoute({ fetch: catalogFetch([], []) }).collect(CATALOG, "{}"),
+    /empty list/,
+  );
 });
