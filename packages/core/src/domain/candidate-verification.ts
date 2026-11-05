@@ -5,7 +5,7 @@ import type {
 
 // Red is the owner's call after reading evidence about that domain: no rule returns it.
 export type CandidateBand = "green" | "yellow";
-export type CandidateTag = "#직접호스팅" | "#오픈모델" | "#재판매";
+export type CandidateTag = "#직접호스팅" | "#오픈모델" | "#재판매" | "#위험";
 export type CandidatePriceCheck = "below_list" | "list_price" | "unknown";
 export type CandidateTermsNote = "확인 못 함" | "링크 없음";
 
@@ -121,9 +121,11 @@ export function verifyCandidate(
   if (!known && hosting) tags.add("#직접호스팅");
   if (open) tags.add("#오픈모델");
   if (resold) tags.add("#재판매");
+  // A forum post is a stranger's claim, whatever it says about itself.
+  if (candidate.route === "community") tags.add("#위험");
 
   return {
-    band: green ? "green" : "yellow",
+    band: green && candidate.route !== "community" ? "green" : "yellow",
     tags: [...tags],
     operator,
     priceCheck: belowList ? "below_list" : noMarkup ? "list_price" : "unknown",

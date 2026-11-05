@@ -3,6 +3,7 @@ import {
   CatalogRoute,
   ChangelogRoute,
   CodeSearchRoute,
+  CommunityRoute,
   CreditFeedRoute,
   DiscordRateLimitError,
   HackerNewsRoute,
@@ -43,6 +44,7 @@ export interface DiscountSources {
   catalog?: CatalogSource;
   hackerNews?: HackerNewsSource;
   creditFeed?: FeedOfferSource;
+  community?: FeedOfferSource;
   operators: KnownOperator[];
 }
 
@@ -108,6 +110,11 @@ export async function collectDiscountCandidates(input: {
     locator: source.url,
     collect: () => new CreditFeedRoute(http, input.now).collect(source),
   });
+  const communityJob = (source: FeedOfferSource) => ({
+    kind: "candidate_community",
+    locator: source.url,
+    collect: () => new CommunityRoute(http, input.now).collect(source),
+  });
   const jobs: Array<{
     kind: string;
     locator: string;
@@ -133,6 +140,7 @@ export async function collectDiscountCandidates(input: {
     ...(sources.catalog ? [catalogJob(sources.catalog)] : []),
     ...(sources.hackerNews ? hackerNewsJobs(sources.hackerNews) : []),
     ...(sources.creditFeed ? [creditFeedJob(sources.creditFeed)] : []),
+    ...(sources.community ? [communityJob(sources.community)] : []),
   ];
 
   const failures: string[] = [];
@@ -227,6 +235,7 @@ type CardStore = Pick<
   PostgresStore,
   | "cardsInLastHour"
   | "newServiceCardsInLastDay"
+  | "communityCardsInLastDay"
   | "candidatesForCards"
   | "claimCandidateCard"
   | "releaseCandidateCard"
@@ -236,6 +245,8 @@ type CardStore = Pick<
 export const CARDS_PER_HOUR = 5;
 // Providers open PRs and appear in code far more often than anything gets cheaper.
 export const NEW_SERVICE_CARDS_PER_DAY = 5;
+// A forum posts deals all day, and each of them is risky to begin with.
+export const COMMUNITY_CARDS_PER_DAY = 3;
 // Most recent rows are noise, so look well past what can be sent.
 const CARD_ROWS_TO_READ = 500;
 // A channel that refuses everything is not asked about the whole backlog each run.
@@ -379,9 +390,15 @@ export async function sendDiscountCards(input: {
     if (budget <= 0) return [];
     let newServicesLeft =
       NEW_SERVICE_CARDS_PER_DAY - (await store.newServiceCardsInLastDay());
+    let communityLeft =
+      COMMUNITY_CARDS_PER_DAY - (await store.communityCardsInLastDay());
     candidates = (await store.candidatesForCards(CARD_ROWS_TO_READ))
       .filter((candidate) => shouldCardCandidate(candidate))
       .filter((candidate) => {
+        if (candidate.route === "community") {
+          communityLeft -= 1;
+          return communityLeft >= 0;
+        }
         if (candidate.kind !== "new_service" || candidate.route === "report")
           return true;
         newServicesLeft -= 1;
