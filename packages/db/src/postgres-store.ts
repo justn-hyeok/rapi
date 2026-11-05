@@ -93,7 +93,7 @@ export class PostgresStore {
     if (!database.rows[0]?.name.endsWith("_test"))
       throw new Error("Refusing to reset a database without an _test suffix");
     await this.pool
-      .query(`TRUNCATE discord_guilds, discord_guild_features, github_stars, star_reminder_days, discount_candidates, problem_reports, discord_layout_plans, discord_managed_resources, summaries, classifications,
+      .query(`TRUNCATE discord_guilds, discord_guild_features, discord_guild_channels, github_stars, star_reminder_days, discount_candidates, problem_reports, discord_layout_plans, discord_managed_resources, summaries, classifications,
       item_relations, source_items, source_cursors, raw_events, sources RESTART IDENTITY CASCADE`);
   }
 
@@ -769,6 +769,50 @@ export class PostgresStore {
       `INSERT INTO discord_guild_features(guild_id,feature,enabled,updated_by) VALUES($1,$2,$3,$4)
        ON CONFLICT (guild_id,feature) DO UPDATE SET enabled=$3,updated_by=$4,updated_at=now()`,
       [guildId, feature, enabled, actorId],
+    );
+  }
+
+  async guildChannels(
+    guildId: string,
+  ): Promise<Array<{ kind: string; channelId: string }>> {
+    const result = await this.pool.query<{ kind: string; channelId: string }>(
+      `SELECT kind, channel_id AS "channelId" FROM discord_guild_channels WHERE guild_id=$1`,
+      [guildId],
+    );
+    return result.rows;
+  }
+
+  async publicGuildChannels(
+    kind: string,
+  ): Promise<Array<{ guildId: string; channelId: string }>> {
+    const result = await this.pool.query<{
+      guildId: string;
+      channelId: string;
+    }>(
+      `SELECT guild_id AS "guildId", channel_id AS "channelId"
+       FROM discord_guild_channels WHERE kind=$1 ORDER BY updated_at`,
+      [kind],
+    );
+    return result.rows;
+  }
+
+  async setGuildChannel(
+    guildId: string,
+    kind: string,
+    channelId: string,
+    actorId: string,
+  ): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO discord_guild_channels(guild_id,kind,channel_id,updated_by) VALUES($1,$2,$3,$4)
+       ON CONFLICT (guild_id,kind) DO UPDATE SET channel_id=$3,updated_by=$4,updated_at=now()`,
+      [guildId, kind, channelId, actorId],
+    );
+  }
+
+  async clearGuildChannel(guildId: string, kind: string): Promise<void> {
+    await this.pool.query(
+      "DELETE FROM discord_guild_channels WHERE guild_id=$1 AND kind=$2",
+      [guildId, kind],
     );
   }
 
