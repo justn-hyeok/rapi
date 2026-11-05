@@ -7,6 +7,7 @@ import {
   type CandidateForDecision,
   type DeliveryAdapter,
   type DiscordIdentity,
+  type PublicNotificationKind,
 } from "@rapi/core";
 import type { PostgresStore } from "@rapi/db";
 import {
@@ -31,11 +32,10 @@ export interface DiscountApproval {
   >;
   delivery: Pick<DeliveryAdapter, "send">;
   ownerIds: readonly string[];
-  reviewChannelIds: readonly string[];
-  publicChannels: {
-    discount: string | undefined;
-    newService: string | undefined;
-  };
+  reviewChannelIds: () => Promise<readonly string[]>;
+  publicChannelIds: (
+    kind: PublicNotificationKind,
+  ) => Promise<readonly string[]>;
 }
 
 /** What to do after a modal was acknowledged: edit the card, tell the owner, or both. */
@@ -65,14 +65,6 @@ const logFailure = (error: unknown) =>
 const overLimit = (retryAt: Date) =>
   `공개 채널에는 시간당 ${CARDS_PER_HOUR}장까지만 보냅니다. <t:${Math.ceil(retryAt.getTime() / 1000)}:t> 이후에 다시 눌러 주세요. 후보는 그대로입니다.`;
 
-const publicChannelFor = (
-  input: DiscountApproval,
-  candidate: CandidateForDecision,
-) =>
-  candidate.kind === "new_service"
-    ? input.publicChannels.newService
-    : input.publicChannels.discount;
-
 // Only the row id travels in a custom_id. All the rest is read here, on every click.
 async function decidable(
   input: DiscountApproval,
@@ -81,15 +73,15 @@ async function decidable(
 ): Promise<CandidateForDecision | string> {
   if (!input.ownerIds.includes(identity.userId))
     return "소유자만 쓸 수 있는 버튼입니다.";
-  if (!input.reviewChannelIds.length) return NO_CHANNEL;
-  if (!isReviewChannel(input.reviewChannelIds, identity.channelId))
+  if (!(await input.reviewChannelIds()).length) return NO_CHANNEL;
+  if (!(await isReviewChannel(input.reviewChannelIds, identity.channelId)))
     return "검토 채널에서만 쓸 수 있는 버튼입니다.";
   const id = customId.slice(customId.indexOf(":") + 1);
   const candidate = UUID.test(id)
     ? await input.store.candidateForDecision(id)
     : null;
   if (!candidate) return "후보를 찾지 못했습니다.";
-  if (!publicChannelFor(input, candidate)) return NO_CHANNEL;
+  if (!(await input.publicChannelIds(candidate.kind)).length) return NO_CHANNEL;
   return candidate.status === "new" ? candidate : ALREADY_DECIDED;
 }
 
@@ -153,9 +145,10 @@ export async function discountCardButton(
 }
 
 /**
- * The modal was submitted: claims the row, sends, then says what happened. The claim
- * comes first, so dying mid-send loses a card (published without a message id)
- * rather than sending it twice. Only a send Discord definitely refused is released.
+ * The modal was submitted: claims the row, sends to every channel for its kind, then
+ * says what happened. The claim comes first, so dying mid-send loses a card (published
+ * without a message id) rather than sending it twice. One server's channel failing does
+ * not stop the others, and the row goes back only when every channel definitely refused.
  */
 export async function publishDiscountCard(
   input: DiscountApproval,
@@ -164,10 +157,12 @@ export async function publishDiscountCard(
   deadline: string,
 ): Promise<DiscountPublishResult> {
   let candidate: CandidateForDecision;
+  let channelIds: readonly string[];
   try {
     const found = await decidable(input, identity, customId);
     if (typeof found === "string") return { notice: found };
     if (!shouldCardCandidate(found)) return { notice: NOT_PUBLISHABLE };
+    channelIds = await input.publicChannelIds(found.kind);
     const claim = await input.store.claimCandidatePublication(
       found.id,
       CARDS_PER_HOUR,
@@ -180,28 +175,39 @@ export async function publishDiscountCard(
     return { notice: TRY_AGAIN };
   }
 
-  const publicChannelId = publicChannelFor(input, candidate)!;
-  const place = `<#${publicChannelId}>`;
-  let messageId: string;
-  try {
-    const sent = await input.delivery.send(
-      { channel: "discord_channel", recipientId: publicChannelId },
-      cardPayloadFor(candidate, deadline),
-      `discount-public:${candidate.id}`,
-    );
-    messageId = sent.providerId;
-  } catch (error) {
-    logFailure(error);
-    if (
-      error instanceof UncertainDeliveryError ||
+  let messageId: string | undefined;
+  const sent: string[] = [];
+  const uncertain: string[] = [];
+  const refused: string[] = [];
+  for (const channelId of channelIds) {
+    try {
+      const result = await input.delivery.send(
+        { channel: "discord_channel", recipientId: channelId },
+        cardPayloadFor(candidate, deadline),
+        `discount-public:${candidate.id}:${channelId}`,
+      );
+      messageId ??= result.providerId;
+      sent.push(channelId);
+    } catch (error) {
+      logFailure(error);
+      (error instanceof UncertainDeliveryError ||
       error instanceof DiscordServerError
-    )
+        ? uncertain
+        : refused
+      ).push(channelId);
+    }
+  }
+
+  const places = (ids: readonly string[]) =>
+    ids.map((id) => `<#${id}>`).join(", ");
+  if (!messageId) {
+    if (uncertain.length)
       return {
         edit: {
-          content: `게시 결과를 알 수 없습니다. ${place}을 확인해 주세요.`,
+          content: `게시 결과를 알 수 없습니다. ${places(uncertain)}을 확인해 주세요.`,
           components: linkRow(candidate),
         },
-        notice: `${place}에 갔는지 알 수 없어 다시 보내지 않습니다. 채널에 없으면 운영 문서대로 되돌려 주세요.`,
+        notice: `${places(uncertain)}에 갔는지 알 수 없어 다시 보내지 않습니다. 채널에 없으면 운영 문서대로 되돌려 주세요.`,
       };
     try {
       await input.store.releaseCandidatePublication(candidate.id);
@@ -213,24 +219,32 @@ export async function publishDiscountCard(
       };
     }
     return {
-      notice: `게시하지 못했습니다. ${place} 권한을 확인한 뒤 다시 눌러 주세요. 후보는 그대로입니다.`,
+      notice: `게시하지 못했습니다. ${places(refused)} 권한을 확인한 뒤 다시 눌러 주세요. 후보는 그대로입니다.`,
     };
   }
 
   const line = deadlineLine(deadline);
   const edit = {
-    content: `${place}에 게시했습니다.${line ? ` ${line}` : ""}`,
+    content: `${places(sent)}에 게시했습니다.${line ? ` ${line}` : ""}`,
     components: linkRow(candidate),
   };
+  const missed = [...refused, ...uncertain];
+  const partial = missed.length
+    ? `${places(missed)}에는 보내지 못했거나 갔는지 알 수 없습니다. 다시 보내지는 않습니다.`
+    : undefined;
   try {
     await input.store.saveCandidatePublicMessage(candidate.id, messageId);
   } catch (error) {
     logFailure(error);
     return {
       edit,
-      notice:
+      notice: [
         "게시했지만 메시지 ID를 저장하지 못했습니다. 다시 보내지는 않습니다.",
+        partial,
+      ]
+        .filter(Boolean)
+        .join("\n"),
     };
   }
-  return { edit };
+  return partial ? { edit, notice: partial } : { edit };
 }

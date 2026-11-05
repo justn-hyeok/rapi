@@ -1,9 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import {
-  loadEnvironment,
-  notificationChannels,
-} from "../packages/config/src/index.js";
+import { loadEnvironment } from "../packages/config/src/index.js";
 
 const validEnvironment = {
   RAPI_ENV: "test",
@@ -81,59 +78,6 @@ describe("environment configuration", () => {
       loadEnvironment({
         ...validEnvironment,
         DISCOUNT_PUBLIC_CHANNEL_ID: "everyone",
-      }),
-    );
-  });
-
-  it("sends a kind without its own channel where discounts go", () => {
-    const shared = notificationChannels(
-      loadEnvironment({
-        ...validEnvironment,
-        DISCOUNT_REVIEW_CHANNEL_ID: "1",
-        DISCOUNT_PUBLIC_CHANNEL_ID: "2",
-      }),
-    );
-    assert.deepEqual(shared, {
-      review: {
-        discount: "1",
-        newService: "1",
-        report: "1",
-        guildRequest: "1",
-      },
-      reviewIds: ["1"],
-      public: { discount: "2", newService: "2" },
-    });
-    assert.deepEqual(
-      notificationChannels(
-        loadEnvironment({
-          ...validEnvironment,
-          DISCOUNT_REVIEW_CHANNEL_ID: "1",
-          DISCOUNT_PUBLIC_CHANNEL_ID: "2",
-          NEW_SERVICE_REVIEW_CHANNEL_ID: "3",
-          NEW_SERVICE_PUBLIC_CHANNEL_ID: "4",
-          REPORT_REVIEW_CHANNEL_ID: "5",
-          GUILD_REQUEST_REVIEW_CHANNEL_ID: "6",
-        }),
-      ),
-      {
-        review: {
-          discount: "1",
-          newService: "3",
-          report: "5",
-          guildRequest: "6",
-        },
-        reviewIds: ["1", "3", "5", "6"],
-        public: { discount: "2", newService: "4" },
-      },
-    );
-    assert.deepEqual(
-      notificationChannels(loadEnvironment(validEnvironment)).reviewIds,
-      [],
-    );
-    assert.throws(() =>
-      loadEnvironment({
-        ...validEnvironment,
-        REPORT_REVIEW_CHANNEL_ID: "reports",
       }),
     );
   });

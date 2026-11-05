@@ -61,7 +61,7 @@ test("only a public https address is accepted", () => {
 
 test("a report keeps only the address, domain, reporter and clipped memo", async () => {
   const store = memoryStore();
-  await receiveReport({ store, reviewChannelId: "100" }, MEMBER, {
+  await receiveReport({ store, reviewChannelId: async () => "100" }, MEMBER, {
     link: "https://new.ai/deal",
     kind: "new_service",
     memo: ` 싸요\n${"가".repeat(300)} `,
@@ -83,7 +83,7 @@ test("a report keeps only the address, domain, reporter and clipped memo", async
 
 test("the kind defaults to a discount and an unknown one is not trusted", async () => {
   const store = memoryStore();
-  const input = { store, reviewChannelId: "100" };
+  const input = { store, reviewChannelId: async () => "100" };
   const link = "https://new.ai/";
   await receiveReport(input, MEMBER, { link });
   await receiveReport(input, MEMBER, { link, kind: "red" });
@@ -99,7 +99,7 @@ test("the kind defaults to a discount and an unknown one is not trusted", async 
 test("the link is never opened while answering", async (t) => {
   const fetch = t.mock.method(globalThis, "fetch", async () => new Response());
   await receiveReport(
-    { store: memoryStore(), reviewChannelId: "100" },
+    { store: memoryStore(), reviewChannelId: async () => "100" },
     MEMBER,
     { link: "https://new.ai/" },
   );
@@ -118,7 +118,7 @@ test("each answer is Korean and repeats nothing the reporter typed", async () =>
       ] as const
     ).map(async ([outcome, channel, expected]) => {
       const answer = await receiveReport(
-        { store: memoryStore(outcome), reviewChannelId: channel },
+        { store: memoryStore(outcome), reviewChannelId: async () => channel },
         MEMBER,
         typed,
       );
@@ -133,7 +133,7 @@ test("each answer is Korean and repeats nothing the reporter typed", async () =>
 test("a problem report without a review channel is still stored", async () => {
   const store = memoryStore();
   const answer = await receiveReport(
-    { store, reviewChannelId: undefined },
+    { store, reviewChannelId: async () => undefined },
     MEMBER,
     { link: "https://bad.ai/", kind: "problem" },
   );
@@ -150,7 +150,7 @@ test("a database failure gets an answer, not an exception", async (t) => {
           throw new Error("database gone");
         },
       },
-      reviewChannelId: "100",
+      reviewChannelId: async () => "100",
     },
     MEMBER,
     { link: "https://new.ai/" },
@@ -383,11 +383,19 @@ const OWNER = { userId: "1", guildId: "g", channelId: "100" };
 
 test("only the owner in the review channel can decide", async () => {
   const store = reviewStore({ turnedRed: 1, alreadyPublished: 0 });
-  const input = { store, ownerIds: ["1"], reviewChannelIds: ["100"] };
+  const input = {
+    store,
+    ownerIds: ["1"],
+    reviewChannelIds: async () => ["100"],
+  };
   const refused = async (
     review:
       | typeof input
-      | { store: typeof store; ownerIds: string[]; reviewChannelIds: string[] },
+      | {
+          store: typeof store;
+          ownerIds: string[];
+          reviewChannelIds: () => Promise<string[]>;
+        },
     identity: typeof OWNER,
     pattern: RegExp,
   ) => {
@@ -401,14 +409,18 @@ test("only the owner in the review channel can decide", async () => {
   };
   await refused(input, { ...OWNER, userId: "7" }, /소유자만/);
   await refused(input, { ...OWNER, channelId: "200" }, /검토 채널/);
-  await refused({ ...input, reviewChannelIds: [] }, OWNER, /검토 채널/);
+  await refused(
+    { ...input, reviewChannelIds: async () => [] },
+    OWNER,
+    /검토 채널/,
+  );
   assert.deepEqual(store.calls, []);
 });
 
 test("[빨강으로 정함] records who decided and keeps only the link", async () => {
   const store = reviewStore({ turnedRed: 3, alreadyPublished: 1 });
   const reply = (await problemCardButton(
-    { store, ownerIds: ["1"], reviewChannelIds: ["100"] },
+    { store, ownerIds: ["1"], reviewChannelIds: async () => ["100"] },
     OWNER,
     RED,
   )) as {
@@ -435,7 +447,11 @@ test("[빨강으로 정함] records who decided and keeps only the link", async 
 
 test("[문제 없음] changes no band and a second press is refused", async () => {
   const store = reviewStore({ turnedRed: 0, alreadyPublished: 0 });
-  const input = { store, ownerIds: ["1"], reviewChannelIds: ["100"] };
+  const input = {
+    store,
+    ownerIds: ["1"],
+    reviewChannelIds: async () => ["100"],
+  };
   const reply = (await problemCardButton(input, OWNER, CLEAR)) as {
     data: { content: string };
   };
@@ -461,7 +477,7 @@ test("a database failure on a press gets an answer", async (t) => {
         },
       },
       ownerIds: ["1"],
-      reviewChannelIds: ["100"],
+      reviewChannelIds: async () => ["100"],
     },
     OWNER,
     RED,

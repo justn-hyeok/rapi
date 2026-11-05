@@ -17,6 +17,7 @@ import {
   type GuildFeature,
 } from "@rapi/core";
 import type { GuildFeatureSwitch } from "./guild-features.js";
+import type { NotificationChannels } from "./notification-channels.js";
 import { RapiAgent } from "./rapi-agent.js";
 import type { ReportOptions } from "./reports.js";
 
@@ -27,6 +28,7 @@ export const slashCommands = [
   "report",
   "features",
   "guilds",
+  "notification_channels",
 ] as const;
 
 /** The feature each command belongs to. /기능 and /서버 have none: they have to stay reachable. */
@@ -40,6 +42,7 @@ const commandFeatures: Record<
   report: "report",
   features: undefined,
   guilds: undefined,
+  notification_channels: undefined,
 };
 
 export interface DiscordCommand {
@@ -120,6 +123,7 @@ export class DiscordCommandService {
       /** Guilds the bot answers in. */
       guildAllowlist?: () => Promise<readonly string[]>;
       guildFeatures?: GuildFeatureSwitch;
+      notificationChannels?: Pick<NotificationChannels, "change">;
       changeGuild?: (
         actorId: string,
         action: string,
@@ -204,6 +208,12 @@ export class DiscordCommandService {
       return this.features(identity, command.options);
     if (command.name === "guilds")
       return this.guilds(identity, command.options);
+    // Checks its own permissions: a server's admins set this without any Rapi role.
+    if (command.name === "notification_channels") {
+      const channels = this.operations?.notificationChannels;
+      if (!channels) throw new Error("알림 채널이 설정되지 않았습니다.");
+      return { messages: [await channels.change(identity, command.options)] };
+    }
     const feature = commandFeatures[command.name];
     if (identity.guildId && feature)
       await this.assertGuildFeature(identity.guildId, feature);
