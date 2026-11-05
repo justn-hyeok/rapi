@@ -3,6 +3,7 @@ import {
   parseHtmlSourcePolicy,
   plainText,
   type DiscountCandidate,
+  type DiscountCandidateKind,
   type ServicePage,
 } from "@rapi/core";
 import { publicFetch, type ResolveHostname } from "./public-fetch.js";
@@ -493,5 +494,88 @@ export class CatalogRoute {
         });
     }
     return { candidates, cursor: JSON.stringify(next) };
+  }
+}
+
+export interface HackerNewsSource {
+  discount: string[];
+  newService: string[];
+  maxAgeDays: number;
+}
+
+const HACKER_NEWS_SEARCH = "https://hn.algolia.com/api/v1/search_by_date";
+const HACKER_NEWS_HITS = 20;
+// The word for a price says nothing without something that sells tokens next to it.
+const SELLS_TOKENS =
+  /\b(?:llm|gpt|claude|gemini|deepseek|openai|anthropic|openrouter|inference|qwen|mistral|kimi|api|tokens?)\b|\bgpt-/i;
+// Articles and repositories also say "LLM gateway"; these two offer the thing itself.
+const OFFERS_A_SERVICE = /^show hn\b|\balternative\b/i;
+
+/** Hacker News titles only: a story's body and comments mention everything. */
+export class HackerNewsRoute {
+  constructor(
+    private readonly options: SourceHttpOptions = {},
+    private readonly now: () => Date = () => new Date(),
+  ) {}
+
+  async collect(
+    query: string,
+    kind: DiscountCandidateKind,
+    maxAgeDays: number,
+  ): Promise<CandidateResult> {
+    const since = Math.floor(
+      (this.now().getTime() - maxAgeDays * 86_400_000) / 1000,
+    );
+    const params = new URLSearchParams({
+      query,
+      tags: "story",
+      restrictSearchableAttributes: "title",
+      numericFilters: `created_at_i>${since}`,
+      hitsPerPage: String(HACKER_NEWS_HITS),
+    });
+    const { body } = await readSource(
+      `${HACKER_NEWS_SEARCH}?${params}`,
+      { Accept: "application/json", "User-Agent": "rapi" },
+      this.options,
+    );
+    const { hits } = JSON.parse(body) as {
+      hits: Array<{
+        objectID: string;
+        title: string;
+        url?: string | null;
+        points?: number | null;
+        created_at: string;
+      }>;
+    };
+    return {
+      candidates: hits.flatMap((hit) => {
+        const title = plainText(hit.title, 300);
+        const fits =
+          kind === "discount"
+            ? SELLS_TOKENS.test(title) && discountEvidence(title, "")
+            : OFFERS_A_SERVICE.test(title);
+        if (!fits) return [];
+        const url = hit.url?.startsWith("https:")
+          ? hit.url
+          : `https://news.ycombinator.com/item?id=${hit.objectID}`;
+        const host = hostname(url);
+        return [
+          {
+            kind,
+            route: "hacker_news" as const,
+            dedupeKey: `hacker_news:${hit.objectID}`,
+            // A code host's home page says nothing about the service in the repository.
+            domain:
+              host === "github.com" || host === "news.ycombinator.com"
+                ? null
+                : host,
+            title,
+            url,
+            evidence: `Hacker News ${hit.points ?? 0}점`,
+            publishedAt: isoDate(hit.created_at),
+          },
+        ];
+      }),
+    };
   }
 }

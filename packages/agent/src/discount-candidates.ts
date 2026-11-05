@@ -4,12 +4,14 @@ import {
   ChangelogRoute,
   CodeSearchRoute,
   DiscordRateLimitError,
+  HackerNewsRoute,
   PullRequestRoute,
   readServicePage,
   UncertainDeliveryError,
   type CandidateResult,
   type CatalogSource,
   type ChangelogSource,
+  type HackerNewsSource,
   type ResolveHostname,
   type SourceHttpOptions,
 } from "@rapi/adapters";
@@ -24,6 +26,7 @@ import {
   type CandidateForCard,
   type DeliveryAdapter,
   type DeliveryPayload,
+  type DiscountCandidateKind,
   type DiscountCandidateRoute,
   type ProblemReportForCard,
   type KnownOperator,
@@ -36,6 +39,7 @@ export interface DiscountSources {
   pullRequests: { repository: string };
   codeSearch: { queries: string[]; denylist: string[] };
   catalog?: CatalogSource;
+  hackerNews?: HackerNewsSource;
   operators: KnownOperator[];
 }
 
@@ -84,6 +88,18 @@ export async function collectDiscountCandidates(input: {
         await store.sourceCursor(sourceId),
       ),
   });
+  const hackerNewsJobs = (source: HackerNewsSource) => {
+    const route = new HackerNewsRoute(http, input.now);
+    const job = (kind: DiscountCandidateKind) => (query: string) => ({
+      kind: "candidate_hacker_news",
+      locator: query,
+      collect: () => route.collect(query, kind, source.maxAgeDays),
+    });
+    return [
+      ...source.discount.map(job("discount")),
+      ...source.newService.map(job("new_service")),
+    ];
+  };
   const jobs: Array<{
     kind: string;
     locator: string;
@@ -107,6 +123,7 @@ export async function collectDiscountCandidates(input: {
       ...(codeSearch && { collect: () => codeSearch.collect(query) }),
     })),
     ...(sources.catalog ? [catalogJob(sources.catalog)] : []),
+    ...(sources.hackerNews ? hackerNewsJobs(sources.hackerNews) : []),
   ];
 
   const failures: string[] = [];

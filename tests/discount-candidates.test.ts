@@ -7,6 +7,7 @@ import {
   CatalogRoute,
   ChangelogRoute,
   CodeSearchRoute,
+  HackerNewsRoute,
   isPriceCut,
   PullRequestRoute,
 } from "@rapi/adapters";
@@ -55,6 +56,7 @@ test("discount wording matches every listed form", () => {
     "API prices have been reduced accordingly",
     "peak/off-peak pricing",
     "무료 크레딧 지급",
+    "OpenAI and Anthropic cut their LLM prices by up to 80%",
   ])
     assert.ok(discountEvidence(title, ""), title);
 });
@@ -675,5 +677,75 @@ test("an empty catalog answer fails and keeps the last snapshot", async () => {
   await assert.rejects(
     new CatalogRoute({ fetch: catalogFetch([], []) }).collect(CATALOG, "{}"),
     /empty list/,
+  );
+});
+
+const hackerNews = (hits: unknown[]): typeof fetch =>
+  (async () => new Response(JSON.stringify({ hits }))) as typeof fetch;
+const story = (objectID: string, title: string, url: string | null) => ({
+  objectID,
+  title,
+  url,
+  points: 12,
+  created_at: "2026-11-04T00:00:00Z",
+});
+
+test("a Hacker News price story needs something that sells tokens in its title", async () => {
+  const { candidates } = await new HackerNewsRoute(
+    {
+      fetch: hackerNews([
+        story("1", "GPT-6.1 Terra's price cut, recomputed", "https://a.test/x"),
+        story("2", "Europe's power price cut", "https://b.test/x"),
+      ]),
+    },
+    now,
+  ).collect("price cut", "discount", 7);
+  assert.deepEqual(
+    candidates.map((c) => [c.dedupeKey, c.domain, c.evidence]),
+    [["hacker_news:1", "a.test", "Hacker News 12점"]],
+  );
+});
+
+test("a Hacker News service has to offer itself, and stays linkable", async () => {
+  const { candidates } = await new HackerNewsRoute(
+    {
+      fetch: hackerNews([
+        story("1", "Go vs. Python for an LLM Gateway", "https://a.test/x"),
+        story(
+          "2",
+          "Show HN: GoRoute, an LLM gateway",
+          "https://github.com/a/b",
+        ),
+        story("3", "Nano-GPT, an alternative to OpenRouter", "http://c.test/"),
+      ]),
+    },
+    now,
+  ).collect('"LLM gateway"', "new_service", 7);
+  assert.deepEqual(
+    candidates.map((c) => [c.dedupeKey, c.domain, c.url]),
+    [
+      ["hacker_news:2", null, "https://github.com/a/b"],
+      ["hacker_news:3", null, "https://news.ycombinator.com/item?id=3"],
+    ],
+  );
+});
+
+test("the Hacker News search asks for recent titles only", async () => {
+  let asked = "";
+  await new HackerNewsRoute(
+    {
+      fetch: (async (url: string) => {
+        asked = url;
+        return new Response(JSON.stringify({ hits: [] }));
+      }) as typeof fetch,
+    },
+    now,
+  ).collect("price cut", "discount", 7);
+  const params = new URL(asked).searchParams;
+  assert.equal(params.get("restrictSearchableAttributes"), "title");
+  assert.equal(params.get("tags"), "story");
+  assert.equal(
+    params.get("numericFilters"),
+    `created_at_i>${Date.parse("2026-10-29T00:00:00Z") / 1000}`,
   );
 });

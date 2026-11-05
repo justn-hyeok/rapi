@@ -54,6 +54,24 @@
     "modelsUrl": "https://openrouter.ai/api/v1/models",
     "minPriceCutPercent": 20
   },
+  "hackerNews": {
+    "discount": [
+      "price cut",
+      "LLM prices",
+      "API credits",
+      "free credits",
+      "cheaper API"
+    ],
+    "newService": [
+      "\"alternative to OpenRouter\"",
+      "\"OpenRouter alternative\"",
+      "\"OpenAI-compatible\"",
+      "\"LLM gateway\"",
+      "\"AI gateway\"",
+      "\"inference API\""
+    ],
+    "maxAgeDays": 7
+  },
   "pullRequests": {
     "repository": "anomalyco/models.dev"
   },
