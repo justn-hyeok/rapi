@@ -317,6 +317,17 @@ export class PostgresStore {
     return rows;
   }
 
+  /** Sent ones only: a row claimed without a message was never seen by anyone. */
+  async newServiceCardsInLastDay(): Promise<number> {
+    const { rows } = await this.pool.query<{ count: number }>(
+      `SELECT count(*)::int AS count FROM discount_candidates
+       WHERE kind = 'new_service' AND route <> 'report'
+         AND card_message_id IS NOT NULL
+         AND carded_at > now() - interval '24 hours'`,
+    );
+    return rows[0]!.count;
+  }
+
   /** Both kinds of card go to the same channel, and the limit is the channel's. */
   async cardsInLastHour(): Promise<number> {
     const { rows } = await this.pool.query<{ count: number }>(

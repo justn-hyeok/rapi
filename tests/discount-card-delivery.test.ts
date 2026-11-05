@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { DiscordDeliveryAdapter } from "@rapi/adapters";
-import { sendDiscountCards } from "@rapi/agent";
+import { NEW_SERVICE_CARDS_PER_DAY, sendDiscountCards } from "@rapi/agent";
 import type { CandidateForCard } from "@rapi/core";
 
 const row = (id: string, fields: Partial<CandidateForCard> = {}) => ({
@@ -21,7 +21,11 @@ const row = (id: string, fields: Partial<CandidateForCard> = {}) => ({
 });
 
 /** The queries' behavior, on rows newest first. */
-function memoryStore(rows: CandidateForCard[], cardedLastHour = 0) {
+function memoryStore(
+  rows: CandidateForCard[],
+  cardedLastHour = 0,
+  cardedToday = 0,
+) {
   const claimed = new Set<string>();
   const messages = new Map<string, string>();
   const released: string[] = [];
@@ -32,6 +36,17 @@ function memoryStore(rows: CandidateForCard[], cardedLastHour = 0) {
     failSave: false,
     async cardsInLastHour() {
       return cardedLastHour + claimed.size;
+    },
+    async newServiceCardsInLastDay() {
+      return (
+        cardedToday +
+        rows.filter(
+          (row) =>
+            row.kind === "new_service" &&
+            row.route !== "report" &&
+            claimed.has(row.id),
+        ).length
+      );
     },
     async candidatesForCards() {
       return rows.filter((candidate) => !claimed.has(candidate.id));
@@ -283,4 +298,39 @@ test("a database failure is reported, not thrown", async () => {
     }),
     ["cards: database gone"],
   );
+});
+
+const newService = (id: string) =>
+  row(id, {
+    kind: "new_service",
+    route: "pull_request",
+    priceCheck: "unknown",
+  });
+
+test("new services stop at the daily limit and discounts still go", async (t) => {
+  const discord = discordAnswering(t);
+  const store = memoryStore(
+    [newService("n1"), newService("n2"), row("d1"), newService("n3")],
+    0,
+    NEW_SERVICE_CARDS_PER_DAY - 1,
+  );
+  await sendDiscountCards({ ...discord, store, channelId: CHANNEL });
+  assert.deepEqual(discord.ids(), ["n1", "d1"]);
+});
+
+test("a report is not held back by the daily limit on new services", async (t) => {
+  const discord = discordAnswering(t);
+  const store = memoryStore(
+    [
+      row("r1", {
+        kind: "new_service",
+        route: "report",
+        priceCheck: "unknown",
+      }),
+    ],
+    0,
+    NEW_SERVICE_CARDS_PER_DAY,
+  );
+  await sendDiscountCards({ ...discord, store, channelId: CHANNEL });
+  assert.deepEqual(discord.ids(), ["r1"]);
 });
