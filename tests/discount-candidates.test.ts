@@ -7,8 +7,10 @@ import {
   CatalogRoute,
   ChangelogRoute,
   CodeSearchRoute,
+  CommunityRoute,
   CreditFeedRoute,
   HackerNewsRoute,
+  isCommunityOffer,
   isPriceCut,
   PullRequestRoute,
 } from "@rapi/adapters";
@@ -786,5 +788,48 @@ test("the credit feed keeps only recent new listings, under their own name", asy
   assert.deepEqual(
     candidates.map((c) => [c.dedupeKey, c.title, c.kind]),
     [["credit_feed:a", "XCrawl Free Credits", "discount"]],
+  );
+});
+
+test("the offers board keeps AI deals and leaves coupons and accounts", () => {
+  for (const title of [
+    "【富可敌国】TokenU双十一活动震撼来袭！充 $10 送 $3 起",
+    "SoleAPI｜限时福利「Kiro-Claude 折扣分组」0.1x 上线",
+    "【NEXA】领取你的11月5号免费2鸡蛋 | deepseek0.15x稳定性继续提高",
+  ])
+    assert.ok(isCommunityOffer(title), title);
+  for (const title of [
+    "ios端本地音乐播放器永久会员限免",
+    "「周四10点」移动随机话费券",
+    "抽一个GPT PLUS账号",
+    "京东金融对口令活动（小羊毛）",
+  ])
+    assert.ok(!isCommunityOffer(title), title);
+});
+
+test("a board post is recorded without following it anywhere", async () => {
+  const url = "https://board.test/36.rss";
+  const { candidates } = await new CommunityRoute(
+    {
+      fetch: pages({
+        [url]: rss(
+          rssItem(
+            "a",
+            "TokenU 活动 充 $10 送 $3",
+            "Wed, 04 Nov 2026 16:51:14 GMT",
+          ),
+          rssItem(
+            "b",
+            "TokenU 活动 老帖 充值",
+            "Mon, 02 Mar 2026 16:51:14 GMT",
+          ),
+        ),
+      }),
+    },
+    now,
+  ).collect({ url, maxAgeDays: 7 });
+  assert.deepEqual(
+    candidates.map((c) => [c.route, c.dedupeKey, c.domain, c.url]),
+    [["community", "community:a", null, "https://site.test/a"]],
   );
 });

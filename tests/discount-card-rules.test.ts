@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  CARD_COLOR,
   cardLink,
   discordEmbed,
   discountCard,
@@ -336,4 +337,33 @@ test("a person's report and a new service are not judged by an end date", () => 
     shouldCardAt(offer({ evidence, kind: "new_service" }), now),
     true,
   );
+});
+
+const boardPost = (fields: Partial<CandidateForCard> = {}) =>
+  offer({
+    route: "community",
+    domain: null,
+    title: "TokenU 活动 充 $10 送 $3",
+    url: "https://linux.do/t/topic/1",
+    evidence: "双十一活动",
+    tags: ["#위험"],
+    priceCheck: "unknown",
+    ...fields,
+  });
+
+test("a board post is carded on the collector's judgement unless its end date passed", () => {
+  assert.equal(shouldCardCandidate(boardPost()), true);
+  assert.equal(
+    shouldCardCandidate(boardPost({ evidence: "活动 until 2026-08-01" })),
+    false,
+  );
+});
+
+test("a risky card says so first, in the warning color, on the public card too", () => {
+  const card = discountCard(boardPost());
+  assert.match(card.description!, /^위험: 검증하지 않은 커뮤니티 글입니다/);
+  assert.match(card.description!, /#위험$/);
+  assert.equal(card.color, CARD_COLOR.warn);
+  assert.equal(card.author, "linux.do");
+  assert.doesNotMatch(discountCard(offer()).description!, /위험:/);
 });

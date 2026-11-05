@@ -336,6 +336,17 @@ export class PostgresStore {
     return rows[0]!.count;
   }
 
+  /** Sent ones only, as for new services. */
+  async communityCardsInLastDay(): Promise<number> {
+    const { rows } = await this.pool.query<{ count: number }>(
+      `SELECT count(*)::int AS count FROM discount_candidates
+       WHERE route = 'community'
+         AND card_message_id IS NOT NULL
+         AND carded_at > now() - interval '24 hours'`,
+    );
+    return rows[0]!.count;
+  }
+
   /** Both kinds of card go to the same channel, and the limit is the channel's. */
   async cardsInLastHour(): Promise<number> {
     const { rows } = await this.pool.query<{ count: number }>(

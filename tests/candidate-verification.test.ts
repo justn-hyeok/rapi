@@ -287,3 +287,20 @@ test("a report's own domain name says nothing about its price or models", () => 
   assert.deepEqual(result.tags, []);
   assert.equal(result.band, "yellow");
 });
+
+test("a board post is yellow and risky whatever it says about itself", () => {
+  const result = verifyCandidate(
+    {
+      id: "9",
+      kind: "discount",
+      route: "community",
+      domain: null,
+      title: "Acme Inc. no markup, our own GPUs",
+      evidence: "no markup",
+    },
+    { domain: "linux.do", name: "x", service: "official", tags: [] },
+    null,
+  );
+  assert.equal(result.band, "yellow");
+  assert.ok(result.tags.includes("#위험"));
+});

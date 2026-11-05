@@ -1,4 +1,5 @@
 import {
+  DISCOUNT_EVIDENCE_MAX_CHARS,
   discountEvidence,
   parseHtmlSourcePolicy,
   plainText,
@@ -626,6 +627,59 @@ export class CreditFeedRoute {
           title: plainText(item.title.replace(LISTED_SUFFIX, ""), 300),
           url: item.url,
           evidence: "aifree.dev에 새로 올라옴",
+          publishedAt: isoDate(item.publishedAt),
+        })),
+    };
+  }
+}
+
+// The board also carries phone coupons and game accounts. Checked against its 25
+// newest posts on 2026-11-05.
+const COMMUNITY_AI =
+  /api|gpt|claude|gemini|deepseek|kiro|codex|llm|token|glm|qwen|kimi|大模型|模型|中转|号池/i;
+const COMMUNITY_OFFER =
+  /送|折|免费|限时|福利|优惠|活动|白嫖|充值|\d(?:\.\d+)?\s*x\b/i;
+
+export function isCommunityOffer(title: string): boolean {
+  return COMMUNITY_AI.test(title) && COMMUNITY_OFFER.test(title);
+}
+
+/**
+ * linux.do's offers board, where relay services announce their deals. Strangers
+ * write these, so the post is not followed to any service: its link is the post.
+ * Not in the shipped source list: Cloudflare answers this client with a challenge,
+ * and that is the site's call. It stays off rather than being worked around.
+ */
+export class CommunityRoute {
+  private readonly feed: FeedSourceAdapter;
+
+  constructor(
+    options: SourceHttpOptions = {},
+    private readonly now: () => Date = () => new Date(),
+  ) {
+    this.feed = new FeedSourceAdapter(options);
+  }
+
+  async collect(source: FeedOfferSource): Promise<CandidateResult> {
+    const { items } = await this.feed.fetch(source.url);
+    return {
+      candidates: items
+        .filter(
+          (item) =>
+            isCommunityOffer(item.title) &&
+            isRecent(item, source.maxAgeDays, this.now()),
+        )
+        .map((item) => ({
+          kind: "discount",
+          route: "community",
+          dedupeKey: `community:${item.externalId}`,
+          domain: null,
+          title: plainText(item.title, 300),
+          url: item.url,
+          evidence: plainText(item.body, 600).slice(
+            0,
+            DISCOUNT_EVIDENCE_MAX_CHARS,
+          ),
           publishedAt: isoDate(item.publishedAt),
         })),
     };

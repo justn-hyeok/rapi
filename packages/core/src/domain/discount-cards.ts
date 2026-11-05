@@ -81,6 +81,8 @@ const END_DATE = new RegExp(
   "iu",
 );
 export const DEADLINE_MAX_CHARS = 40;
+const RISK_LINE =
+  "위험: 검증하지 않은 커뮤니티 글입니다. 계정 풀 재판매이거나 갑자기 막힐 수 있습니다.";
 
 const MONTHS = "janfebmaraprmayjunjulaugsepoctnovdec";
 const HOURS_AHEAD_OF_UTC = 9;
@@ -166,6 +168,8 @@ export function shouldCardCandidate(
   if (!cardLink(candidate.url)) return false;
   if (candidate.kind === "new_service" || candidate.route === "report")
     return true;
+  // The collector already judged its Chinese wording, which the rules below cannot read.
+  if (candidate.route === "community") return !offerHasEnded(candidate, now);
   if (POLICY_NOTICE.test(candidate.title)) return false;
   if (offerHasEnded(candidate, now)) return false;
   return (
@@ -229,11 +233,13 @@ export function discountCard(
       : candidate.priceCheck === "list_price"
         ? "정가"
         : null;
+  const risky = candidate.tags.includes("#위험");
   return {
     author: [ROUTE_LABEL[candidate.route], domain].filter(Boolean).join(" · "),
     title: escapeMarkdown(title || domain) || "이름 없는 후보",
     ...(link ? { url: link } : {}),
     description: [
+      risky ? RISK_LINE : "",
       escapeMarkdown(clip(detail, DETAIL_MAX_CHARS)),
       deadlineLine(deadline),
       candidate.operator
@@ -245,7 +251,11 @@ export function discountCard(
     ]
       .filter(Boolean)
       .join("\n"),
-    color: candidate.band === "green" ? BAND_COLOR.green : BAND_COLOR.yellow,
+    color: risky
+      ? CARD_COLOR.warn
+      : candidate.band === "green"
+        ? BAND_COLOR.green
+        : BAND_COLOR.yellow,
   };
 }
 
