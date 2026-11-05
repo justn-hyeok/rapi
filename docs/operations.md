@@ -1,86 +1,36 @@
 # 운영, 권한, 보안
 
-## 1. 필요한 외부 자원
-
-### 필수
+## 필요한 것
 
 - Linux VM 한 대와 SSH 관리 권한
-- 공식 Discord application/bot과 대상 서버 또는 DM 사용 권한
-- 전용 GitHub 계정과 필요한 저장소·조직 권한
-- 전용 이메일 계정의 SMTP 또는 발송 API 권한
-- 요약·분류에 사용할 모델 공급자 인증
+- Discord 앱과 봇. 토큰은 소유자가 VM에 직접 넣는다.
+- 도메인과 Cloudflare Tunnel. Discord가 봇에 HTTP로 요청을 보내는 공개 경로다.
+- 선택: 공개 저장소 읽기 권한의 GitHub 토큰(`GITHUB_READ_TOKEN`). 없으면 후보 경로 두 개를 건너뛴다.
+- 선택: 모델 공급자 키. 아래 [모델 호출](#모델-호출-선택) 참고.
 
-### 공개 블로그 운영 시
+## 권한
 
-- 도메인과 DNS 변경 권한
-- 정적 호스팅 또는 VM reverse proxy/TLS 구성 권한
-- 블로그 Git 저장소와 배포 인증
-
-### 출처에 따라 선택
-
-- GitHub App 또는 fine-grained token
-- 웹훅 발신자별 shared secret
-- S3 호환 object storage
-
-## 2. 최초 사용자 작업
-
-다음은 계정 소유자만 수행할 수 있어 사용자가 최초 한 번 제공하거나 승인해야
-한다.
-
-1. Discord Developer Portal에서 application과 bot을 만들고 필요한 서버에
-   초대한다.
-2. VM SSH 공개키를 등록하고 배포 대상 호스트·사용자를 알려준다.
-3. GitHub 전용 계정에 필요한 저장소·조직 권한을 부여한다.
-4. 이메일 계정에서 앱 비밀번호 또는 제한된 발송 자격 증명을 발급한다.
-5. 모델 공급자의 프로젝트와 비용 한도를 설정한다.
-6. 블로그 공개 시 도메인 DNS 레코드 변경을 승인한다.
-
-토큰 원문은 Discord나 Git 이력에 보내지 않는다. 가능하면 VM에서 직접 입력하거나
-비밀 관리 도구로 주입한다.
-
-## 3. 최소 권한 표
-
-| 주체 | 허용 권한 | 기본 금지 |
+| 주체 | 허용 | 금지 |
 | --- | --- | --- |
-| Discord bot | 서버 구성 적용을 위한 Administrator, 명령·역할·채널·웹훅 관리 | 사용자 계정 로그인, 애플리케이션 SUPERADMIN 승격 |
-| GitHub 수집 | metadata/content read, issues/PR read | 저장소 write |
-| GitHub 실행 | 작업별 승인된 repo write/PR 범위 | 조직 관리자, 무관 저장소 접근 |
-| 이메일 | 지정 발신자 주소의 send | mailbox 전체 읽기 |
-| 블로그 배포 | 지정 repo/배포 대상 write | 다른 사이트·도메인 변경 |
+| Discord 봇 | 카드를 보낼 채널의 보기, 메시지 보내기, 링크 첨부. `/서버구성`을 적용할 때만 채널과 역할 관리 | 개인 계정 토큰, self-bot |
+| GitHub 토큰 | 공개 저장소 읽기 | 저장소 쓰기, 조직 관리 |
 
-GitHub 읽기와 쓰기 자격 증명은 분리한다. 평상시 수집 프로세스는 쓰기 토큰에
-접근하지 않는다. GitHub App을 사용할 때는 [공식 권한 문서](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/choosing-permissions-for-a-github-app)를
-기준으로 필요한 webhook과 API별 최소 권한을 선택한다.
+## 비밀값
 
-## 4. 비밀값 목록
+저장소에는 값이 없는 `.env.example`만 둔다. 운영 값은 VM의 `/home/justn/rapi/.env`(권한 0600)에 둔다. 토큰 원문은 Discord나 Git 이력에 보내지 않고, 로그와 오류 보고에도 남기지 않는다.
 
-구현 시 실제 변수명은 확정하되 범주는 다음과 같다.
+## VM 구성
 
-- Discord bot token, application/public key, allowed user/guild/channel IDs
-- database URL과 backup 자격 증명
-- GitHub App key 또는 token
-- SMTP/API endpoint, username, app password, sender address
-- 모델 공급자 API key와 프로젝트 ID
-- 웹훅 source secret
-- 블로그 배포 key와 object storage 자격 증명
-
-저장소에는 값이 없는 `.env.example`만 둔다. 운영 비밀은 읽기 권한이 제한된
-환경 파일, systemd credential, 또는 별도 secret manager에 둔다. 로그와 오류
-보고서에는 토큰, Authorization header, 쿠키, 원문 credential을 남기지 않는다.
-
-## 5. VM 기준 구성
-
-초기 단일 VM 배치는 다음 프로세스로 충분하다.
-
-- `rapi-bot`: Discord Gateway와 명령 처리
-- `rapi-worker`: 수집, 분류·요약, 발송 worker
-- `rapi-scheduler`: cron/예약 작업 enqueue
-- `rapi-blog`: 정적 빌드 또는 웹 서버
-- PostgreSQL: 같은 VM 또는 관리형 서비스
-- reverse proxy: HTTPS와 공개 webhook/blog endpoint
-
-프로세스는 전용 OS 사용자로 실행하고 자동 재시작, resource limit, health check를
-설정한다. DB와 공개 웹 포트를 제외한 내부 서비스는 외부에 노출하지 않는다.
+| 유닛 | 하는 일 |
+| --- | --- |
+| `rapi-bot` | Discord 상호작용 처리(HTTP, Gateway 연결 없음)와 주기 작업 |
+| `rapi-monitor` | 독립 상태 감시와 장애·복구 알림 |
+| `rapi-public-gateway` | 공개 요청 중 `POST /interactions`만 봇에 전달 |
+| `rapi-tunnel` | Cloudflare Tunnel |
+| `rapi-postgres` | Compose PostgreSQL 준비 확인 |
+| `rapi-auto-deploy.timer` | 5분마다 CI를 통과한 `main` 확인 |
+| `rapi-backup.timer` | 매일 03:00 UTC 백업 |
+| `rapi-restore-smoke.timer` | 매주 일요일 04:00 UTC 복구 검증 |
 
 ## VM에 처음 올리기
 
@@ -134,7 +84,7 @@ sudo systemctl enable --now rapi-auto-deploy.timer
 
 확인: `curl -s 127.0.0.1:4000/ready`의 `revision`이 배포한 SHA와 같아야 한다.
 
-## 6. 배포 절차
+## 배포 절차
 
 릴리스 후보를 서비스 전환 없이 준비할 때는 깨끗한 후보 checkout에서 전체 SHA와
 기존 스테이징 루트 디렉터리를 명시한다. `deploy-revision.sh`는 Git archive로
@@ -204,94 +154,41 @@ ExecStart가 별도 보관한 운영 환경 파일을 읽도록 사전 설정해
 소스 체크아웃을 main으로 맞추고(로컬 수정 유지), 현재·직전 릴리스를 제외한 오래된
 스테이징 디렉터리를 정리한다. 서비스에는 운영 환경 파일을 주입하지 않는다.
 
-## 7. 백업과 복구
+## 백업과 복구
 
-- PostgreSQL 자동 일일 백업과 보존 기간 설정
-- 대형 원본 저장소의 versioning 또는 snapshot
-- 비밀값을 제외한 운영 설정과 migration은 Git으로 관리
-- 월 1회 별도 위치에 복구해 무결성 검사
-- 복구 목표 시점(RPO)과 목표 시간(RTO)은 실제 데이터 증가량을 본 뒤 확정
+백업은 `rapi-backup.timer`가 매일 만들고 30일이 지난 파일을 지운다(`BACKUP_RETENTION_DAYS`). `rapi-restore-smoke.timer`는 매주 격리된 임시 DB에 복원해 확인한다. 백업 생성 로그만으로 복구 가능성을 증명하지 않는다.
 
-백업 생성 로그만으로 복구 가능성을 증명하지 않는다. 빈 환경에서 복원하고 주요
-레코드와 앱 기동을 확인해야 한다.
+## 모니터링
 
-## 8. 모니터링과 알림
+`rapi-monitor`가 봇, 공개 게이트웨이, 터널의 준비 상태와 백업 상태, DB 크기(`DATABASE_SIZE_LIMIT_BYTES`)를 확인하고 운영 웹후크로 장애와 복구를 알린다.
 
-Discord 운영 채널 또는 DM으로 아래 상황을 알린다.
+## 운영 인수 체크리스트
 
-- 수집원이 연속 실패하거나 예상 주기보다 지연됨
-- 큐 적체와 worker 중단
-- DB 용량, VM 디스크, 메모리 임계치 초과
-- 이메일·Discord 발송 실패율 증가
-- 모델 비용 한도 접근 또는 초과
-- 승인 대기 작업 만료
-- 백업 또는 복구 점검 실패
-
-알림 자체의 폭주를 막기 위해 동일 원인의 집계, cooldown, 복구 알림을 적용한다.
-
-## 9. 승인 정책 초안
-
-### 자동 실행 가능
-
-- 허용된 출처의 읽기 전용 수집
-- 이미 승인된 구독에 따른 DM/이메일 발송
-- 비공개 MDX 초안 생성
-- 조회, 검색, 상태 확인
-
-### 최초 정책 승인 후 자동화 가능
-
-- 사용자가 출처, 카테고리, 템플릿, 공개 범위, 기간을 한정해 승인한 정책과 정확히
-  일치하는 예약 블로그 게시
-- 지정 저장소의 이슈·프로젝트 정리
-- 실패한 멱등 작업의 제한적 재시도
-
-### 매번 명시적 승인
-
-- 코드 commit/push, PR 생성·병합, 배포
-- 승인된 자동 게시 정책 밖의 최초 공개 또는 모든 공개 범위 확대
-- 새로운 수신자에게 이메일 발송
-- 유료 자원 생성, 비용 한도 상향
-- 자격 증명·권한·DNS 변경
-- 데이터의 영구 삭제
-
-승인은 대상, 동작, 유효 기간, 최대 비용 또는 변경 범위를 포함한다. 일부 동작에
-대한 승인을 다른 동작으로 확대 해석하지 않는다.
-
-자동 게시 정책은 만료 시각을 가져야 하며, 새 출처·새 템플릿·새 카테고리는 기존
-정책에 자동 포함하지 않는다. 개별 글을 승인한 것은 이후 글의 포괄 승인으로
-간주하지 않는다.
-
-## 10. 운영 인수 체크리스트
-
-- [ ] Discord bot이 허용된 사용자와 채널에서만 응답한다.
+- [ ] Discord 봇이 허용된 서버와 채널에서만 응답한다.
 - [ ] self-bot 또는 개인 계정 토큰이 없다.
 - [ ] 저장소와 빌드 산출물에 비밀값이 없다.
-- [ ] GitHub 읽기/쓰기 권한이 분리됐다.
-- [ ] 테스트 이메일과 실제 발송 대상이 분리됐다.
-- [ ] HTTPS와 webhook signature 검증이 적용됐다.
-- [ ] 재시작 후 queue와 수집 cursor가 복구된다.
-- [ ] 같은 이벤트와 발송을 재시도해도 중복되지 않는다.
+- [ ] HTTPS와 Discord 서명 검증이 적용됐다.
+- [ ] 같은 후보와 알림을 재시도해도 중복되지 않는다.
 - [ ] DB 백업을 별도 환경에서 실제 복원했다.
-- [ ] 공개 MDX 빌드에서 비공개 콘텐츠가 제외된다.
-- [ ] ChatOps 실행마다 시도와 결과 증거가 기록된다.
 
-## 11. 구현된 운영 명령
+## 운영 명령
 
 ```bash
-npm run bootstrap       # 설치, DB, migration, 전체 검증
-npm run db:migrate      # 미적용 migration 적용
-npm run backup          # backups/ 아래 권한 0600 SQL dump 생성
-npm run restore:smoke   # 격리된 임시 DB로 실제 복구 검증
-npm run restart:smoke   # PostgreSQL 재시작 전후 핵심 count 검증
-npm run start:bot       # Discord interaction/webhook 서버
-npm run start:worker    # GitHub/RSS/HTML 목록 수집과 배치 발송 worker
-npm run start:monitor   # 독립 health 감시와 장애·복구 알림
-npm run db:migrate      # 로컬 또는 Supabase 지정 DB migration
-npm run backup          # 원자적 custom-format dump와 최근 7개 보존
+npm run bootstrap                  # 설치, DB, migration, 전체 검증
+npm run db:migrate                 # 미적용 migration 적용
+npm run discord:register-commands  # 슬래시 명령 등록
+npm run backup                     # 백업 생성
+npm run restore:smoke              # 격리된 임시 DB로 복구 검증
+npm run restart:smoke              # PostgreSQL 재시작 전후 핵심 count 검증
+npm run start:bot                  # 봇
+npm run start:monitor              # 모니터
 ```
 
-서비스 프로세스는 reverse proxy 뒤에서 실행하며 `/health`를 readiness 확인에 쓴다.
-Docker volume `rapi-postgres`는 애플리케이션 컨테이너 교체와 분리해 보존한다.
+`npm run test:e2e`는 `compose.test.yaml`의 임시 PostgreSQL을 임의 로컬 포트에 기동하고 `rapi_test`만 사용한다. 운영 Compose나 DB에는 연결하지 않는다.
+
+## 모델 호출 (선택)
+
+`MODEL_API_BASE_URL`과 `MODEL_API_KEY`가 모두 있어야 켜진다. 없으면 모델 클라이언트를 만들지 않는다. 호출은 `model_usage`에 기록되고, `MODEL_MONTHLY_BUDGET_USD`를 넣으면 달력 월(Asia/Seoul) 기준 상한이 걸린다. 게이트웨이가 비용을 주지 않으면 `ops/model-prices.json`으로 계산한다. 요약은 기본이 Codex CLI이고, `SUMMARIZER_BACKEND=api`면 이 클라이언트를 쓴다. 할인 후보 검증은 모델을 부르지 않는다.
 
 ## html 수집원
 
