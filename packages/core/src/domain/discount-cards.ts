@@ -78,6 +78,61 @@ const END_DATE = new RegExp(
 );
 export const DEADLINE_MAX_CHARS = 40;
 
+const MONTHS = "janfebmaraprmayjunjulaugsepoctnovdec";
+const HOURS_AHEAD_OF_UTC = 9;
+
+// A date with no year means the one nearest today: "until Jan 15" read in December.
+function nearestYear(month: number, day: number, now: Date): Date {
+  return [-1, 0, 1]
+    .map(
+      (offset) => new Date(Date.UTC(now.getUTCFullYear() + offset, month, day)),
+    )
+    .reduce((best, date) =>
+      Math.abs(date.getTime() - now.getTime()) <
+      Math.abs(best.getTime() - now.getTime())
+        ? date
+        : best,
+    );
+}
+
+function parseCardDate(text: string, now: Date): Date | null {
+  const full =
+    /(20\d{2})\s*(?:[-./]|년)\s*(\d{1,2})\s*(?:[-./]|월)\s*(\d{1,2})/.exec(
+      text,
+    );
+  if (full)
+    return new Date(
+      Date.UTC(Number(full[1]), Number(full[2]) - 1, Number(full[3])),
+    );
+  const korean = /(\d{1,2})월\s*(\d{1,2})일/.exec(text);
+  if (korean) return nearestYear(Number(korean[1]) - 1, Number(korean[2]), now);
+  const name = new RegExp(MONTH, "i").exec(text);
+  if (!name) return null;
+  const month = MONTHS.indexOf(name[0].slice(0, 3).toLowerCase()) / 3;
+  const day = /\b(\d{1,2})(?:st|nd|rd|th)?\b/.exec(text);
+  if (!day) return null;
+  const year = /\b20\d{2}\b/.exec(text);
+  return year
+    ? new Date(Date.UTC(Number(year[0]), month, Number(day[1])))
+    : nearestYear(month, Number(day[1]), now);
+}
+
+/** Whether the wording gives an end date before today, in Korea. No end date is not ended. */
+export function offerHasEnded(
+  candidate: Pick<CandidateForCard, "title" | "evidence">,
+  now: Date,
+): boolean {
+  const end = END_DATE.exec(
+    plainLine(`${candidate.title} ${candidate.evidence}`),
+  );
+  const raw = end?.[1] ?? end?.[2];
+  const date = raw ? parseCardDate(raw, now) : null;
+  if (!date) return false;
+  const today = new Date(now.getTime() + HOURS_AHEAD_OF_UTC * 3_600_000);
+  today.setUTCHours(0, 0, 0, 0);
+  return date.getTime() < today.getTime();
+}
+
 /** The row's own https address without referral parameters, or null. */
 export function cardLink(value: string): string | null {
   let url: URL;
@@ -95,15 +150,20 @@ export function cardLink(value: string): string | null {
 /**
  * Whether this row becomes a card. Red is the owner's "do not post", a missing
  * band is not checked yet, and a changelog entry has to offer something: the
- * collector also keeps ordinary updates that merely mention a date or a credit.
+ * collector also keeps ordinary updates that merely mention a date or a credit,
+ * and an offer whose own end date has passed is no longer news.
  * A report has no wording to judge, and a person chose to send it.
  */
-export function shouldCardCandidate(candidate: CandidateForCard): boolean {
+export function shouldCardCandidate(
+  candidate: CandidateForCard,
+  now = new Date(),
+): boolean {
   if (candidate.band !== "green" && candidate.band !== "yellow") return false;
   if (!cardLink(candidate.url)) return false;
   if (candidate.kind === "new_service" || candidate.route === "report")
     return true;
   if (POLICY_NOTICE.test(candidate.title)) return false;
+  if (offerHasEnded(candidate, now)) return false;
   return (
     candidate.priceCheck === "below_list" ||
     FREE_OR_CREDIT.test(`${candidate.title} ${candidate.evidence}`) ||

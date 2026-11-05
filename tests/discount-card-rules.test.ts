@@ -6,9 +6,14 @@ import {
   discountCard,
   findDeadline,
   reviewCard,
-  shouldCardCandidate,
+  offerHasEnded,
+  shouldCardCandidate as shouldCardAt,
   type CandidateForCard,
 } from "@rapi/core";
+
+// The fixture's offer runs through September 18.
+const shouldCardCandidate = (candidate: CandidateForCard) =>
+  shouldCardAt(candidate, new Date("2026-09-01T00:00:00Z"));
 
 const offer = (fields: Partial<CandidateForCard> = {}): CandidateForCard => ({
   id: "1",
@@ -285,4 +290,50 @@ test("price cut wording alone makes a card", () => {
       true,
       evidence,
     );
+});
+
+test("an offer past its own end date is not a card", () => {
+  const ling = offer({
+    title: "Ling 3.1 Flash 1019 now available on AI Gateway for free",
+    evidence: "free until November 3, 2026. The updated model is for coding.",
+    priceCheck: "unknown",
+  });
+  const on = (day: string) => shouldCardAt(ling, new Date(day));
+  assert.equal(on("2026-11-02T00:00:00Z"), true);
+  assert.equal(on("2026-11-03T14:00:00Z"), true);
+  assert.equal(on("2026-11-03T15:00:00Z"), false);
+  assert.equal(on("2026-11-05T00:00:00Z"), false);
+});
+
+test("an end date is read in every written form", () => {
+  const now = new Date("2026-11-05T00:00:00Z");
+  const ended = (evidence: string) =>
+    offerHasEnded({ title: "", evidence }, now);
+  for (const evidence of [
+    "50% off through 2026-11-01",
+    "무료 2026년 11월 1일까지",
+    "11월 1일까지 할인",
+    "free until Nov 1st",
+    "ends 1 November 2026",
+    "ends on October 31",
+  ])
+    assert.equal(ended(evidence), true, evidence);
+  for (const evidence of [
+    "50% off through 2026-12-01",
+    "free until December 1",
+    "free until January 15",
+    "released on October 1 with 50% off",
+    "50% off, no end date",
+  ])
+    assert.equal(ended(evidence), false, evidence);
+});
+
+test("a person's report and a new service are not judged by an end date", () => {
+  const now = new Date("2026-11-05T00:00:00Z");
+  const evidence = "free until November 3, 2026";
+  assert.equal(shouldCardAt(offer({ evidence, route: "report" }), now), true);
+  assert.equal(
+    shouldCardAt(offer({ evidence, kind: "new_service" }), now),
+    true,
+  );
 });
