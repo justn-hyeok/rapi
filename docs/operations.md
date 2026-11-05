@@ -259,6 +259,17 @@ docker exec rapi-postgres-1 psql -U rapi -d rapi -c "UPDATE discount_candidates 
 
 `DISCOUNT_REVIEW_CHANNEL_ID`에 소유자만 보는 채널 ID를 넣으면 봇이 시작할 때와 그 뒤 10분마다 검증한 후보를 카드로 보낸다. 값이 없으면 아무것도 보내지 않고 봇은 그대로 뜬다. 봇에게 그 채널의 보기, 메시지 보내기, 링크 첨부 권한이 있어야 한다. 다른 채널로 내보내는 방법은 [승인 버튼](#승인-버튼-006)에 있다. 형식은 [로드맵의 카드 규칙](../ROADMAP.md#정해진-카드-규칙)을 따른다.
 
+알림을 종류별로 나누려면 아래 값을 넣는다. 없는 값은 `DISCOUNT_REVIEW_CHANNEL_ID`나 `DISCOUNT_PUBLIC_CHANNEL_ID`로 간다. `.env`를 바꾸면 봇을 다시 시작해야 하고, 봇에게 각 채널의 보기, 메시지 보내기, 링크 첨부 권한이 있어야 한다.
+
+| 값                                | 가는 것                                |
+| --------------------------------- | -------------------------------------- |
+| `NEW_SERVICE_REVIEW_CHANNEL_ID`   | 새 서비스 검토 카드                    |
+| `REPORT_REVIEW_CHANNEL_ID`        | `/제보`로 들어온 카드와 문제 제보 카드 |
+| `GUILD_REQUEST_REVIEW_CHANNEL_ID` | 서버 승인 요청 카드                    |
+| `NEW_SERVICE_PUBLIC_CHANNEL_ID`   | [게시]한 새 서비스 카드                |
+
+검토 채널은 모두 소유자만 보는 곳으로 정하고, 허용된 서버에 둔다. 버튼은 어느 검토 채널에서든 소유자에게 동작하므로, 나누기 전에 보낸 카드도 그대로 처리할 수 있다. 이미 보낸 카드는 옮기지 않는다. 시간당 5장 제한은 채널별이 아니라 전체에 걸린다. 스타 리마인드는 DM, 운영 알림은 `OPERATIONS_CHANNEL_ID`로 그대로 간다.
+
 어떤 후보를 보내는가:
 
 - `band`가 `green` 또는 `yellow`인 행만 보낸다. `red`와 아직 확인하지 않은 행은 보내지 않는다.
