@@ -579,3 +579,55 @@ export class HackerNewsRoute {
     };
   }
 }
+
+export interface FeedOfferSource {
+  url: string;
+  maxAgeDays: number;
+}
+
+const LISTED_SUFFIX = /:\s*Listed$/i;
+
+function isRecent(item: ExternalItem, maxAgeDays: number, now: Date): boolean {
+  const published = isoDate(item.publishedAt);
+  return (
+    !!published &&
+    new Date(published).getTime() >= now.getTime() - maxAgeDays * 86_400_000
+  );
+}
+
+/**
+ * aifree.dev's feed of free API credits. Only new listings: most entries are its
+ * monitor noticing that a page changed, or confirming that it did not.
+ */
+export class CreditFeedRoute {
+  private readonly feed: FeedSourceAdapter;
+
+  constructor(
+    options: SourceHttpOptions = {},
+    private readonly now: () => Date = () => new Date(),
+  ) {
+    this.feed = new FeedSourceAdapter(options);
+  }
+
+  async collect(source: FeedOfferSource): Promise<CandidateResult> {
+    const { items } = await this.feed.fetch(source.url);
+    return {
+      candidates: items
+        .filter(
+          (item) =>
+            LISTED_SUFFIX.test(item.title) &&
+            isRecent(item, source.maxAgeDays, this.now()),
+        )
+        .map((item) => ({
+          kind: "discount",
+          route: "credit_feed",
+          dedupeKey: `credit_feed:${item.externalId}`,
+          domain: null,
+          title: plainText(item.title.replace(LISTED_SUFFIX, ""), 300),
+          url: item.url,
+          evidence: "aifree.dev에 새로 올라옴",
+          publishedAt: isoDate(item.publishedAt),
+        })),
+    };
+  }
+}
