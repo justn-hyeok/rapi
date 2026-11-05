@@ -72,6 +72,10 @@
     ],
     "maxAgeDays": 7
   },
+  "creditFeed": {
+    "url": "https://aifree.dev/free-api-credits/feed.xml",
+    "maxAgeDays": 30
+  },
   "pullRequests": {
     "repository": "anomalyco/models.dev"
   },

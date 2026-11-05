@@ -7,6 +7,7 @@ import {
   CatalogRoute,
   ChangelogRoute,
   CodeSearchRoute,
+  CreditFeedRoute,
   HackerNewsRoute,
   isPriceCut,
   PullRequestRoute,
@@ -747,5 +748,43 @@ test("the Hacker News search asks for recent titles only", async () => {
   assert.equal(
     params.get("numericFilters"),
     `created_at_i>${Date.parse("2026-10-29T00:00:00Z") / 1000}`,
+  );
+});
+
+const rssItem = (guid: string, title: string, date: string) =>
+  `<item><title>${title}</title><link>https://site.test/${guid}</link><guid>${guid}</guid><pubDate>${date}</pubDate><description>x</description></item>`;
+const rss = (...items: string[]) =>
+  `<?xml version="1.0"?><rss version="2.0"><channel>${items.join("")}</channel></rss>`;
+
+test("the credit feed keeps only recent new listings, under their own name", async () => {
+  const url = "https://aifree.test/feed.xml";
+  const { candidates } = await new CreditFeedRoute(
+    {
+      fetch: pages({
+        [url]: rss(
+          rssItem(
+            "a",
+            "XCrawl Free Credits: Listed",
+            "Mon, 02 Nov 2026 16:51:14 GMT",
+          ),
+          rssItem(
+            "b",
+            "Cohere Free Trial: Change detected",
+            "Mon, 02 Nov 2026 16:51:14 GMT",
+          ),
+          rssItem(
+            "c",
+            "IBM free tier: Verified",
+            "Mon, 02 Nov 2026 16:51:14 GMT",
+          ),
+          rssItem("d", "Old Credits: Listed", "Mon, 02 Mar 2026 16:51:14 GMT"),
+        ),
+      }),
+    },
+    now,
+  ).collect({ url, maxAgeDays: 30 });
+  assert.deepEqual(
+    candidates.map((c) => [c.dedupeKey, c.title, c.kind]),
+    [["credit_feed:a", "XCrawl Free Credits", "discount"]],
   );
 });

@@ -3,6 +3,7 @@ import {
   CatalogRoute,
   ChangelogRoute,
   CodeSearchRoute,
+  CreditFeedRoute,
   DiscordRateLimitError,
   HackerNewsRoute,
   PullRequestRoute,
@@ -11,6 +12,7 @@ import {
   type CandidateResult,
   type CatalogSource,
   type ChangelogSource,
+  type FeedOfferSource,
   type HackerNewsSource,
   type ResolveHostname,
   type SourceHttpOptions,
@@ -40,6 +42,7 @@ export interface DiscountSources {
   codeSearch: { queries: string[]; denylist: string[] };
   catalog?: CatalogSource;
   hackerNews?: HackerNewsSource;
+  creditFeed?: FeedOfferSource;
   operators: KnownOperator[];
 }
 
@@ -100,6 +103,11 @@ export async function collectDiscountCandidates(input: {
       ...source.newService.map(job("new_service")),
     ];
   };
+  const creditFeedJob = (source: FeedOfferSource) => ({
+    kind: "candidate_credit_feed",
+    locator: source.url,
+    collect: () => new CreditFeedRoute(http, input.now).collect(source),
+  });
   const jobs: Array<{
     kind: string;
     locator: string;
@@ -124,6 +132,7 @@ export async function collectDiscountCandidates(input: {
     })),
     ...(sources.catalog ? [catalogJob(sources.catalog)] : []),
     ...(sources.hackerNews ? hackerNewsJobs(sources.hackerNews) : []),
+    ...(sources.creditFeed ? [creditFeedJob(sources.creditFeed)] : []),
   ];
 
   const failures: string[] = [];
