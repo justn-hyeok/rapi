@@ -331,7 +331,7 @@ export async function sendDiscountCards(input: {
     budget = CARDS_PER_HOUR - (await store.cardsInLastHour());
     if (budget <= 0) return [];
     candidates = (await store.candidatesForCards(CARD_ROWS_TO_READ))
-      .filter(shouldCardCandidate)
+      .filter((candidate) => shouldCardCandidate(candidate))
       .slice(0, CARD_ATTEMPTS_PER_RUN);
   } catch (error) {
     return [failureText("cards", error)];
