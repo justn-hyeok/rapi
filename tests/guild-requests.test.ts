@@ -156,6 +156,7 @@ function setup(t: TestContext, reviewChannelId: string | undefined = "review") {
     gate,
     ownerIds: ["owner"],
     reviewChannelId,
+    reviewChannelIds: reviewChannelId ? [reviewChannelId] : [],
     configuredGuildIds: ["800", "801"],
     commands,
     onOpened,
@@ -231,7 +232,7 @@ describe("/서버신청", () => {
 
   it("says so when the request has nowhere to go yet", async (t) => {
     const { input } = setup(t, undefined);
-    Object.assign(input, { reviewChannelId: undefined });
+    Object.assign(input, { reviewChannelId: undefined, reviewChannelIds: [] });
     assert.match(
       await receiveGuildRequest(input, REQUESTER, undefined),
       /아직 라피 운영자에게 전달되지 않았습니다/,

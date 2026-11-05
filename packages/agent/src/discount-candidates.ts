@@ -257,6 +257,31 @@ export const DISCOUNT_DISCARD_PREFIX = "discount_discard:";
 export const PROBLEM_RED_PREFIX = "problem_red:";
 export const PROBLEM_CLEAR_PREFIX = "problem_clear:";
 
+/** Where review cards go. A kind without a channel is not sent. */
+export interface CardChannels {
+  discount: string | undefined;
+  newService: string | undefined;
+  report: string | undefined;
+}
+
+// A report is someone waiting on the owner, whatever it turned out to be.
+export function cardChannelFor(
+  candidate: Pick<CandidateForCard, "kind" | "route">,
+  channels: CardChannels,
+): string | undefined {
+  if (candidate.route === "report") return channels.report;
+  return candidate.kind === "new_service"
+    ? channels.newService
+    : channels.discount;
+}
+
+export function isReviewChannel(
+  channelIds: readonly string[],
+  channelId: string | undefined,
+): boolean {
+  return channelId !== undefined && channelIds.includes(channelId);
+}
+
 /** One card as one message with its link, and nothing the reader could press to decide. */
 export function cardPayloadFor(
   candidate: CandidateForCard,
@@ -329,14 +354,14 @@ export async function sendClaimedCards<Row extends { id: string }>(input: {
   rows: readonly Row[];
   budget: number;
   delivery: Pick<DeliveryAdapter, "send">;
-  channelId: string;
+  channelFor: (row: Row) => string;
   claim: (id: string) => Promise<boolean>;
   release: (id: string) => Promise<void>;
   saveMessage: (id: string, messageId: string) => Promise<void>;
   payload: (row: Row) => DeliveryPayload;
   deliveryKey: string;
 }): Promise<string[]> {
-  const { rows, delivery, channelId, claim, release, saveMessage } = input;
+  const { rows, delivery, channelFor, claim, release, saveMessage } = input;
   let budget = input.budget;
   const failures: string[] = [];
   for (const row of rows) {
@@ -350,7 +375,7 @@ export async function sendClaimedCards<Row extends { id: string }>(input: {
     let messageId: string;
     try {
       const sent = await delivery.send(
-        { channel: "discord_channel", recipientId: channelId },
+        { channel: "discord_channel", recipientId: channelFor(row) },
         input.payload(row),
         `${input.deliveryKey}:${row.id}`,
       );
@@ -380,9 +405,9 @@ export async function sendClaimedCards<Row extends { id: string }>(input: {
 export async function sendDiscountCards(input: {
   store: CardStore;
   delivery: Pick<DeliveryAdapter, "send">;
-  channelId: string;
+  channels: CardChannels;
 }): Promise<string[]> {
-  const { store, delivery, channelId } = input;
+  const { store, delivery, channels } = input;
   let budget: number;
   let candidates: CandidateForCard[];
   try {
@@ -394,6 +419,7 @@ export async function sendDiscountCards(input: {
       COMMUNITY_CARDS_PER_DAY - (await store.communityCardsInLastDay());
     candidates = (await store.candidatesForCards(CARD_ROWS_TO_READ))
       .filter((candidate) => shouldCardCandidate(candidate))
+      .filter((candidate) => cardChannelFor(candidate, channels))
       .filter((candidate) => {
         if (candidate.route === "community") {
           communityLeft -= 1;
@@ -412,7 +438,7 @@ export async function sendDiscountCards(input: {
     rows: candidates,
     budget,
     delivery,
-    channelId,
+    channelFor: (candidate) => cardChannelFor(candidate, channels)!,
     claim: (id) => store.claimCandidateCard(id),
     release: (id) => store.releaseCandidateCard(id),
     saveMessage: (id, messageId) =>
@@ -487,7 +513,7 @@ export async function sendProblemCards(input: {
     rows,
     budget,
     delivery,
-    channelId,
+    channelFor: () => channelId,
     claim: (id) => store.claimProblemCard(id),
     release: (id) => store.releaseProblemCard(id),
     saveMessage: (id, messageId) => store.saveProblemCardMessage(id, messageId),

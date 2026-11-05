@@ -13,6 +13,7 @@ import {
   CARDS_PER_HOUR,
   cardPayloadFor,
   DISCOUNT_DISCARD_PREFIX,
+  isReviewChannel,
 } from "./discount-candidates.js";
 
 export const DISCOUNT_MODAL_PREFIX = "discount_publish_modal:";
@@ -30,8 +31,11 @@ export interface DiscountApproval {
   >;
   delivery: Pick<DeliveryAdapter, "send">;
   ownerIds: readonly string[];
-  reviewChannelId: string | undefined;
-  publicChannelId: string | undefined;
+  reviewChannelIds: readonly string[];
+  publicChannels: {
+    discount: string | undefined;
+    newService: string | undefined;
+  };
 }
 
 /** What to do after a modal was acknowledged: edit the card, tell the owner, or both. */
@@ -44,6 +48,8 @@ const ALREADY_DECIDED = "이미 처리한 후보입니다.";
 const TRY_AGAIN = "처리하지 못했습니다. 잠시 뒤 다시 눌러 주세요.";
 const NOT_PUBLISHABLE =
   "게시할 수 없는 후보입니다. 빨강이거나 카드 기준에 맞지 않습니다.";
+const NO_CHANNEL =
+  "검토 채널이나 공개 채널이 설정되지 않아 처리할 수 없습니다.";
 const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 
 const ephemeral = (content: string) => ({
@@ -59,6 +65,14 @@ const logFailure = (error: unknown) =>
 const overLimit = (retryAt: Date) =>
   `공개 채널에는 시간당 ${CARDS_PER_HOUR}장까지만 보냅니다. <t:${Math.ceil(retryAt.getTime() / 1000)}:t> 이후에 다시 눌러 주세요. 후보는 그대로입니다.`;
 
+const publicChannelFor = (
+  input: DiscountApproval,
+  candidate: CandidateForDecision,
+) =>
+  candidate.kind === "new_service"
+    ? input.publicChannels.newService
+    : input.publicChannels.discount;
+
 // Only the row id travels in a custom_id. All the rest is read here, on every click.
 async function decidable(
   input: DiscountApproval,
@@ -67,15 +81,15 @@ async function decidable(
 ): Promise<CandidateForDecision | string> {
   if (!input.ownerIds.includes(identity.userId))
     return "소유자만 쓸 수 있는 버튼입니다.";
-  if (!input.reviewChannelId || !input.publicChannelId)
-    return "검토 채널이나 공개 채널이 설정되지 않아 처리할 수 없습니다.";
-  if (identity.channelId !== input.reviewChannelId)
+  if (!input.reviewChannelIds.length) return NO_CHANNEL;
+  if (!isReviewChannel(input.reviewChannelIds, identity.channelId))
     return "검토 채널에서만 쓸 수 있는 버튼입니다.";
   const id = customId.slice(customId.indexOf(":") + 1);
   const candidate = UUID.test(id)
     ? await input.store.candidateForDecision(id)
     : null;
   if (!candidate) return "후보를 찾지 못했습니다.";
+  if (!publicChannelFor(input, candidate)) return NO_CHANNEL;
   return candidate.status === "new" ? candidate : ALREADY_DECIDED;
 }
 
@@ -166,11 +180,12 @@ export async function publishDiscountCard(
     return { notice: TRY_AGAIN };
   }
 
-  const place = `<#${input.publicChannelId!}>`;
+  const publicChannelId = publicChannelFor(input, candidate)!;
+  const place = `<#${publicChannelId}>`;
   let messageId: string;
   try {
     const sent = await input.delivery.send(
-      { channel: "discord_channel", recipientId: input.publicChannelId! },
+      { channel: "discord_channel", recipientId: publicChannelId },
       cardPayloadFor(candidate, deadline),
       `discount-public:${candidate.id}`,
     );

@@ -42,7 +42,7 @@ import {
   resolveHomeGuildId,
   summarizeReadiness,
 } from "@rapi/core";
-import { loadEnvironment } from "@rapi/config";
+import { loadEnvironment, notificationChannels } from "@rapi/config";
 import {
   compareMigrationNames,
   expectedMigrationNames,
@@ -60,6 +60,7 @@ import {
 import { assessSourceHealth } from "./source-health.js";
 
 const config = loadEnvironment();
+const channels = notificationChannels(config);
 const store = new PostgresStore(config.DATABASE_URL, {
   max: config.DB_POOL_MAX,
   connectionTimeoutMs: config.DB_CONNECT_TIMEOUT_MS,
@@ -146,7 +147,8 @@ const guildRequests = {
   store,
   gate: guildGate,
   ownerIds: discordOwnerIds(allowlists),
-  reviewChannelId: config.DISCOUNT_REVIEW_CHANNEL_ID,
+  reviewChannelId: channels.review.guildRequest,
+  reviewChannelIds: channels.reviewIds,
   // Allowed by configuration, so a row cannot take them away.
   configuredGuildIds: allowedGuildIds(
     config.DISCORD_ALLOWED_GUILD_IDS,
@@ -177,7 +179,7 @@ const commands = new DiscordCommandService(agent, allowlists, {
     changeGuild(guildRequests, actorId, action, target),
   report: (identity, options) =>
     receiveReport(
-      { store, reviewChannelId: config.DISCOUNT_REVIEW_CHANNEL_ID },
+      { store, reviewChannelId: channels.review.report },
       identity,
       options,
     ),
@@ -324,28 +326,25 @@ async function checkReports(): Promise<string[]> {
 // Independent of the daily collection, so cards held back by the hourly limit
 // still go out and a report does not wait a day. Without a channel nothing is sent.
 async function sendCards(): Promise<void> {
-  const target = config.DISCOUNT_REVIEW_CHANNEL_ID
-    ? {
-        store,
-        delivery: discord,
-        channelId: config.DISCOUNT_REVIEW_CHANNEL_ID,
-      }
-    : undefined;
+  const { guildRequest, report } = channels.review;
+  const target = { store, delivery: discord };
   // First, because someone is waiting and checking reports reads web pages.
-  const failures = target
+  const failures = guildRequest
     ? await sendGuildRequestCards({
         ...target,
+        channelId: guildRequest,
         guildName: (guildId) =>
           fetchGuildName(config.DISCORD_BOT_TOKEN, guildId),
       })
     : [];
   failures.push(...(await checkReports()));
-  if (target) {
+  if (report)
     failures.push(
-      ...(await sendProblemCards(target)),
-      ...(await sendDiscountCards(target)),
+      ...(await sendProblemCards({ ...target, channelId: report })),
     );
-  }
+  failures.push(
+    ...(await sendDiscountCards({ ...target, channels: channels.review })),
+  );
   if (failures.length)
     throw new Error(`Discount cards failed: ${failures.join("; ")}`);
 }
@@ -379,8 +378,8 @@ const discountApproval = {
   store,
   delivery: discord,
   ownerIds: discordOwnerIds(allowlists),
-  reviewChannelId: config.DISCOUNT_REVIEW_CHANNEL_ID,
-  publicChannelId: config.DISCOUNT_PUBLIC_CHANNEL_ID,
+  reviewChannelIds: channels.reviewIds,
+  publicChannels: channels.public,
 };
 
 const server = createDiscordInteractionServer(

@@ -15,7 +15,11 @@ import {
 import type { PostgresStore } from "@rapi/db";
 import { messageBody } from "./community-feeds.js";
 import type { DiscountPublishResult } from "./discount-approval.js";
-import { CARDS_PER_HOUR, sendClaimedCards } from "./discount-candidates.js";
+import {
+  CARDS_PER_HOUR,
+  isReviewChannel,
+  sendClaimedCards,
+} from "./discount-candidates.js";
 
 export const GUILD_APPROVE_PREFIX = "guild_approve:";
 export const GUILD_BLOCK_PREFIX = "guild_block:";
@@ -31,6 +35,7 @@ export interface GuildRequests {
   gate: { allowed(): Promise<readonly string[]>; invalidate(): void };
   ownerIds: readonly string[];
   reviewChannelId: string | undefined;
+  reviewChannelIds: readonly string[];
   configuredGuildIds: readonly string[];
   commands: {
     register(guildId: string): Promise<void>;
@@ -126,7 +131,7 @@ export async function guildRequestButton(
 ): Promise<DiscountPublishResult> {
   if (!input.ownerIds.includes(identity.userId))
     return { notice: "소유자만 쓸 수 있는 버튼입니다." };
-  if (!input.reviewChannelId || identity.channelId !== input.reviewChannelId)
+  if (!isReviewChannel(input.reviewChannelIds, identity.channelId))
     return { notice: "검토 채널에서만 쓸 수 있는 버튼입니다." };
   const guildId = customId.slice(customId.indexOf(":") + 1);
   if (!SNOWFLAKE.test(guildId)) return { notice: "요청을 찾지 못했습니다." };
@@ -265,7 +270,7 @@ export async function sendGuildRequestCards(input: {
     rows,
     budget,
     delivery,
-    channelId,
+    channelFor: () => channelId,
     claim: (id) => store.claimGuildCard(id),
     release: (id) => store.releaseGuildCard(id),
     saveMessage: (id, messageId) =>
