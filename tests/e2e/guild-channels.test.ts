@@ -26,6 +26,11 @@ describe("guild channels", () => {
       await store.clearGuildChannel("g1", "discount");
       assert.deepEqual(await store.guildChannels("g1"), []);
       await assert.rejects(store.setGuildChannel("g1", "unknown", "1", "o"));
+      await store.setGuildChannel("g1", "rapi_update", "5", "owner");
+      assert.equal(await store.rapiUpdateNoticed(), false);
+      assert.equal(await store.claimRapiUpdate("v1"), true);
+      assert.equal(await store.claimRapiUpdate("v1"), false);
+      assert.equal(await store.rapiUpdateNoticed(), true);
     } finally {
       await store.close();
     }

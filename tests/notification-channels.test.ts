@@ -53,66 +53,78 @@ function setup(
   return { channels, rows, sent, store, delivery };
 }
 
-const set = (kind: string, channel: string) => ({
-  action: "설정",
+const on = (kind: string, channel?: string) => ({
+  action: "켜기",
   kind,
-  channel,
+  ...(channel ? { channel } : {}),
 });
 
-test("another server's admin sets its own public channels", async (t) => {
+test("another server's admin turns each alert on in its own channel", async (t) => {
   const { channels, sent } = setup(t);
   assert.match(
-    await channels.change(ADMIN, set("discount", "20")),
-    /할인 소식 알림을 <#20>/,
+    await channels.change(ADMIN, on("discount", "20")),
+    /AI 할인 알림을 <#20>/,
   );
-  await channels.change(ADMIN, set("new_service", "21"));
-  assert.deepEqual(sent, ["20", "21"]);
+  await channels.change(ADMIN, on("new_service", "21"));
+  await channels.change(ADMIN, on("rapi_update", "22"));
+  assert.deepEqual(sent, ["20", "21", "22"]);
   assert.deepEqual(await channels.publicChannels("discount"), ["20"]);
   assert.deepEqual(await channels.publicChannels("new_service"), ["21"]);
-  assert.match(await channels.change(ADMIN, { action: "보기" }), /<#20>/);
-  await channels.change(ADMIN, { action: "해제", kind: "discount" });
+  assert.deepEqual(await channels.publicChannels("rapi_update"), ["22"]);
+  assert.match(
+    await channels.change(ADMIN, { action: "보기", kind: "discount" }),
+    /<#20>/,
+  );
+  await channels.change(ADMIN, { action: "끄기", kind: "discount" });
   assert.deepEqual(await channels.publicChannels("discount"), []);
+  assert.match(
+    await channels.change(ADMIN, { action: "보기", kind: "discount" }),
+    /채널이 없습니다/,
+  );
+});
+
+test("without a channel it uses the one the command ran in", async (t) => {
+  const { channels, rows } = setup(t);
+  await channels.change({ ...ADMIN, channelId: "25" }, on("discount"));
+  assert.equal(rows[0]!.channelId, "25");
 });
 
 test("a member without Manage Server changes nothing", async (t) => {
   const { channels, rows } = setup(t);
   await assert.rejects(
-    channels.change(MEMBER, set("discount", "20")),
+    channels.change(MEMBER, on("discount", "20")),
     /서버 관리 권한/,
   );
   assert.equal(rows.length, 0);
 });
 
-test("review kinds stay with the owner, at home", async (t) => {
+test("review alerts stay with the owner, at home", async (t) => {
   const { channels, rows } = setup(t);
-  await assert.rejects(
-    channels.change(ADMIN, set("review_report", "20")),
-    /소유자가 홈 서버/,
-  );
-  await assert.rejects(
-    channels.change({ ...OWNER, guildId: "other" }, set("review_report", "20")),
-    /소유자가 홈 서버/,
-  );
+  for (const identity of [ADMIN, { ...OWNER, guildId: "other" }])
+    for (const action of [
+      on("review_report", "20"),
+      { action: "보기", kind: "review_report" },
+    ])
+      await assert.rejects(
+        channels.change(identity, action),
+        /소유자가 홈 서버/,
+      );
   assert.equal(rows.length, 0);
-  assert.doesNotMatch(await channels.change(ADMIN, { action: "보기" }), /검토/);
-  await channels.change(OWNER, set("review_report", "30"));
-  assert.match(
-    await channels.change(OWNER, { action: "보기" }),
-    /검토: 제보: <#30>/,
-  );
+  await channels.change(OWNER, on("review_report", "30"));
+  assert.equal((await channels.review()).report, "30");
 });
 
 test("a channel the bot cannot post in is not saved", async (t) => {
   const { channels, delivery, rows } = setup(t);
   delivery.failing = true;
   assert.match(
-    await channels.change(ADMIN, set("discount", "20")),
+    await channels.change(ADMIN, on("discount", "20")),
     /저장하지 않았습니다/,
   );
   assert.equal(rows.length, 0);
 });
 
-test("the environment values serve the home server until it sets its own", async (t) => {
+test("the environment values serve the home server until it sets its own, but never updates", async (t) => {
   const { channels } = setup(t, { review: "10", public: "11" });
   assert.deepEqual(await channels.review(), {
     discount: "10",
@@ -122,9 +134,10 @@ test("the environment values serve the home server until it sets its own", async
     ids: ["10"],
   });
   assert.deepEqual(await channels.publicChannels("discount"), ["11"]);
+  assert.deepEqual(await channels.publicChannels("rapi_update"), []);
 
-  await channels.change(OWNER, set("review_new_service", "30"));
-  await channels.change(OWNER, set("discount", "31"));
+  await channels.change(OWNER, on("review_new_service", "30"));
+  await channels.change(OWNER, on("discount", "31"));
   const review = await channels.review();
   assert.equal(review.newService, "30");
   assert.equal(review.discount, "10");
