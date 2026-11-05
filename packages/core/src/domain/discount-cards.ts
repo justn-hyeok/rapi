@@ -274,7 +274,6 @@ export function problemCard(report: ProblemReportForCard): DiscordCard {
       `링크: ${escapeMarkdown(plainLine(report.url))}`,
       report.memo ? memoLine(report.memo) : "",
       `제보자: <@${report.reporterId}>`,
-      "누르기 전에는 아무것도 바뀌지 않습니다.",
     ]
       .filter(Boolean)
       .join("\n"),
