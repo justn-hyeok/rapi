@@ -203,6 +203,10 @@ npm run start:monitor              # 모니터
 | `changelog` | 할인 (`discount`) | OpenAI, Vercel, Cloudflare, AWS, Anthropic, DeepSeek, APIYI 공식 변경로그. 할인 문구가 있고 30일 안에 나온 항목만 |
 | `pull_request` | 새 서비스 (`new_service`) | `anomalyco/models.dev`의 열린 PR 중 provider를 추가하는 것 |
 | `code_search` | 새 서비스 (`new_service`) | GitHub 코드 검색. API 주소, 저장소, 파일 링크만 남기고 원문은 저장하지 않음. 대학, 정부, 회사 내부 주소는 `denylist`로 뺀다 |
+| `catalog` | 새 서비스, 할인 | OpenRouter 제공사와 모델 목록을 전날과 비교해 새 제공사, 새 무료 모델, 20% 이상 내린 가격만. 첫 실행은 기준만 저장한다. 기준은 `source_cursors.cursor_value`에 있다 |
+| `hacker_news` | 새 서비스, 할인 | 최근 7일 글의 제목만 검색. 할인은 AI API 낱말과 할인 문구가 함께 있어야 하고, 새 서비스는 `Show HN`이나 `alternative`가 있어야 한다 |
+| `credit_feed` | 할인 | aifree.dev 무료 크레딧 피드에서 30일 안에 새로 등록된 항목만. 변경 감지와 재확인 항목은 뺀다 |
+| `community` | 할인 | linux.do 福利羊毛 게시판. **꺼져 있음**: Cloudflare가 Node 요청을 검사로 막는다(`cf-mitigated: challenge`). 우회하지 않는다 |
 
 GitHub 경로 둘은 `GITHUB_READ_TOKEN`이 있어야 돈다. 없으면 건너뛰고 공식 변경로그만 돈다. 공개 저장소 읽기 권한이면 충분하다.
 
@@ -262,6 +266,7 @@ docker exec rapi-postgres-1 psql -U rapi -d rapi -c "UPDATE discount_candidates 
 - 게시일이 최근 7일 안인 행을 최신순으로 보낸다. 게시일이 없으면 처음 본 날로 따진다. 처음 수집하면 몇 달 전 변경로그도 오늘 처음 본 행이 되므로, 게시일이 있으면 처음 본 날은 보지 않는다. 더 오래된 행은 보내지 않고 그대로 둔다.
 - 최근 1시간에 보낸 카드가 문제 제보 카드까지 합쳐 5장이면 멈추고, 나머지는 다음 실행으로 넘긴다.
 - 새 서비스 카드는 하루 5장까지만 보낸다. 제보와 할인은 여기 들어가지 않는다. 남은 후보는 다음 날로 넘어가고, 7일이 지나면 보내지 않는다.
+- `community` 글은 항상 노랑에 `#위험`이고, 경고 줄과 주의 색으로 나가며 하루 3장까지다. 공개 카드에도 경고가 그대로 붙는다.
 
 중복을 막는 방식:
 
