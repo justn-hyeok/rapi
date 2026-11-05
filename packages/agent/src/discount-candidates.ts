@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import {
+  CatalogRoute,
   ChangelogRoute,
   CodeSearchRoute,
   DiscordRateLimitError,
@@ -7,6 +8,7 @@ import {
   readServicePage,
   UncertainDeliveryError,
   type CandidateResult,
+  type CatalogSource,
   type ChangelogSource,
   type ResolveHostname,
   type SourceHttpOptions,
@@ -33,6 +35,7 @@ export interface DiscountSources {
   changelogs: ChangelogSource[];
   pullRequests: { repository: string };
   codeSearch: { queries: string[]; denylist: string[] };
+  catalog?: CatalogSource;
   operators: KnownOperator[];
 }
 
@@ -47,6 +50,7 @@ export async function loadDiscountSources(
 type CandidateStore = Pick<
   PostgresStore,
   | "createSource"
+  | "sourceCursor"
   | "saveCursor"
   | "recordSourceFailure"
   | "saveDiscountCandidate"
@@ -71,10 +75,19 @@ export async function collectDiscountCandidates(input: {
   const pullRequests = token && new PullRequestRoute(token, http);
   const codeSearch =
     token && new CodeSearchRoute(token, sources.codeSearch.denylist, http);
+  const catalogJob = (source: CatalogSource) => ({
+    kind: "candidate_catalog",
+    locator: source.modelsUrl,
+    collect: async (sourceId: string) =>
+      new CatalogRoute(http).collect(
+        source,
+        await store.sourceCursor(sourceId),
+      ),
+  });
   const jobs: Array<{
     kind: string;
     locator: string;
-    collect?: () => Promise<CandidateResult>;
+    collect?: (sourceId: string) => Promise<CandidateResult>;
   }> = [
     ...sources.changelogs.map((source) => ({
       kind: "candidate_changelog",
@@ -93,6 +106,7 @@ export async function collectDiscountCandidates(input: {
       locator: query,
       ...(codeSearch && { collect: () => codeSearch.collect(query) }),
     })),
+    ...(sources.catalog ? [catalogJob(sources.catalog)] : []),
   ];
 
   const failures: string[] = [];
@@ -104,11 +118,15 @@ export async function collectDiscountCandidates(input: {
         await store.recordSourceFailure(sourceId, NO_TOKEN);
         continue;
       }
-      const { candidates, problem } = await job.collect();
+      const { candidates, problem, cursor } = await job.collect(sourceId);
       for (const candidate of candidates)
         await store.saveDiscountCandidate(candidate);
       if (problem) throw new Error(problem);
-      await store.saveCursor(sourceId, new Date().toISOString(), null);
+      await store.saveCursor(
+        sourceId,
+        cursor ?? new Date().toISOString(),
+        null,
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : "failed";
       failures.push(`${job.locator}: ${message}`);

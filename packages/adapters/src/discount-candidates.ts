@@ -19,6 +19,8 @@ export interface CandidateResult {
   candidates: DiscountCandidate[];
   // Set when part of a source failed but the rest is still worth keeping.
   problem?: string;
+  // What the next run compares against, for a source that says nothing about what changed.
+  cursor?: string;
 }
 
 function hostname(url: string): string | null {
@@ -339,5 +341,157 @@ export class CodeSearchRoute {
           });
         }
     return { candidates: [...found.values()] };
+  }
+}
+
+export interface CatalogSource {
+  providersUrl: string;
+  modelsUrl: string;
+  // A smaller drop is routing noise more often than a price cut.
+  minPriceCutPercent: number;
+}
+
+interface CatalogSnapshot {
+  providers: string[];
+  free: string[];
+  // Dollars per token as OpenRouter writes them: input, then output.
+  prices: Record<string, [string, string]>;
+}
+
+// One model's price list is about 2 KB, and the whole list has to parse.
+const CATALOG_MAX_BYTES = 5_000_000;
+
+function readSnapshot(cursor: string | null): CatalogSnapshot | null {
+  if (!cursor) return null;
+  try {
+    const value = JSON.parse(cursor) as Partial<CatalogSnapshot>;
+    return value.providers && value.free && value.prices
+      ? (value as CatalogSnapshot)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+const perMillion = (price: string) =>
+  `$${Number((Number(price) * 1_000_000).toFixed(4))}`;
+
+/** Whether nothing got dearer and something fell by at least the percent. */
+export function isPriceCut(
+  before: readonly [string, string],
+  after: readonly [string, string],
+  minPercent: number,
+): boolean {
+  const pairs = [0, 1].map((i) => [Number(before[i]), Number(after[i])]);
+  // A router's own models say -1, and a price that was free cannot fall.
+  if (pairs.some(([old, now]) => !(old! > 0) || !(now! > 0))) return false;
+  return (
+    pairs.every(([old, now]) => now! <= old!) &&
+    pairs.some(([old, now]) => (old! - now!) / old! >= minPercent / 100)
+  );
+}
+
+/**
+ * OpenRouter's public lists, compared with the previous run: a new provider, a
+ * new free model, a price that fell. The first run only records what is there,
+ * or everything listed would read as new.
+ */
+export class CatalogRoute {
+  constructor(private readonly options: SourceHttpOptions = {}) {}
+
+  private async list<T>(url: string): Promise<T[]> {
+    const { body } = await readSource(
+      url,
+      { Accept: "application/json", "User-Agent": "rapi" },
+      { maxBodyBytes: CATALOG_MAX_BYTES, ...this.options },
+    );
+    const { data } = JSON.parse(body) as { data?: T[] };
+    // An empty list is a broken answer, and saving it would make everything new tomorrow.
+    if (!data?.length) throw new Error(`${url} returned an empty list`);
+    return data;
+  }
+
+  async collect(
+    source: CatalogSource,
+    cursor: string | null,
+  ): Promise<CandidateResult> {
+    const providers = await this.list<{
+      slug: string;
+      name: string;
+      privacy_policy_url?: string | null;
+      terms_of_service_url?: string | null;
+    }>(source.providersUrl);
+    const models = await this.list<{
+      id: string;
+      name: string;
+      expiration_date?: string | null;
+      pricing?: { prompt?: string; completion?: string };
+    }>(source.modelsUrl);
+    const next: CatalogSnapshot = {
+      providers: providers.map((provider) => provider.slug),
+      free: models
+        .filter((model) => model.id.endsWith(":free"))
+        .map((model) => model.id),
+      prices: Object.fromEntries(
+        models.flatMap((model) =>
+          model.pricing?.prompt && model.pricing.completion
+            ? [[model.id, [model.pricing.prompt, model.pricing.completion]]]
+            : [],
+        ),
+      ),
+    };
+    const seen = readSnapshot(cursor);
+    if (!seen) return { candidates: [], cursor: JSON.stringify(next) };
+
+    const candidates: DiscountCandidate[] = [];
+    for (const provider of providers) {
+      if (seen.providers.includes(provider.slug)) continue;
+      const own = provider.privacy_policy_url ?? provider.terms_of_service_url;
+      candidates.push({
+        kind: "new_service",
+        route: "catalog",
+        dedupeKey: `catalog:provider:${provider.slug}`,
+        domain: own ? hostname(own) : null,
+        title: plainText(provider.name, 300),
+        url: `https://openrouter.ai/provider/${encodeURIComponent(provider.slug)}`,
+        evidence: "OpenRouter 제공사 목록에 새로 올라옴",
+        publishedAt: null,
+      });
+    }
+    for (const model of models) {
+      const name = plainText(model.name, 280);
+      const url = `https://openrouter.ai/${model.id}`;
+      if (model.id.endsWith(":free") && !seen.free.includes(model.id))
+        candidates.push({
+          kind: "discount",
+          route: "catalog",
+          dedupeKey: `catalog:free:${model.id}`,
+          domain: hostname(url),
+          title: `${name} 무료 제공`,
+          url,
+          evidence: model.expiration_date
+            ? `${model.expiration_date}까지`
+            : "끝나는 날짜 없음",
+          publishedAt: null,
+        });
+      const before = seen.prices[model.id];
+      const after = next.prices[model.id];
+      if (
+        before &&
+        after &&
+        isPriceCut(before, after, source.minPriceCutPercent)
+      )
+        candidates.push({
+          kind: "discount",
+          route: "catalog",
+          dedupeKey: `catalog:price:${model.id}:${after.join(":")}`,
+          domain: hostname(url),
+          title: `${name} 가격 인하`,
+          url,
+          evidence: `100만 토큰당 입력 ${perMillion(before[0])} → ${perMillion(after[0])}, 출력 ${perMillion(before[1])} → ${perMillion(after[1])}`,
+          publishedAt: null,
+        });
+    }
+    return { candidates, cursor: JSON.stringify(next) };
   }
 }

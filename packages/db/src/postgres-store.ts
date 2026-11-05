@@ -174,6 +174,14 @@ export class PostgresStore {
     return transactionClient ? work(transactionClient) : this.transaction(work);
   }
 
+  async sourceCursor(sourceId: string): Promise<string | null> {
+    const { rows } = await this.pool.query<{ cursor_value: string | null }>(
+      "SELECT cursor_value FROM source_cursors WHERE source_id = $1",
+      [sourceId],
+    );
+    return rows[0]?.cursor_value ?? null;
+  }
+
   async saveCursor(
     sourceId: string,
     cursor: string | null,
