@@ -9,7 +9,7 @@ import {
 } from "@rapi/core";
 import type { PostgresStore } from "@rapi/db";
 import { messageBody } from "./community-feeds.js";
-import { PROBLEM_RED_PREFIX } from "./discount-candidates.js";
+import { isReviewChannel, PROBLEM_RED_PREFIX } from "./discount-candidates.js";
 
 export const REPORTS_PER_HOUR = 5;
 
@@ -98,7 +98,7 @@ export async function receiveReport(
 export interface ProblemReview {
   store: Pick<PostgresStore, "decideProblemReport">;
   ownerIds: readonly string[];
-  reviewChannelId: string | undefined;
+  reviewChannelIds: readonly string[];
 }
 
 const ephemeral = (content: string) => ({
@@ -128,7 +128,7 @@ export async function problemCardButton(
 ): Promise<unknown> {
   if (!input.ownerIds.includes(identity.userId))
     return ephemeral("소유자만 쓸 수 있는 버튼입니다.");
-  if (!input.reviewChannelId || identity.channelId !== input.reviewChannelId)
+  if (!isReviewChannel(input.reviewChannelIds, identity.channelId))
     return ephemeral("검토 채널에서만 쓸 수 있는 버튼입니다.");
   try {
     const decision = customId.startsWith(PROBLEM_RED_PREFIX)

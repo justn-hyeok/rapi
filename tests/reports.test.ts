@@ -383,11 +383,11 @@ const OWNER = { userId: "1", guildId: "g", channelId: "100" };
 
 test("only the owner in the review channel can decide", async () => {
   const store = reviewStore({ turnedRed: 1, alreadyPublished: 0 });
-  const input = { store, ownerIds: ["1"], reviewChannelId: "100" };
+  const input = { store, ownerIds: ["1"], reviewChannelIds: ["100"] };
   const refused = async (
     review:
       | typeof input
-      | { store: typeof store; ownerIds: string[]; reviewChannelId: undefined },
+      | { store: typeof store; ownerIds: string[]; reviewChannelIds: string[] },
     identity: typeof OWNER,
     pattern: RegExp,
   ) => {
@@ -401,14 +401,14 @@ test("only the owner in the review channel can decide", async () => {
   };
   await refused(input, { ...OWNER, userId: "7" }, /소유자만/);
   await refused(input, { ...OWNER, channelId: "200" }, /검토 채널/);
-  await refused({ ...input, reviewChannelId: undefined }, OWNER, /검토 채널/);
+  await refused({ ...input, reviewChannelIds: [] }, OWNER, /검토 채널/);
   assert.deepEqual(store.calls, []);
 });
 
 test("[빨강으로 정함] records who decided and keeps only the link", async () => {
   const store = reviewStore({ turnedRed: 3, alreadyPublished: 1 });
   const reply = (await problemCardButton(
-    { store, ownerIds: ["1"], reviewChannelId: "100" },
+    { store, ownerIds: ["1"], reviewChannelIds: ["100"] },
     OWNER,
     RED,
   )) as {
@@ -435,7 +435,7 @@ test("[빨강으로 정함] records who decided and keeps only the link", async 
 
 test("[문제 없음] changes no band and a second press is refused", async () => {
   const store = reviewStore({ turnedRed: 0, alreadyPublished: 0 });
-  const input = { store, ownerIds: ["1"], reviewChannelId: "100" };
+  const input = { store, ownerIds: ["1"], reviewChannelIds: ["100"] };
   const reply = (await problemCardButton(input, OWNER, CLEAR)) as {
     data: { content: string };
   };
@@ -461,7 +461,7 @@ test("a database failure on a press gets an answer", async (t) => {
         },
       },
       ownerIds: ["1"],
-      reviewChannelId: "100",
+      reviewChannelIds: ["100"],
     },
     OWNER,
     RED,

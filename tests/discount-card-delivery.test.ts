@@ -113,12 +113,13 @@ function discordAnswering(t: TestContext, answer?: (id: string) => Response) {
 }
 
 const CHANNEL = "123";
+const CHANNELS = { discount: CHANNEL, newService: CHANNEL, report: CHANNEL };
 
 test("each card is one message with a button, and mentions stay off", async (t) => {
   const store = memoryStore([row("a")]);
   const discord = discordAnswering(t);
   assert.deepEqual(
-    await sendDiscountCards({ ...discord, store, channelId: CHANNEL }),
+    await sendDiscountCards({ ...discord, store, channels: CHANNELS }),
     [],
   );
   const [message] = discord.sent;
@@ -152,15 +153,15 @@ test("five go out in an hour, newest first, and the rest wait", async (t) => {
   const rows = ["a", "b", "c", "d", "e", "f", "g"].map((id) => row(id));
   const store = memoryStore(rows);
   const discord = discordAnswering(t);
-  await sendDiscountCards({ ...discord, store, channelId: CHANNEL });
+  await sendDiscountCards({ ...discord, store, channels: CHANNELS });
   assert.deepEqual(discord.ids(), ["a", "b", "c", "d", "e"]);
   // A restart in the same hour sends nothing more, and nothing twice.
-  await sendDiscountCards({ ...discord, store, channelId: CHANNEL });
+  await sendDiscountCards({ ...discord, store, channels: CHANNELS });
   assert.equal(discord.sent.length, 5);
 
   // Next hour: the same rows are carded but no longer count.
   const nextHour = memoryStore(rows.slice(5));
-  await sendDiscountCards({ ...discord, store: nextHour, channelId: CHANNEL });
+  await sendDiscountCards({ ...discord, store: nextHour, channels: CHANNELS });
   assert.deepEqual(discord.ids().slice(5), ["f", "g"]);
 });
 
@@ -170,11 +171,11 @@ test("cards already sent this hour count against the limit", async (t) => {
     4,
   );
   const discord = discordAnswering(t);
-  await sendDiscountCards({ ...discord, store, channelId: CHANNEL });
+  await sendDiscountCards({ ...discord, store, channels: CHANNELS });
   assert.deepEqual(discord.ids(), ["a"]);
 
   const full = memoryStore([row("z")], 5);
-  await sendDiscountCards({ ...discord, store: full, channelId: CHANNEL });
+  await sendDiscountCards({ ...discord, store: full, channels: CHANNELS });
   assert.equal(discord.sent.length, 1);
 });
 
@@ -189,7 +190,7 @@ test("noise and red rows are skipped without using up the hour", async (t) => {
     row("a"),
   ]);
   const discord = discordAnswering(t);
-  await sendDiscountCards({ ...discord, store, channelId: CHANNEL });
+  await sendDiscountCards({ ...discord, store, channels: CHANNELS });
   assert.deepEqual(discord.ids(), ["a"]);
   assert.deepEqual([...store.claimed], ["a"]);
 });
@@ -205,14 +206,14 @@ test("a refused send does not stop the rest and is tried again later", async (t)
   const failures = await sendDiscountCards({
     ...discord,
     store,
-    channelId: CHANNEL,
+    channels: CHANNELS,
   });
   assert.deepEqual(failures, ["a: Discord returned 403"]);
   assert.deepEqual(discord.ids(), ["b"]);
   assert.deepEqual(store.released, ["a"]);
 
   refuse = false;
-  await sendDiscountCards({ ...discord, store, channelId: CHANNEL });
+  await sendDiscountCards({ ...discord, store, channels: CHANNELS });
   assert.deepEqual(discord.ids(), ["b", "a"]);
 });
 
@@ -226,7 +227,7 @@ test("a 429 stops the run and everything stays for the next one", async (t) => {
   const failures = await sendDiscountCards({
     ...discord,
     store,
-    channelId: CHANNEL,
+    channels: CHANNELS,
   });
   assert.deepEqual(failures, ["b: Discord returned 429"]);
   assert.deepEqual(discord.ids(), ["a"]);
@@ -246,14 +247,14 @@ test("a send with an unknown outcome is never sent again", async (t) => {
   const failures = await sendDiscountCards({
     delivery,
     store,
-    channelId: CHANNEL,
+    channels: CHANNELS,
   });
   assert.equal(failures.length, 1);
   assert.deepEqual(store.released, []);
   assert.deepEqual([...store.claimed], ["a", "b"]);
   assert.equal(store.messages.has("a"), false);
 
-  await sendDiscountCards({ delivery, store, channelId: CHANNEL });
+  await sendDiscountCards({ delivery, store, channels: CHANNELS });
   assert.equal(attempts, 2);
 });
 
@@ -264,10 +265,10 @@ test("a sent card whose message id could not be saved is not sent again", async 
   const failures = await sendDiscountCards({
     ...discord,
     store,
-    channelId: CHANNEL,
+    channels: CHANNELS,
   });
   assert.deepEqual(failures, ["a: database gone"]);
-  await sendDiscountCards({ ...discord, store, channelId: CHANNEL });
+  await sendDiscountCards({ ...discord, store, channels: CHANNELS });
   assert.equal(discord.sent.length, 1);
 });
 
@@ -275,7 +276,7 @@ test("a run that loses the claim to another process sends nothing", async (t) =>
   const store = memoryStore([row("a")]);
   store.claimCandidateCard = async () => false;
   const discord = discordAnswering(t);
-  await sendDiscountCards({ ...discord, store, channelId: CHANNEL });
+  await sendDiscountCards({ ...discord, store, channels: CHANNELS });
   assert.equal(discord.sent.length, 0);
 });
 
@@ -286,7 +287,7 @@ test("one rejected row cannot hold back rows behind it", async (t) => {
       ? new Response("", { status: 400 })
       : new Response(JSON.stringify({ id: `message-${id}` })),
   );
-  await sendDiscountCards({ ...discord, store, channelId: CHANNEL });
+  await sendDiscountCards({ ...discord, store, channels: CHANNELS });
   assert.deepEqual(discord.ids(), ["a"]);
 });
 
@@ -323,7 +324,7 @@ test("new services stop at the daily limit and discounts still go", async (t) =>
     0,
     NEW_SERVICE_CARDS_PER_DAY - 1,
   );
-  await sendDiscountCards({ ...discord, store, channelId: CHANNEL });
+  await sendDiscountCards({ ...discord, store, channels: CHANNELS });
   assert.deepEqual(discord.ids(), ["n1", "d1"]);
 });
 
@@ -340,7 +341,7 @@ test("a report is not held back by the daily limit on new services", async (t) =
     0,
     NEW_SERVICE_CARDS_PER_DAY,
   );
-  await sendDiscountCards({ ...discord, store, channelId: CHANNEL });
+  await sendDiscountCards({ ...discord, store, channels: CHANNELS });
   assert.deepEqual(discord.ids(), ["r1"]);
 });
 
@@ -352,6 +353,59 @@ test("board posts stop at their own daily limit and other offers still go", asyn
     post(`c${i}`),
   );
   const store = memoryStore([...posts, post("over"), row("d1")]);
-  await sendDiscountCards({ ...discord, store, channelId: CHANNEL });
+  await sendDiscountCards({ ...discord, store, channels: CHANNELS });
   assert.deepEqual(discord.ids(), [...posts.map(({ id }) => id), "d1"]);
+});
+
+test("each kind goes to its own channel, under one hourly limit", async (t) => {
+  const store = memoryStore([
+    row("deal"),
+    row("service", { kind: "new_service", route: "code_search" }),
+    row("report", { kind: "new_service", route: "report" }),
+    row("reported-deal", { route: "report" }),
+  ]);
+  const discord = discordAnswering(t);
+  await sendDiscountCards({
+    ...discord,
+    store,
+    channels: { discount: "1", newService: "2", report: "3" },
+  });
+  assert.deepEqual(
+    discord.sent.map(({ channel, embeds }) => [
+      embeds[0]!.url.split("/").pop(),
+      channel.split("/").at(-2),
+    ]),
+    [
+      ["deal", "1"],
+      ["service", "2"],
+      ["report", "3"],
+      ["reported-deal", "3"],
+    ],
+  );
+
+  const full = memoryStore([row("over")], 5);
+  const fullDiscord = discordAnswering(t);
+  await sendDiscountCards({
+    ...fullDiscord,
+    store: full,
+    channels: { discount: "1", newService: "2", report: "3" },
+  });
+  assert.equal(fullDiscord.sent.length, 0);
+});
+
+test("a kind without a channel waits and takes nothing from the others", async (t) => {
+  const services = Array.from(
+    { length: NEW_SERVICE_CARDS_PER_DAY },
+    (_, index) =>
+      row(`service-${index}`, { kind: "new_service", route: "code_search" }),
+  );
+  const store = memoryStore([...services, row("deal")]);
+  const discord = discordAnswering(t);
+  await sendDiscountCards({
+    ...discord,
+    store,
+    channels: { discount: "1", newService: undefined, report: undefined },
+  });
+  assert.deepEqual(discord.ids(), ["deal"]);
+  assert.deepEqual([...store.claimed], ["deal"]);
 });
