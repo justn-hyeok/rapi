@@ -91,6 +91,10 @@ export const environmentSchema = z
     COMMUNITY_GUILD_ID: z.string().regex(/^\d+$/).optional(),
     DISCOUNT_REVIEW_CHANNEL_ID: z.string().regex(/^\d+$/).optional(),
     DISCOUNT_PUBLIC_CHANNEL_ID: z.string().regex(/^\d+$/).optional(),
+    NEW_SERVICE_REVIEW_CHANNEL_ID: z.string().regex(/^\d+$/).optional(),
+    NEW_SERVICE_PUBLIC_CHANNEL_ID: z.string().regex(/^\d+$/).optional(),
+    REPORT_REVIEW_CHANNEL_ID: z.string().regex(/^\d+$/).optional(),
+    GUILD_REQUEST_REVIEW_CHANNEL_ID: z.string().regex(/^\d+$/).optional(),
     STAR_REMINDER_GITHUB_USER: z
       .string()
       .regex(/^[a-z\d](?:[a-z\d-]{0,37}[a-z\d])?$/i)
@@ -186,4 +190,48 @@ export function loadEnvironment(
     throw new Error(`Invalid environment configuration: ${details}`);
   }
   return parsed.data;
+}
+
+/**
+ * Where each kind of notification goes. A kind without its own channel goes where
+ * discounts go, so one channel is enough until the owner wants them apart.
+ */
+export function notificationChannels(
+  config: Pick<
+    Environment,
+    | "DISCOUNT_REVIEW_CHANNEL_ID"
+    | "DISCOUNT_PUBLIC_CHANNEL_ID"
+    | "NEW_SERVICE_REVIEW_CHANNEL_ID"
+    | "NEW_SERVICE_PUBLIC_CHANNEL_ID"
+    | "REPORT_REVIEW_CHANNEL_ID"
+    | "GUILD_REQUEST_REVIEW_CHANNEL_ID"
+  >,
+) {
+  const review = {
+    discount: config.DISCOUNT_REVIEW_CHANNEL_ID,
+    newService:
+      config.NEW_SERVICE_REVIEW_CHANNEL_ID ?? config.DISCOUNT_REVIEW_CHANNEL_ID,
+    report:
+      config.REPORT_REVIEW_CHANNEL_ID ?? config.DISCOUNT_REVIEW_CHANNEL_ID,
+    guildRequest:
+      config.GUILD_REQUEST_REVIEW_CHANNEL_ID ??
+      config.DISCOUNT_REVIEW_CHANNEL_ID,
+  };
+  return {
+    review,
+    // Buttons work in all of them, so a card sent before a split can still be decided.
+    reviewIds: [
+      ...new Set(
+        [config.DISCOUNT_REVIEW_CHANNEL_ID, ...Object.values(review)].filter(
+          (id) => id !== undefined,
+        ),
+      ),
+    ],
+    public: {
+      discount: config.DISCOUNT_PUBLIC_CHANNEL_ID,
+      newService:
+        config.NEW_SERVICE_PUBLIC_CHANNEL_ID ??
+        config.DISCOUNT_PUBLIC_CHANNEL_ID,
+    },
+  };
 }
