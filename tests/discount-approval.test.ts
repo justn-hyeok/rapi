@@ -105,8 +105,8 @@ function setup(
       store,
       delivery: new DiscordDeliveryAdapter("token"),
       ownerIds: ["1"],
-      reviewChannelIds: ["100"],
-      publicChannels: { discount: "200", newService: "200" },
+      reviewChannelIds: async () => ["100"],
+      publicChannelIds: async () => ["200"],
       ...options,
     } as DiscountApproval,
   };
@@ -156,33 +156,62 @@ test("the owner's click from another channel is refused", async (t) => {
   assert.equal(sent.length, 0);
 });
 
-test("the buttons work in every review channel, and a new service publishes to its own", async (t) => {
+test("the buttons work in every review channel, and each kind asks for its own channels", async (t) => {
   const store = memoryStore(row({ kind: "new_service" }));
+  const asked: string[] = [];
   const { input, sent } = setup(t, store, undefined, {
-    reviewChannelIds: ["100", "101"],
-    publicChannels: { discount: "200", newService: "201" },
+    reviewChannelIds: async () => ["100", "101"],
+    publicChannelIds: async (kind) => {
+      asked.push(kind);
+      return kind === "new_service" ? ["201"] : ["200"];
+    },
   });
   const inNewChannel = { ...OWNER, channelId: "101" };
   assert.equal((await press(input, PUBLISH, inNewChannel)).type, 9);
   const result = await publishDiscountCard(input, inNewChannel, SUBMIT, "");
+  assert.ok(asked.every((kind) => kind === "new_service"));
   assert.equal(sent[0]!.url.split("/").at(-2), "201");
   assert.match(result.edit!.content, /<#201>/);
 });
 
-test("a discount has no channel when only new services have one", async (t) => {
-  const { input, store, sent } = setup(t, undefined, undefined, {
-    publicChannels: { discount: undefined, newService: "201" },
+test("a card goes to every server's channel, and one failing does not stop the rest", async (t) => {
+  const store = memoryStore();
+  let calls = 0;
+  const { input, sent } = setup(
+    t,
+    store,
+    () =>
+      ++calls === 1
+        ? new Response("{}", { status: 403 })
+        : new Response(`{"id":"${calls}"}`),
+    { publicChannelIds: async () => ["200", "201", "202"] },
+  );
+  const result = await publishDiscountCard(input, OWNER, SUBMIT, "");
+  assert.deepEqual(
+    sent.map(({ url }) => url.split("/").at(-2)),
+    ["200", "201", "202"],
+  );
+  assert.equal(store.publicMessageId, "2");
+  assert.equal(store.row!.status, "published");
+  assert.match(result.edit!.content, /<#201>, <#202>에 게시/);
+  assert.match(result.notice!, /<#200>/);
+});
+
+test("the row goes back only when every channel refused", async (t) => {
+  const store = memoryStore();
+  const { input } = setup(t, store, () => new Response("{}", { status: 403 }), {
+    publicChannelIds: async () => ["200", "201"],
   });
-  assertRefused(await press(input, PUBLISH), /설정되지 않아/);
+  const result = await publishDiscountCard(input, OWNER, SUBMIT, "");
   assert.equal(store.row!.status, "new");
-  assert.equal(sent.length, 0);
+  assert.match(result.notice!, /<#200>, <#201> 권한/);
 });
 
 test("without a public channel or an owner the buttons refuse cleanly", async (t) => {
   const { input, store, sent } = setup(t);
   for (const missing of [
-    { publicChannels: { discount: undefined, newService: undefined } },
-    { reviewChannelIds: [] },
+    { publicChannelIds: async () => [] },
+    { reviewChannelIds: async () => [] },
   ]) {
     const unset = { ...input, ...missing };
     for (const customId of [PUBLISH, DISCARD])

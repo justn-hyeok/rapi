@@ -15,7 +15,7 @@ export const REPORTS_PER_HOUR = 5;
 
 export interface ReportIntake {
   store: Pick<PostgresStore, "saveReport">;
-  reviewChannelId: string | undefined;
+  reviewChannelId: () => Promise<string | undefined>;
 }
 
 export interface ReportOptions {
@@ -88,7 +88,7 @@ export async function receiveReport(
     );
     return "제보를 저장하지 못했습니다. 잠시 뒤 다시 보내 주세요.";
   }
-  if (!input.reviewChannelId)
+  if (!(await input.reviewChannelId().catch(() => "unknown")))
     return "제보를 저장했습니다. 검토 채널이 설정되지 않아 아직 소유자에게 전달되지 않습니다.";
   return kind === "problem"
     ? "문제 제보를 받았습니다. 소유자가 직접 확인합니다."
@@ -98,7 +98,7 @@ export async function receiveReport(
 export interface ProblemReview {
   store: Pick<PostgresStore, "decideProblemReport">;
   ownerIds: readonly string[];
-  reviewChannelIds: readonly string[];
+  reviewChannelIds: () => Promise<readonly string[]>;
 }
 
 const ephemeral = (content: string) => ({
@@ -128,9 +128,9 @@ export async function problemCardButton(
 ): Promise<unknown> {
   if (!input.ownerIds.includes(identity.userId))
     return ephemeral("소유자만 쓸 수 있는 버튼입니다.");
-  if (!isReviewChannel(input.reviewChannelIds, identity.channelId))
-    return ephemeral("검토 채널에서만 쓸 수 있는 버튼입니다.");
   try {
+    if (!(await isReviewChannel(input.reviewChannelIds, identity.channelId)))
+      return ephemeral("검토 채널에서만 쓸 수 있는 버튼입니다.");
     const decision = customId.startsWith(PROBLEM_RED_PREFIX)
       ? "red"
       : "no_problem";

@@ -275,11 +275,11 @@ export function cardChannelFor(
     : channels.discount;
 }
 
-export function isReviewChannel(
-  channelIds: readonly string[],
+export async function isReviewChannel(
+  channelIds: () => Promise<readonly string[]>,
   channelId: string | undefined,
-): boolean {
-  return channelId !== undefined && channelIds.includes(channelId);
+): Promise<boolean> {
+  return channelId !== undefined && (await channelIds()).includes(channelId);
 }
 
 /** One card as one message with its link, and nothing the reader could press to decide. */

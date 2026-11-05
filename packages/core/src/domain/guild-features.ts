@@ -1,6 +1,6 @@
 /**
- * What can be switched per server. Discount cards and star reminders go to the
- * owner's own channel and DM, so they are not on this list.
+ * What can be switched per server. Star reminders go to the owner's DM, and a server
+ * takes discount cards by choosing a channel with /알림채널, so neither is on this list.
  */
 export const GUILD_FEATURES = [
   { key: "status", label: "상태", uses: "/상태, /수집원", on: true },

@@ -34,8 +34,8 @@ export interface GuildRequests {
   >;
   gate: { allowed(): Promise<readonly string[]>; invalidate(): void };
   ownerIds: readonly string[];
-  reviewChannelId: string | undefined;
-  reviewChannelIds: readonly string[];
+  reviewChannelId: () => Promise<string | undefined>;
+  reviewChannelIds: () => Promise<readonly string[]>;
   configuredGuildIds: readonly string[];
   commands: {
     register(guildId: string): Promise<void>;
@@ -84,7 +84,7 @@ export async function receiveGuildRequest(
     switch (status) {
       case "opened":
         input.onOpened?.();
-        return input.reviewChannelId
+        return (await input.reviewChannelId())
           ? "승인 요청을 보냈습니다. 라피 운영자가 확인하면 이 서버에서 쓸 수 있어요."
           : "승인 요청을 저장했습니다. 아직 라피 운영자에게 전달되지 않았습니다.";
       case "pending":
@@ -131,8 +131,13 @@ export async function guildRequestButton(
 ): Promise<DiscountPublishResult> {
   if (!input.ownerIds.includes(identity.userId))
     return { notice: "소유자만 쓸 수 있는 버튼입니다." };
-  if (!isReviewChannel(input.reviewChannelIds, identity.channelId))
-    return { notice: "검토 채널에서만 쓸 수 있는 버튼입니다." };
+  try {
+    if (!(await isReviewChannel(input.reviewChannelIds, identity.channelId)))
+      return { notice: "검토 채널에서만 쓸 수 있는 버튼입니다." };
+  } catch (error) {
+    logFailure(error);
+    return { notice: TRY_AGAIN };
+  }
   const guildId = customId.slice(customId.indexOf(":") + 1);
   if (!SNOWFLAKE.test(guildId)) return { notice: "요청을 찾지 못했습니다." };
   const approve = customId.startsWith(GUILD_APPROVE_PREFIX);

@@ -25,6 +25,7 @@ import {
   GUILD_NOT_ALLOWED_MESSAGE,
   GUILD_REQUEST_COMMAND,
   GUILD_REQUEST_REASON_MAX_CHARS,
+  NOTIFICATION_KINDS,
   REPORT_MEMO_MAX_CHARS,
   runtimeRevision,
   type DiscordIdentity,
@@ -66,6 +67,7 @@ export const discordCommandAliases = {
   제보: "report",
   기능: "features",
   서버: "guilds",
+  알림채널: "notification_channels",
 } as const satisfies Record<string, DiscordCommand["name"]>;
 
 const featureOption = {
@@ -77,6 +79,14 @@ const featureOption = {
 };
 
 const guildTargetOption = stringOption("서버", "서버 ID");
+
+const notificationKindOption = {
+  ...stringOption("종류", "알림 종류"),
+  choices: NOTIFICATION_KINDS.map(({ key, label }) => ({
+    name: label,
+    value: key,
+  })),
+};
 
 export const slashCommandDefinitions = [
   { name: "수집원", description: "수집원 상태를 확인합니다", type: 1 },
@@ -170,10 +180,41 @@ export const slashCommandDefinitions = [
       },
     ],
   },
+  {
+    name: "알림채널",
+    description: "이 서버에서 알림을 받을 채널을 정합니다",
+    type: 1,
+    default_member_permissions: "32",
+    options: [
+      { type: 1, name: "보기", description: "정해 둔 채널을 봅니다" },
+      {
+        type: 1,
+        name: "설정",
+        description: "알림을 받을 채널을 정합니다",
+        options: [
+          notificationKindOption,
+          {
+            type: 7,
+            name: "채널",
+            description: "받을 채널",
+            required: true,
+            channel_types: [0, 5],
+          },
+        ],
+      },
+      {
+        type: 1,
+        name: "해제",
+        description: "이 알림을 더 받지 않습니다",
+        options: [notificationKindOption],
+      },
+    ],
+  },
 ] satisfies Array<{
   name: string;
   description: string;
   type: number;
+  default_member_permissions?: string;
   options?: Array<Record<string, unknown>>;
 }>;
 
@@ -676,6 +717,7 @@ export function createDiscordInteractionServer(
         메모: "memo",
         기능: "feature",
         서버: "target",
+        채널: "channel",
       };
       for (const [discordName, internalName] of Object.entries(aliases)) {
         if (options[discordName] !== undefined) {
@@ -686,7 +728,8 @@ export function createDiscordInteractionServer(
       const command = { name: commandName, options };
       if (
         ((commandName === "server_config" && options.action === "적용") ||
-          commandName === "guilds") &&
+          commandName === "guilds" ||
+          commandName === "notification_channels") &&
         interaction.application_id &&
         interaction.token
       ) {
