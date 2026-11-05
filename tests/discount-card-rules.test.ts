@@ -272,3 +272,17 @@ test("a memo shows on the review card alone, as text that cannot ping or link", 
   );
   assert.deepEqual(reviewCard(report()), discountCard(report()));
 });
+
+test("price cut wording alone makes a card", () => {
+  for (const evidence of [
+    "Claude Sonnet 4.6: 10% discount on all groups",
+    "API prices have been reduced accordingly.",
+    "we will adopt peak/off-peak pricing, with off-peak prices set at half",
+    "모든 모델 20% 할인",
+  ])
+    assert.equal(
+      shouldCardCandidate(update("Service update", evidence)),
+      true,
+      evidence,
+    );
+});

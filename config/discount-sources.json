@@ -23,6 +23,7 @@
     },
     {
       "url": "https://api-docs.deepseek.com/updates/",
+      "bodyChars": 2000,
       "format": "page",
       "entryStart": "<h[23]\\b",
       "maxAgeDays": 30

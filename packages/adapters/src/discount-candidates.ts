@@ -41,7 +41,8 @@ export type ChangelogSource = {
   maxAgeDays: number;
 } & (
   | { format: "feed" }
-  | { format: "page"; entryStart: string }
+  // bodyChars: how far into an entry to look, when an offer sits low in long notes.
+  | { format: "page"; entryStart: string; bodyChars?: number }
   | {
       // A list with no prices in its titles: read the recent articles themselves.
       format: "list";
@@ -80,7 +81,12 @@ export class ChangelogRoute {
         : await this.html.fetchEntries(source.url, source.entryStart);
     return {
       candidates: this.recent(items, source.maxAgeDays).flatMap((item) => {
-        const candidate = toCandidate(source.url, item, item.body);
+        const candidate = toCandidate(
+          source.url,
+          item,
+          item.body,
+          source.format === "page" ? source.bodyChars : undefined,
+        );
         return candidate ? [candidate] : [];
       }),
     };
