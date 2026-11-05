@@ -48,6 +48,10 @@ const ROUTE_LABEL: Record<DiscountCandidateRoute, string> = {
   pull_request: "PR",
   code_search: "코드 검색",
   report: "제보",
+  catalog: "OpenRouter",
+  hacker_news: "Hacker News",
+  credit_feed: "aifree.dev",
+  community: "linux.do",
 };
 const DETAIL_MAX_CHARS = 300;
 // The longest URL Discord accepts on a link button.

@@ -3,7 +3,11 @@ export type DiscountCandidateRoute =
   | "code_search"
   | "pull_request"
   | "changelog"
-  | "report";
+  | "report"
+  | "catalog"
+  | "hacker_news"
+  | "credit_feed"
+  | "community";
 
 export interface DiscountCandidate {
   kind: DiscountCandidateKind;
