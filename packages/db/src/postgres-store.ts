@@ -93,7 +93,7 @@ export class PostgresStore {
     if (!database.rows[0]?.name.endsWith("_test"))
       throw new Error("Refusing to reset a database without an _test suffix");
     await this.pool
-      .query(`TRUNCATE discord_guilds, discord_guild_features, discord_guild_channels, github_stars, star_reminder_days, discount_candidates, problem_reports, discord_layout_plans, discord_managed_resources, summaries, classifications,
+      .query(`TRUNCATE discord_guilds, discord_guild_features, discord_guild_channels, rapi_update_notices, github_stars, star_reminder_days, discount_candidates, problem_reports, discord_layout_plans, discord_managed_resources, summaries, classifications,
       item_relations, source_items, source_cursors, raw_events, sources RESTART IDENTITY CASCADE`);
   }
 
@@ -814,6 +814,21 @@ export class PostgresStore {
       "DELETE FROM discord_guild_channels WHERE guild_id=$1 AND kind=$2",
       [guildId, kind],
     );
+  }
+
+  async rapiUpdateNoticed(): Promise<boolean> {
+    const { rowCount } = await this.pool.query(
+      "SELECT 1 FROM rapi_update_notices LIMIT 1",
+    );
+    return (rowCount ?? 0) > 0;
+  }
+
+  async claimRapiUpdate(tag: string): Promise<boolean> {
+    const { rowCount } = await this.pool.query(
+      "INSERT INTO rapi_update_notices(tag) VALUES($1) ON CONFLICT DO NOTHING",
+      [tag],
+    );
+    return rowCount === 1;
   }
 
   async communityGuildPostSent(guildId: string, key: string): Promise<boolean> {

@@ -25,7 +25,9 @@ import {
   GUILD_NOT_ALLOWED_MESSAGE,
   GUILD_REQUEST_COMMAND,
   GUILD_REQUEST_REASON_MAX_CHARS,
-  NOTIFICATION_KINDS,
+  ALERT_COMMANDS,
+  REVIEW_ALERT_COMMAND,
+  REVIEW_ALERT_KINDS,
   REPORT_MEMO_MAX_CHARS,
   runtimeRevision,
   type DiscordIdentity,
@@ -67,7 +69,10 @@ export const discordCommandAliases = {
   제보: "report",
   기능: "features",
   서버: "guilds",
-  알림채널: "notification_channels",
+  "ai-할인-알림": "notification_channels",
+  "새-서비스-알림": "notification_channels",
+  "라피-업데이트-알림": "notification_channels",
+  "검토-알림": "notification_channels",
 } as const satisfies Record<string, DiscordCommand["name"]>;
 
 const featureOption = {
@@ -80,13 +85,54 @@ const featureOption = {
 
 const guildTargetOption = stringOption("서버", "서버 ID");
 
-const notificationKindOption = {
-  ...stringOption("종류", "알림 종류"),
-  choices: NOTIFICATION_KINDS.map(({ key, label }) => ({
+const reviewKindOption = {
+  ...stringOption("종류", "검토 알림 종류"),
+  choices: REVIEW_ALERT_KINDS.map(({ key, label }) => ({
     name: label,
     value: key,
   })),
 };
+
+// Discord hides these from members without Manage Server; checked again on arrival.
+const alertCommand = (
+  name: string,
+  description: string,
+  kindOptions: Array<Record<string, unknown>> = [],
+) => ({
+  name,
+  description,
+  type: 1,
+  default_member_permissions: "32",
+  options: [
+    {
+      type: 1,
+      name: "켜기",
+      description: "알림을 받을 채널을 정합니다",
+      options: [
+        ...kindOptions,
+        {
+          type: 7,
+          name: "채널",
+          description: "받을 채널. 비우면 지금 채널",
+          required: false,
+          channel_types: [0, 5],
+        },
+      ],
+    },
+    {
+      type: 1,
+      name: "끄기",
+      description: "이 알림을 더 받지 않습니다",
+      options: kindOptions,
+    },
+    {
+      type: 1,
+      name: "보기",
+      description: "받는 채널을 봅니다",
+      options: kindOptions,
+    },
+  ],
+});
 
 export const slashCommandDefinitions = [
   { name: "수집원", description: "수집원 상태를 확인합니다", type: 1 },
@@ -180,36 +226,14 @@ export const slashCommandDefinitions = [
       },
     ],
   },
-  {
-    name: "알림채널",
-    description: "이 서버에서 알림을 받을 채널을 정합니다",
-    type: 1,
-    default_member_permissions: "32",
-    options: [
-      { type: 1, name: "보기", description: "정해 둔 채널을 봅니다" },
-      {
-        type: 1,
-        name: "설정",
-        description: "알림을 받을 채널을 정합니다",
-        options: [
-          notificationKindOption,
-          {
-            type: 7,
-            name: "채널",
-            description: "받을 채널",
-            required: true,
-            channel_types: [0, 5],
-          },
-        ],
-      },
-      {
-        type: 1,
-        name: "해제",
-        description: "이 알림을 더 받지 않습니다",
-        options: [notificationKindOption],
-      },
-    ],
-  },
+  ...ALERT_COMMANDS.map(({ name, about }) =>
+    alertCommand(name, `${about}을 받을 채널을 정합니다`),
+  ),
+  alertCommand(
+    REVIEW_ALERT_COMMAND,
+    "검토 카드를 받을 채널을 정합니다. 소유자가 홈 서버에서만 쓸 수 있습니다",
+    [reviewKindOption],
+  ),
 ] satisfies Array<{
   name: string;
   description: string;
@@ -724,6 +748,11 @@ export function createDiscordInteractionServer(
           options[internalName] = options[discordName];
         }
       }
+      // The command decides what it changes; only /검토-알림 has a choice to make.
+      const alert = ALERT_COMMANDS.find(
+        ({ name }) => name === interaction.data?.name,
+      );
+      if (alert) options.kind = alert.kind;
       if (interaction.id) options.requestId = interaction.id;
       const command = { name: commandName, options };
       if (

@@ -7,7 +7,7 @@ import {
   type CandidateForDecision,
   type DeliveryAdapter,
   type DiscordIdentity,
-  type PublicNotificationKind,
+  type PublicAlertKind,
 } from "@rapi/core";
 import type { PostgresStore } from "@rapi/db";
 import {
@@ -33,9 +33,7 @@ export interface DiscountApproval {
   delivery: Pick<DeliveryAdapter, "send">;
   ownerIds: readonly string[];
   reviewChannelIds: () => Promise<readonly string[]>;
-  publicChannelIds: (
-    kind: PublicNotificationKind,
-  ) => Promise<readonly string[]>;
+  publicChannelIds: (kind: PublicAlertKind) => Promise<readonly string[]>;
 }
 
 /** What to do after a modal was acknowledged: edit the card, tell the owner, or both. */

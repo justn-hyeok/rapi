@@ -1,13 +1,12 @@
 import {
+  alertLabel,
   canManageGuild,
-  describeNotificationChannels,
+  isAlertKind,
   isGuildAllowed,
-  isNotificationKind,
-  isReviewKind,
-  notificationKindLabel,
+  isReviewAlertKind,
   type DeliveryAdapter,
   type DiscordIdentity,
-  type PublicNotificationKind,
+  type PublicAlertKind,
 } from "@rapi/core";
 import type { PostgresStore } from "@rapi/db";
 
@@ -25,7 +24,7 @@ export interface ReviewChannels {
 export interface NotificationChannels {
   review(): Promise<ReviewChannels>;
   /** Every allowed server's channel for this kind. Blocking a server stops its cards. */
-  publicChannels(kind: PublicNotificationKind): Promise<string[]>;
+  publicChannels(kind: PublicAlertKind): Promise<string[]>;
   change(
     identity: DiscordIdentity,
     options: Record<string, unknown>,
@@ -92,7 +91,10 @@ export function createNotificationChannels(input: {
       const homeHasOne = rows.some((row) => row.guildId === homeGuildId);
       return [
         ...new Set([
-          ...(publicFallback && !homeHasOne ? [publicFallback] : []),
+          // Updates are opt-in everywhere: the old channel never asked for them.
+          ...(publicFallback && kind !== "rapi_update" && !homeHasOne
+            ? [publicFallback]
+            : []),
           ...rows.map((row) => row.channelId),
         ]),
       ];
@@ -104,25 +106,26 @@ export function createNotificationChannels(input: {
       const owner = input.ownerIds.includes(userId);
       if (!owner && !canManageGuild(identity.guildPermissions))
         throw new Error("서버 관리 권한이 있어야 쓸 수 있는 명령입니다.");
-      const home = guildId === homeGuildId;
-      const showReview = owner && home;
-      const action = options.action ?? "보기";
-      if (action === "보기")
-        return describeNotificationChannels(await saved(guildId), showReview);
-
       const kind = options.kind;
-      if (!isNotificationKind(kind)) throw new Error("알 수 없는 알림입니다.");
+      if (!isAlertKind(kind)) throw new Error("알 수 없는 알림입니다.");
       // A person in another server must not be able to read the owner's decisions.
-      if (isReviewKind(kind) && !showReview)
+      if (isReviewAlertKind(kind) && !(owner && guildId === homeGuildId))
         throw new Error("검토 알림은 소유자가 홈 서버에서만 정할 수 있습니다.");
-      const label = notificationKindLabel(kind);
+      const label = alertLabel(kind);
 
-      if (action === "해제") {
-        await store.clearGuildChannel(guildId, kind);
-        return `${label} 채널을 해제했습니다.`;
+      const action = options.action ?? "보기";
+      if (action === "보기") {
+        const channelId = (await saved(guildId)).get(kind);
+        return channelId
+          ? `${label} 알림을 <#${channelId}>로 받고 있습니다.`
+          : `${label} 알림을 받는 채널이 없습니다.`;
       }
-      if (action !== "설정") throw new Error("지원하지 않는 동작입니다.");
-      const channelId = options.channel;
+      if (action === "끄기") {
+        await store.clearGuildChannel(guildId, kind);
+        return `${label} 알림을 껐습니다.`;
+      }
+      if (action !== "켜기") throw new Error("지원하지 않는 동작입니다.");
+      const channelId = options.channel ?? identity.channelId;
       if (typeof channelId !== "string" || !SNOWFLAKE.test(channelId))
         throw new Error("채널을 찾지 못했습니다.");
 

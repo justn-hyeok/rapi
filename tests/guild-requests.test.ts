@@ -775,6 +775,45 @@ describe("through the interaction server", () => {
     assert.equal(command.options.target, STRANGER);
   });
 
+  for (const [name, kind] of [
+    ["ai-할인-알림", "discount"],
+    ["새-서비스-알림", "new_service"],
+    ["라피-업데이트-알림", "rapi_update"],
+  ]) {
+    it(`/${name} changes ${kind}, whatever kind is supplied`, async (t) => {
+      const app = await server(t);
+      await app.post({
+        ...owner,
+        type: 2,
+        data: {
+          name,
+          options: [
+            {
+              type: 1,
+              name: "켜기",
+              options: [
+                { name: "채널", type: 7, value: "55" },
+                { name: "종류", type: 3, value: "review_report" },
+              ],
+            },
+          ],
+        },
+      });
+      await app.webhook(1);
+      const [, command] = app.execute.mock.calls[0]!.arguments as unknown as [
+        unknown,
+        {
+          name: string;
+          options: { action: string; kind: string; channel: string };
+        },
+      ];
+      assert.equal(command.name, "notification_channels");
+      assert.equal(command.options.action, "켜기");
+      assert.equal(command.options.kind, kind);
+      assert.equal(command.options.channel, "55");
+    });
+  }
+
   it("does not store a request sent from a DM", async (t) => {
     const app = await server(t);
     const reply = await app.post({ user: { id: "u1" }, ...request });

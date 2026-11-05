@@ -7,6 +7,7 @@ import {
   GitHubStarRecommender,
   HtmlSourceAdapter,
   createModelClient,
+  readLatestRapiRelease,
   readOwnStars,
   superadminDmNotifier,
 } from "@rapi/adapters";
@@ -18,6 +19,7 @@ import {
   collectDiscountCandidates,
   createCommunityFeeds,
   changeGuild,
+  announceRapiUpdate,
   createGuildFeatures,
   createNotificationChannels,
   discountCardButton,
@@ -42,7 +44,7 @@ import {
   isGuildAllowed,
   resolveHomeGuildId,
   summarizeReadiness,
-  type PublicNotificationKind,
+  type PublicAlertKind,
 } from "@rapi/core";
 import { loadEnvironment } from "@rapi/config";
 import {
@@ -358,7 +360,14 @@ async function sendCards(): Promise<void> {
     failures.push(
       ...(await sendProblemCards({ ...target, channelId: report })),
     );
-  failures.push(...(await sendDiscountCards({ ...target, channels: review })));
+  failures.push(
+    ...(await sendDiscountCards({ ...target, channels: review })),
+    ...(await announceRapiUpdate({
+      ...target,
+      channelIds: () => channels.publicChannels("rapi_update"),
+      latestRelease: () => readLatestRapiRelease(),
+    })),
+  );
   if (failures.length)
     throw new Error(`Discount cards failed: ${failures.join("; ")}`);
 }
@@ -393,8 +402,7 @@ const discountApproval = {
   delivery: discord,
   ownerIds: discordOwnerIds(allowlists),
   reviewChannelIds,
-  publicChannelIds: (kind: PublicNotificationKind) =>
-    channels.publicChannels(kind),
+  publicChannelIds: (kind: PublicAlertKind) => channels.publicChannels(kind),
 };
 
 const server = createDiscordInteractionServer(
