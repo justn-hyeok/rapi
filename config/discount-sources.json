@@ -49,7 +49,9 @@
       "maxAgeDays": 30
     }
   ],
-  "pullRequests": { "repository": "anomalyco/models.dev" },
+  "pullRequests": {
+    "repository": "anomalyco/models.dev"
+  },
   "codeSearch": {
     "queries": [
       "\"gpt-6.1-sol\" baseURL",
@@ -58,6 +60,10 @@
       "\"claude-opus-5-5\" base_url"
     ],
     "denylist": [
+      "ac.jp",
+      "ac.kr",
+      "ac.uk",
+      "alipay.com",
       "aliyuncs.com",
       "amazonaws.com",
       "anthropic.com",
@@ -70,10 +76,14 @@
       "cohere.ai",
       "cohere.com",
       "deepseek.com",
+      "edu",
+      "edu.cn",
       "fireworks.ai",
       "github.com",
       "githubcopilot.com",
       "googleapis.com",
+      "gouv.fr",
+      "gov",
       "groq.com",
       "huggingface.co",
       "mistral.ai",
@@ -86,6 +96,7 @@
       "siliconflow.cn",
       "together.ai",
       "together.xyz",
+      "uva.nl",
       "volces.com",
       "windows.net",
       "x.ai",
@@ -109,19 +120,26 @@
       "domain": "deepseek.com",
       "name": "DeepSeek",
       "service": "official",
-      "tags": ["#직접호스팅", "#오픈모델"]
+      "tags": [
+        "#직접호스팅",
+        "#오픈모델"
+      ]
     },
     {
       "domain": "cloudflare.com",
       "name": "Cloudflare",
       "service": "hosting",
-      "tags": ["#직접호스팅"]
+      "tags": [
+        "#직접호스팅"
+      ]
     },
     {
       "domain": "amazon.com",
       "name": "Amazon Web Services",
       "service": "hosting",
-      "tags": ["#직접호스팅"]
+      "tags": [
+        "#직접호스팅"
+      ]
     },
     {
       "domain": "vercel.com",
