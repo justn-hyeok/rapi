@@ -34,17 +34,17 @@ export const REPORT_MEMO_MAX_CHARS = 200;
 export const MONTH =
   "(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\\.?";
 // "인하" alone also matches "인하여" (because of) and "인하대".
+/** Wording that says the price itself went down, enough to make a card on its own. */
+export const PRICE_CUT =
+  "%\\s*off\\b|\\bdiscount(?:s|ed)?\\b|\\bprices?[\\s-](?:cuts?|reductions?|drops?)\\b|\\bprices?\\s+(?:(?:have|has)\\s+been\\s+|(?:were|was|are|is)\\s+)?(?:reduced|lowered|cut)\\b|\\boff-peak\\s+(?:pricing|prices?)\\b|할인|인하(?![여대])";
 const DISCOUNT_WORDING = new RegExp(
   [
-    "%\\s*off\\b",
-    "\\bprices?[\\s-](?:cuts?|reductions?|drops?)\\b",
+    PRICE_CUT,
     "\\bpromotional pricing\\b",
     "\\blower pricing\\b",
     "\\bcheaper\\b",
     "\\bcredits?\\b",
     `\\b(?:through|until)\\s+(?:${MONTH}\\s+\\d{1,2}|\\d{1,2}\\s+${MONTH}|${MONTH}\\s+\\d{4}|\\d{4}-\\d{2}-\\d{2})`,
-    "할인",
-    "인하(?![여대])",
     "크레딧",
   ].join("|"),
   "i",

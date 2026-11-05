@@ -5,6 +5,7 @@ import type {
 } from "./candidate-verification.js";
 import {
   MONTH,
+  PRICE_CUT,
   type DiscountCandidateKind,
   type DiscountCandidateRoute,
 } from "./discount-candidates.js";
@@ -57,6 +58,7 @@ const POLICY_NOTICE = /\b(?:terms of (?:service|use)|privacy policy)\b/i;
 // Not "feel free", "tax-free", "credit card" or "load credits onto", which give nothing.
 const FREE_OR_CREDIT =
   /(?<!feel |-)\bfree\b|(?<!\b(?:load|buy|purchase|add) )\bcredits?\b(?! cards?\b)|무료|크레딧/i;
+const PRICE_CUT_WORDING = new RegExp(PRICE_CUT, "i");
 const REFERRAL_PARAM = /^(?:ref|aff|invite|utm_|via$|code$)/i;
 const NUMBER_MONTH = "(?:0?[1-9]|1[0-2])";
 const DAY = "(?:0?[1-9]|[12]\\d|3[01])";
@@ -104,7 +106,8 @@ export function shouldCardCandidate(candidate: CandidateForCard): boolean {
   if (POLICY_NOTICE.test(candidate.title)) return false;
   return (
     candidate.priceCheck === "below_list" ||
-    FREE_OR_CREDIT.test(`${candidate.title} ${candidate.evidence}`)
+    FREE_OR_CREDIT.test(`${candidate.title} ${candidate.evidence}`) ||
+    PRICE_CUT_WORDING.test(`${candidate.title} ${candidate.evidence}`)
   );
 }
 

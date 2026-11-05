@@ -49,6 +49,9 @@ test("discount wording matches every listed form", () => {
     "Open until 2026-11-30",
     "신규 가입 20% 할인",
     "API 가격 인하",
+    "SVIP 10% discount for all groups",
+    "API prices have been reduced accordingly",
+    "peak/off-peak pricing",
     "무료 크레딧 지급",
   ])
     assert.ok(discountEvidence(title, ""), title);
@@ -78,7 +81,8 @@ test("discount wording reads only the title and the start of the body", () => {
 
 // Real events from the 2026-11-05 corpus, with the text the route reads for each.
 // Google and Upstage are not in the list: no listed source carries those events.
-test("replay: wording catches 6 of the 8 real events a listed changelog carried", () => {
+test("replay: wording catches 7 of the 8 real events a listed changelog carried", () => {
+  // The DeepSeek fixture stops at 600 characters, before its price sentence.
   const events = JSON.parse(
     readFileSync("tests/fixtures/discount-replay.json", "utf8"),
   ) as Array<{ id: string; title: string; body: string; bodyChars?: number }>;
@@ -94,6 +98,7 @@ test("replay: wording catches 6 of the 8 real events a listed changelog carried"
       "cloudflare-ai-gateway-gpt-5.6-sol-50off-2026-08",
       "anthropic-monthly-api-credits-max-team-2026-10",
       "openai-chatgpt-pro-business-api-credits-2026-10",
+      "apiyi-oct28-svip-10pct-discount-2026-10",
       "aws-bedrock-gpt-5.6-sol-reduced-pricing-2026-08",
     ],
   );
