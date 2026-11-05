@@ -182,6 +182,7 @@ export async function verifyDiscountCandidates(
 type CardStore = Pick<
   PostgresStore,
   | "cardsInLastHour"
+  | "newServiceCardsInLastDay"
   | "candidatesForCards"
   | "claimCandidateCard"
   | "releaseCandidateCard"
@@ -189,6 +190,8 @@ type CardStore = Pick<
 >;
 
 export const CARDS_PER_HOUR = 5;
+// Providers open PRs and appear in code far more often than anything gets cheaper.
+export const NEW_SERVICE_CARDS_PER_DAY = 5;
 // Most recent rows are noise, so look well past what can be sent.
 const CARD_ROWS_TO_READ = 500;
 // A channel that refuses everything is not asked about the whole backlog each run.
@@ -330,8 +333,16 @@ export async function sendDiscountCards(input: {
   try {
     budget = CARDS_PER_HOUR - (await store.cardsInLastHour());
     if (budget <= 0) return [];
+    let newServicesLeft =
+      NEW_SERVICE_CARDS_PER_DAY - (await store.newServiceCardsInLastDay());
     candidates = (await store.candidatesForCards(CARD_ROWS_TO_READ))
       .filter((candidate) => shouldCardCandidate(candidate))
+      .filter((candidate) => {
+        if (candidate.kind !== "new_service" || candidate.route === "report")
+          return true;
+        newServicesLeft -= 1;
+        return newServicesLeft >= 0;
+      })
       .slice(0, CARD_ATTEMPTS_PER_RUN);
   } catch (error) {
     return [failureText("cards", error)];
