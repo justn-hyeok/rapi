@@ -9,12 +9,14 @@ import {
   HackerNewsRoute,
   PullRequestRoute,
   readServicePage,
+  RelayListRoute,
   UncertainDeliveryError,
   type CandidateResult,
   type CatalogSource,
   type ChangelogSource,
   type FeedOfferSource,
   type HackerNewsSource,
+  type RelayListSource,
   type ResolveHostname,
   type SourceHttpOptions,
 } from "@rapi/adapters";
@@ -25,10 +27,12 @@ import {
   problemCard,
   reviewCard,
   shouldCardCandidate,
+  UNVETTED_ROUTES,
   verifyCandidate,
   type CandidateForCard,
   type DeliveryAdapter,
   type DeliveryPayload,
+  type DiscountCandidate,
   type DiscountCandidateKind,
   type DiscountCandidateRoute,
   type ProblemReportForCard,
@@ -45,6 +49,7 @@ export interface DiscountSources {
   hackerNews?: HackerNewsSource;
   creditFeed?: FeedOfferSource;
   community?: FeedOfferSource;
+  relayLists?: RelayListSource[];
   operators: KnownOperator[];
 }
 
@@ -66,6 +71,40 @@ type CandidateStore = Pick<
 >;
 
 const NO_TOKEN = "GITHUB_READ_TOKEN이 없어 건너뜀";
+const CHINESE = /\p{Script=Han}/u;
+
+/**
+ * Strangers' rows written in Chinese, in Korean. A failed translation keeps the
+ * original wording: an untranslated card still says what was offered.
+ */
+async function inKorean(
+  candidates: DiscountCandidate[],
+  translate: ((texts: string[]) => Promise<string[]>) | undefined,
+): Promise<{ candidates: DiscountCandidate[]; problem?: string }> {
+  const fields = candidates.flatMap((candidate, index) =>
+    UNVETTED_ROUTES.includes(candidate.route)
+      ? (["title", "evidence"] as const)
+          .filter((field) => CHINESE.test(candidate[field]))
+          .map((field) => ({ index, field }))
+      : [],
+  );
+  if (!translate || !fields.length) return { candidates };
+  try {
+    const korean = await translate(
+      fields.map(({ index, field }) => candidates[index]![field]),
+    );
+    const result = candidates.map((candidate) => ({ ...candidate }));
+    fields.forEach(({ index, field }, i) => {
+      result[index]![field] = korean[i]!;
+    });
+    return { candidates: result };
+  } catch (error) {
+    return {
+      candidates,
+      problem: `translation: ${error instanceof Error ? error.message : "failed"}`,
+    };
+  }
+}
 
 /**
  * One pass over every route, recording only: nothing is posted. Each source has
@@ -78,6 +117,7 @@ export async function collectDiscountCandidates(input: {
   githubToken?: string | undefined;
   http?: SourceHttpOptions;
   now?: () => Date;
+  translate?: (texts: string[]) => Promise<string[]>;
 }): Promise<string[]> {
   const { store, sources, githubToken: token, http } = input;
   const changelog = new ChangelogRoute(http, input.now);
@@ -115,6 +155,15 @@ export async function collectDiscountCandidates(input: {
     locator: source.url,
     collect: () => new CommunityRoute(http, input.now).collect(source),
   });
+  const relayListJob = (source: RelayListSource) => ({
+    kind: "candidate_relay_list",
+    locator: `${source.repository}/${source.path}`,
+    collect: async (sourceId: string) =>
+      new RelayListRoute(http).collect(
+        source,
+        await store.sourceCursor(sourceId),
+      ),
+  });
   const jobs: Array<{
     kind: string;
     locator: string;
@@ -141,6 +190,7 @@ export async function collectDiscountCandidates(input: {
     ...(sources.hackerNews ? hackerNewsJobs(sources.hackerNews) : []),
     ...(sources.creditFeed ? [creditFeedJob(sources.creditFeed)] : []),
     ...(sources.community ? [communityJob(sources.community)] : []),
+    ...(sources.relayLists ?? []).map(relayListJob),
   ];
 
   const failures: string[] = [];
@@ -152,8 +202,12 @@ export async function collectDiscountCandidates(input: {
         await store.recordSourceFailure(sourceId, NO_TOKEN);
         continue;
       }
-      const { candidates, problem, cursor } = await job.collect(sourceId);
-      for (const candidate of candidates)
+      const collected = await job.collect(sourceId);
+      const { problem, cursor } = collected;
+      const translated = await inKorean(collected.candidates, input.translate);
+      if (translated.problem)
+        failures.push(`${job.locator}: ${translated.problem}`);
+      for (const candidate of translated.candidates)
         await store.saveDiscountCandidate(candidate);
       if (problem) throw new Error(problem);
       await store.saveCursor(
@@ -235,7 +289,7 @@ type CardStore = Pick<
   PostgresStore,
   | "cardsInLastHour"
   | "newServiceCardsInLastDay"
-  | "communityCardsInLastDay"
+  | "unvettedCardsInLastDay"
   | "candidatesForCards"
   | "claimCandidateCard"
   | "releaseCandidateCard"
@@ -245,8 +299,8 @@ type CardStore = Pick<
 export const CARDS_PER_HOUR = 5;
 // Providers open PRs and appear in code far more often than anything gets cheaper.
 export const NEW_SERVICE_CARDS_PER_DAY = 5;
-// A forum posts deals all day, and each of them is risky to begin with.
-export const COMMUNITY_CARDS_PER_DAY = 3;
+// A forum posts deals all day, lists change daily, and each is risky to begin with.
+export const UNVETTED_CARDS_PER_DAY = 3;
 // Most recent rows are noise, so look well past what can be sent.
 const CARD_ROWS_TO_READ = 500;
 // A channel that refuses everything is not asked about the whole backlog each run.
@@ -415,15 +469,15 @@ export async function sendDiscountCards(input: {
     if (budget <= 0) return [];
     let newServicesLeft =
       NEW_SERVICE_CARDS_PER_DAY - (await store.newServiceCardsInLastDay());
-    let communityLeft =
-      COMMUNITY_CARDS_PER_DAY - (await store.communityCardsInLastDay());
+    let unvettedLeft =
+      UNVETTED_CARDS_PER_DAY - (await store.unvettedCardsInLastDay());
     candidates = (await store.candidatesForCards(CARD_ROWS_TO_READ))
       .filter((candidate) => shouldCardCandidate(candidate))
       .filter((candidate) => cardChannelFor(candidate, channels))
       .filter((candidate) => {
-        if (candidate.route === "community") {
-          communityLeft -= 1;
-          return communityLeft >= 0;
+        if (UNVETTED_ROUTES.includes(candidate.route)) {
+          unvettedLeft -= 1;
+          return unvettedLeft >= 0;
         }
         if (candidate.kind !== "new_service" || candidate.route === "report")
           return true;

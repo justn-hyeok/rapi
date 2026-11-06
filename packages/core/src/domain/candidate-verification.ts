@@ -1,6 +1,7 @@
-import type {
-  DiscountCandidateKind,
-  DiscountCandidateRoute,
+import {
+  UNVETTED_ROUTES,
+  type DiscountCandidateKind,
+  type DiscountCandidateRoute,
 } from "./discount-candidates.js";
 
 // Red is the owner's call after reading evidence about that domain: no rule returns it.
@@ -121,11 +122,14 @@ export function verifyCandidate(
   if (!known && hosting) tags.add("#직접호스팅");
   if (open) tags.add("#오픈모델");
   if (resold) tags.add("#재판매");
-  // A forum post is a stranger's claim, whatever it says about itself.
-  if (candidate.route === "community") tags.add("#위험");
+  // A forum post or a list entry is a stranger's claim, whatever it says about itself.
+  const unvetted = UNVETTED_ROUTES.includes(candidate.route);
+  if (unvetted) tags.add("#위험");
+  // The lists are of relay sites, which pass on someone else's models.
+  if (candidate.route === "relay_list") tags.add("#재판매");
 
   return {
-    band: green && candidate.route !== "community" ? "green" : "yellow",
+    band: green && !unvetted ? "green" : "yellow",
     tags: [...tags],
     operator,
     priceCheck: belowList ? "below_list" : noMarkup ? "list_price" : "unknown",

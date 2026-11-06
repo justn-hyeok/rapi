@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { DiscordDeliveryAdapter } from "@rapi/adapters";
 import {
-  COMMUNITY_CARDS_PER_DAY,
+  UNVETTED_CARDS_PER_DAY,
   NEW_SERVICE_CARDS_PER_DAY,
   sendDiscountCards,
 } from "@rapi/agent";
@@ -52,9 +52,11 @@ function memoryStore(
         ).length
       );
     },
-    async communityCardsInLastDay() {
+    async unvettedCardsInLastDay() {
       return rows.filter(
-        (row) => row.route === "community" && claimed.has(row.id),
+        (row) =>
+          (row.route === "community" || row.route === "relay_list") &&
+          claimed.has(row.id),
       ).length;
     },
     async candidatesForCards() {
@@ -345,12 +347,16 @@ test("a report is not held back by the daily limit on new services", async (t) =
   assert.deepEqual(discord.ids(), ["r1"]);
 });
 
-test("board posts stop at their own daily limit and other offers still go", async (t) => {
+test("board posts and list entries share a daily limit and other offers still go", async (t) => {
   const discord = discordAnswering(t);
   const post = (id: string) =>
-    row(id, { route: "community", tags: ["#위험"], priceCheck: "unknown" });
-  const posts = Array.from({ length: COMMUNITY_CARDS_PER_DAY }, (_, i) =>
-    post(`c${i}`),
+    row(id, {
+      route: id.startsWith("l") ? "relay_list" : "community",
+      tags: ["#위험"],
+      priceCheck: "unknown",
+    });
+  const posts = Array.from({ length: UNVETTED_CARDS_PER_DAY }, (_, i) =>
+    post(i % 2 ? `l${i}` : `c${i}`),
   );
   const store = memoryStore([...posts, post("over"), row("d1")]);
   await sendDiscountCards({ ...discord, store, channels: CHANNELS });

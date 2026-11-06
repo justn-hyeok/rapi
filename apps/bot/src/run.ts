@@ -322,6 +322,10 @@ async function collectCandidates(): Promise<void> {
       store,
       sources,
       githubToken: config.GITHUB_READ_TOKEN,
+      // Lists and forums in Chinese go out in Korean.
+      ...(summarizer?.translate && {
+        translate: (texts: string[]) => summarizer.translate!(texts),
+      }),
     })),
     ...(await verifyDiscountCandidates({
       store,
