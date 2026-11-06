@@ -8,6 +8,7 @@ import {
   findDeadline,
   reviewCard,
   offerHasEnded,
+  postSummary,
   shouldCardCandidate as shouldCardAt,
   type CandidateForCard,
 } from "@rapi/core";
@@ -362,7 +363,8 @@ test("a board post is carded on the collector's judgement unless its end date pa
 test("a risky card says so first, in the warning color, on the public card too", () => {
   const card = discountCard(boardPost());
   assert.match(card.description!, /^위험: 검증하지 않은 커뮤니티 글입니다/);
-  assert.match(card.description!, /#위험$/);
+  // Said once, by the risk line; no terms line, since no page was read.
+  assert.doesNotMatch(card.description!, /#위험|약관/);
   assert.equal(card.color, CARD_COLOR.warn);
   assert.equal(card.author, "커뮤니티 · linux.do");
   assert.doesNotMatch(discountCard(offer()).description!, /위험:/);
@@ -390,4 +392,29 @@ test("a board post's card names its forum without giving it a domain", () => {
     boardPost({ url: "https://www.v2ex.com/t/1254849" }),
   );
   assert.equal(card.author, "커뮤니티 · www.v2ex.com");
+});
+
+test("a board post's card keeps its opening and drops the feed's footer", () => {
+  const card = discountCard(
+    boardPost({
+      title: "무료 모델 두 가지",
+      evidence:
+        "첫 번째는 연구용 무료 모델입니다. 두 번째는 무료 API 호출입니다. 세 번째 이야기는 길게 이어집니다 그리고 계속됩니다 아주 길게 계속해서 이어지는 문장이라 카드에는 다 들어가지 않습니다 그래서 잘라야 합니다 아직도 이어집니다 정말로 끝없이 이어지는 이야기라서 링크를 눌러야 다 볼 수 있습니다 여기까지 읽었다면 충분합니다. 8개의 게시물 - 참여자 7명 전체 주제 읽기",
+    }),
+  );
+  const lines = card.description!.split("\n");
+  assert.equal(
+    lines[1],
+    "첫 번째는 연구용 무료 모델입니다\\. 두 번째는 무료 API 호출입니다\\.",
+  );
+  assert.doesNotMatch(card.description!, /게시물|주제 읽기/);
+});
+
+test("a short post loses only the footer, in any of the feed's languages", () => {
+  for (const footer of [
+    "3 个帖子 - 3 位参与者 阅读完整话题",
+    "3 posts - 2 participants Read full topic",
+    "3개의 게시물 - 참여자 3명 전체 주제 읽기",
+  ])
+    assert.equal(postSummary(`가입하면 $5 증정 ${footer}`), "가입하면 $5 증정");
 });

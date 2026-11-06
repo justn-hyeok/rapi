@@ -206,6 +206,30 @@ export function findDeadline(
   return end?.[1] ?? end?.[2] ?? ANY_DATE.exec(text)?.[0] ?? "";
 }
 
+// A Discourse feed ends each post with its reply count and a "read the full
+// topic" link, in Chinese or English, or in Korean once translated.
+const FORUM_FOOTER =
+  /\s*\d+\s*(?:个帖子|posts?\b|개의 게시물).*$|\s*(?:阅读完整话题|Read full topic|전체 주제 읽기)\s*$/is;
+// A post's opening is enough for a card; the link holds the rest.
+export const POST_SUMMARY_MAX_CHARS = 160;
+
+/** A forum post's text without the feed's footer, cut at a sentence near the limit. */
+export function postSummary(
+  text: string,
+  max = POST_SUMMARY_MAX_CHARS,
+): string {
+  const clean = plainLine(text).replace(FORUM_FOOTER, "").trim();
+  if (clean.length <= max) return clean;
+  const head = clean.slice(0, max);
+  const end = Math.max(
+    ...["。", "！", "？", ". ", "! ", "? ", "다. ", "요. "].map((mark) =>
+      head.lastIndexOf(mark),
+    ),
+  );
+  // A whole sentence reads better than a cut one, unless it is only a few words.
+  return end >= 30 ? head.slice(0, end + 1).trim() : `${head.trimEnd()}…`;
+}
+
 const deadlineValue = (deadline: string) => {
   const clean = plainLine(deadline);
   return clean ? escapeMarkdown(clip(clean, DEADLINE_MAX_CHARS)) : "";
@@ -234,11 +258,13 @@ export function discountCard(
       (candidate.route === "community" && link ? new URL(link).hostname : ""),
   );
   const title = plainLine(candidate.title);
-  const detail = plainLine(
+  const evidence = plainLine(
     candidate.evidence.startsWith(candidate.title)
       ? candidate.evidence.slice(candidate.title.length)
       : candidate.evidence,
   );
+  const detail =
+    candidate.route === "community" ? postSummary(evidence) : evidence;
   const price =
     candidate.priceCheck === "below_list"
       ? templateText("priceBelowList")
@@ -259,8 +285,12 @@ export function discountCard(
         ? escapeMarkdown(plainLine(candidate.operator))
         : "",
       가격: price,
-      약관: candidate.termsNote ?? "",
-      태그: candidate.tags.join(" "),
+      // Without a domain no page was ever read, so there are no terms to speak of.
+      약관: candidate.domain ? (candidate.termsNote ?? "") : "",
+      // The risk line already says #위험.
+      태그: candidate.tags
+        .filter((tag) => !(risky && tag === "#위험"))
+        .join(" "),
       띠: risky ? "warn" : candidate.band === "green" ? "green" : "yellow",
     },
     { url: link, extraLines },
