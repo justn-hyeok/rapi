@@ -1,0 +1,708 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>카드 스튜디오</title>
+    <style>
+      :root {
+        --bg: #1e1f22;
+        --panel: #2b2d31;
+        --chat: #313338;
+        --embed: #2b2d31;
+        --text: #dbdee1;
+        --muted: #949ba4;
+        --line: #3f4147;
+        --link: #00a8fc;
+        --accent: #5865f2;
+        --danger: #da373c;
+        --ok: #248046;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          14px/1.375 "gg sans",
+          "Noto Sans KR",
+          system-ui,
+          sans-serif;
+      }
+      header {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        padding: 10px 16px;
+        background: var(--panel);
+        border-bottom: 1px solid var(--line);
+      }
+      header h1 {
+        margin: 0 auto 0 0;
+        font-size: 16px;
+      }
+      #status {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      #status.dirty {
+        color: #f0b232;
+      }
+      #status.error {
+        color: #f23f43;
+      }
+      button {
+        font: inherit;
+        color: #fff;
+        background: #4e5058;
+        border: 0;
+        border-radius: 4px;
+        padding: 6px 14px;
+        cursor: pointer;
+      }
+      button.primary {
+        background: var(--accent);
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+      main {
+        display: grid;
+        grid-template-columns: minmax(360px, 520px) 1fr;
+        min-height: calc(100vh - 52px);
+      }
+      @media (max-width: 900px) {
+        main {
+          grid-template-columns: 1fr;
+        }
+      }
+      #editor {
+        padding: 16px;
+        background: var(--panel);
+        border-right: 1px solid var(--line);
+        overflow: auto;
+        max-height: calc(100vh - 52px);
+      }
+      #preview {
+        padding: 16px 24px;
+        background: var(--chat);
+        overflow: auto;
+        max-height: calc(100vh - 52px);
+      }
+      details {
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        margin-bottom: 10px;
+        background: var(--bg);
+      }
+      summary {
+        padding: 8px 12px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      .body {
+        padding: 4px 12px 12px;
+      }
+      label {
+        display: block;
+        margin: 8px 0 2px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      input[type="text"],
+      textarea,
+      select {
+        width: 100%;
+        font:
+          13px/1.4 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
+        color: var(--text);
+        background: #1a1b1e;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        padding: 6px 8px;
+      }
+      textarea {
+        resize: vertical;
+        min-height: 60px;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .row input[type="color"] {
+        width: 36px;
+        height: 30px;
+        padding: 0;
+        border: 0;
+        background: none;
+      }
+      .keys {
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .keys code {
+        color: var(--text);
+        background: #1a1b1e;
+        padding: 0 4px;
+        border-radius: 3px;
+        cursor: pointer;
+      }
+      .help {
+        color: var(--muted);
+        font-size: 12px;
+        margin: 0 0 12px;
+      }
+      .message {
+        display: grid;
+        grid-template-columns: 40px 1fr;
+        gap: 0 16px;
+        margin: 0 0 28px;
+      }
+      .avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #b5651d;
+        display: grid;
+        place-items: center;
+        font-weight: 700;
+        color: #fff;
+      }
+      .meta {
+        font-size: 13px;
+      }
+      .meta b {
+        color: #fff;
+        font-size: 15px;
+        margin-right: 6px;
+      }
+      .tag {
+        background: var(--accent);
+        color: #fff;
+        font-size: 10px;
+        padding: 0 4px;
+        border-radius: 3px;
+        margin-right: 6px;
+      }
+      .sample-name {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .content {
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .embed {
+        margin-top: 4px;
+        max-width: 520px;
+        background: var(--embed);
+        border-left: 4px solid #365d46;
+        border-radius: 4px;
+        padding: 8px 16px 16px 12px;
+      }
+      .embed .author {
+        font-size: 12px;
+        font-weight: 600;
+        color: #fff;
+        margin-top: 8px;
+      }
+      .embed .title {
+        font-weight: 600;
+        color: #fff;
+        margin-top: 8px;
+      }
+      .embed a.title {
+        color: var(--link);
+        text-decoration: none;
+        display: block;
+      }
+      .embed .desc {
+        font-size: 14px;
+        margin-top: 8px;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .embed .fields {
+        display: grid;
+        gap: 8px;
+        margin-top: 8px;
+      }
+      .embed .field-name {
+        font-weight: 600;
+        color: #fff;
+        font-size: 14px;
+      }
+      .embed .footer {
+        margin-top: 8px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .mention {
+        background: rgba(88, 101, 242, 0.3);
+        color: #c9cdfb;
+        border-radius: 3px;
+        padding: 0 2px;
+      }
+      .desc a,
+      .content a {
+        color: var(--link);
+      }
+      .buttons {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+        flex-wrap: wrap;
+      }
+      .buttons span {
+        color: #fff;
+        padding: 3px 16px;
+        border-radius: 4px;
+        font-size: 14px;
+        background: #4e5058;
+      }
+      .buttons .s1 {
+        background: var(--accent);
+      }
+      .buttons .s3 {
+        background: var(--ok);
+      }
+      .buttons .s4 {
+        background: var(--danger);
+      }
+      .error-box {
+        color: #f23f43;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>카드 스튜디오</h1>
+      <span id="status">불러오는 중</span>
+      <button id="revert" type="button">파일에서 다시 읽기</button>
+      <button id="save" class="primary" type="button" disabled>저장</button>
+    </header>
+    <main>
+      <section id="editor" aria-label="템플릿 편집">
+        <p class="help">
+          <code>{이름}</code>은 코드가 채우는 값입니다.
+          <code>[[ ... ]]</code> 안에 빈 값이 하나라도 있으면 그 부분이 통째로
+          빠지고, 비어 버린 줄도 빠집니다. Discord
+          마크다운(<code>**굵게**</code>, <code>[글](주소)</code>)을 쓸 수
+          있습니다. 저장하면
+          <code>packages/core/src/domain/card-templates.json</code>에 써지고,
+          커밋해서 배포하면 봇에 반영됩니다.
+        </p>
+        <div id="forms"></div>
+      </section>
+      <section id="preview" aria-label="미리보기"></section>
+    </main>
+    <script>
+      const CARD_NAMES = {
+        discount: "할인 카드",
+        review: "검토 카드에 덧붙는 줄",
+        problem: "문제 제보",
+        guildRequest: "서버 승인 요청",
+        star: "스타 알림",
+        rapiUpdate: "라피 업데이트",
+      };
+      const TEXT_NAMES = {
+        channelTest: "채널 연결 테스트 글",
+        priceBelowList: "가격: 정가보다 쌀 때",
+        priceList: "가격: 정가일 때",
+        unnamed: "제목이 없을 때",
+        guildNameUnknown: "서버 이름을 모를 때",
+      };
+      let templates = null;
+      let saved = "";
+      let samples = [];
+      let timer = 0;
+      let lastFocused = null;
+
+      const $ = (selector) => document.querySelector(selector);
+      const el = (tag, props = {}, children = []) => {
+        const node = Object.assign(document.createElement(tag), props);
+        for (const child of [].concat(children))
+          node.append(
+            child instanceof Node ? child : document.createTextNode(child),
+          );
+        return node;
+      };
+
+      function setStatus(text, kind = "") {
+        $("#status").textContent = text;
+        $("#status").className = kind;
+      }
+
+      function changed() {
+        const dirty = JSON.stringify(templates) !== saved;
+        $("#save").disabled = !dirty;
+        setStatus(dirty ? "저장 안 됨" : "저장됨", dirty ? "dirty" : "");
+        clearTimeout(timer);
+        timer = setTimeout(renderPreview, 150);
+      }
+
+      function input(label, value, onInput, { multiline = false } = {}) {
+        const field = multiline
+          ? el("textarea", {
+              value,
+              rows: Math.max(3, value.split("\n").length + 1),
+            })
+          : el("input", { type: "text", value });
+        field.addEventListener("input", () => {
+          onInput(field.value);
+          changed();
+        });
+        field.addEventListener("focus", () => (lastFocused = field));
+        return [el("label", {}, label), field];
+      }
+
+      function colorInput(label, value, onInput) {
+        const picker = el("input", { type: "color", value });
+        const text = el("input", { type: "text", value });
+        const sync = (next) => {
+          onInput(next);
+          changed();
+        };
+        picker.addEventListener("input", () => {
+          text.value = picker.value;
+          sync(picker.value);
+        });
+        text.addEventListener("input", () => {
+          if (/^#[0-9a-f]{6}$/i.test(text.value)) picker.value = text.value;
+          sync(text.value);
+        });
+        return [
+          el("label", {}, label),
+          el("div", { className: "row" }, [picker, text]),
+        ];
+      }
+
+      function keyList(keys) {
+        if (!keys.length) return [];
+        return [
+          el("div", { className: "keys" }, [
+            "값: ",
+            ...keys.flatMap((key) => {
+              const code = el(
+                "code",
+                { title: "누르면 마지막으로 고친 칸에 넣습니다" },
+                `{${key}}`,
+              );
+              code.addEventListener("mousedown", (event) => {
+                event.preventDefault();
+                if (!lastFocused || key.startsWith("(")) return;
+                const at =
+                  lastFocused.selectionStart ?? lastFocused.value.length;
+                lastFocused.setRangeText(
+                  `{${key}}`,
+                  at,
+                  lastFocused.selectionEnd ?? at,
+                  "end",
+                );
+                lastFocused.dispatchEvent(new Event("input"));
+              });
+              return [code, " "];
+            }),
+          ]),
+        ];
+      }
+
+      function cardForm(name) {
+        const card = templates.cards[name];
+        const body = el("div", { className: "body" });
+        if (name !== "review") {
+          body.append(
+            ...input("머리말 (author)", card.author, (v) => (card.author = v)),
+          );
+          body.append(...input("제목", card.title, (v) => (card.title = v)));
+        }
+        body.append(
+          ...input(
+            "본문 줄 (한 줄에 하나)",
+            card.lines.join("\n"),
+            (v) => (card.lines = v.split("\n")),
+            {
+              multiline: true,
+            },
+          ),
+        );
+        if (card.fields)
+          body.append(
+            ...input(
+              "필드 (JSON: name, value, inline)",
+              JSON.stringify(card.fields, null, 2),
+              (v) => {
+                try {
+                  card.fields = JSON.parse(v);
+                } catch {}
+              },
+              { multiline: true },
+            ),
+          );
+        if (name !== "review") {
+          body.append(
+            ...input("꼬리말 (footer)", card.footer, (v) => (card.footer = v)),
+          );
+          body.append(
+            ...input(
+              "색 (팔레트 이름, #rrggbb, 또는 {띠})",
+              card.color,
+              (v) => (card.color = v),
+            ),
+          );
+        }
+        if (typeof card.risk === "string")
+          body.append(
+            ...input(
+              "위험 줄 ({위험} 자리에 들어감)",
+              card.risk,
+              (v) => (card.risk = v),
+              { multiline: true },
+            ),
+          );
+        body.append(...keyList(KEYS[name] ?? []));
+        return el("details", { open: name === "discount" }, [
+          el("summary", {}, CARD_NAMES[name] ?? name),
+          body,
+        ]);
+      }
+
+      const KEYS = {
+        discount: [
+          "출처",
+          "도메인",
+          "제목",
+          "위험",
+          "내용",
+          "마감",
+          "운영",
+          "가격",
+          "약관",
+          "태그",
+          "띠",
+        ],
+        review: ["메모"],
+        problem: ["도메인", "링크", "메모", "제보자"],
+        guildRequest: ["서버", "서버ID", "요청자", "사유"],
+        star: ["저장소", "설명", "언어", "별", "누른날"],
+        rapiUpdate: ["태그", "요약"],
+      };
+
+      function buildForms() {
+        const forms = $("#forms");
+        forms.replaceChildren();
+        for (const name of Object.keys(templates.cards))
+          forms.append(cardForm(name));
+
+        const palette = el("div", { className: "body" });
+        for (const [name, value] of Object.entries(templates.colors))
+          palette.append(
+            ...colorInput(name, value, (v) => (templates.colors[name] = v)),
+          );
+        forms.append(
+          el("details", {}, [el("summary", {}, "색 팔레트"), palette]),
+        );
+
+        const labels = el("div", { className: "body" });
+        for (const [route, value] of Object.entries(templates.routeLabels))
+          labels.append(
+            ...input(route, value, (v) => (templates.routeLabels[route] = v)),
+          );
+        forms.append(
+          el("details", {}, [el("summary", {}, "출처 이름 ({출처})"), labels]),
+        );
+
+        const texts = el("div", { className: "body" });
+        for (const [name, value] of Object.entries(templates.texts))
+          texts.append(
+            ...input(
+              TEXT_NAMES[name] ?? name,
+              value,
+              (v) => (templates.texts[name] = v),
+            ),
+          );
+        texts.append(...keyList(["종류"]));
+        forms.append(el("details", {}, [el("summary", {}, "짧은 글"), texts]));
+      }
+
+      // Enough of Discord's markdown to judge a card: escapes, bold, italics,
+      // masked links, user mentions and line breaks.
+      function markdown(text) {
+        const out = document.createDocumentFragment();
+        const pattern =
+          /\\([\\`*_~|<>#[\]()@:.\-])|\*\*(.+?)\*\*|\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)|<@!?(\d+)>|(https?:\/\/[^\s<]+)/g;
+        let last = 0;
+        for (const match of text.matchAll(pattern)) {
+          out.append(text.slice(last, match.index));
+          const [all, escaped, bold, label, url, mention, bare] = match;
+          if (escaped !== undefined) out.append(escaped);
+          else if (bold !== undefined) out.append(el("b", {}, markdown(bold)));
+          else if (label !== undefined)
+            out.append(el("a", { href: url, target: "_blank" }, label));
+          else if (mention !== undefined)
+            out.append(el("span", { className: "mention" }, "@사용자"));
+          else out.append(el("a", { href: bare, target: "_blank" }, bare));
+          last = match.index + all.length;
+        }
+        out.append(text.slice(last));
+        return out;
+      }
+
+      function embedView(embed) {
+        const box = el("div", { className: "embed" });
+        box.style.borderLeftColor = `#${(embed.color ?? 0x365d46).toString(16).padStart(6, "0")}`;
+        if (embed.author)
+          box.append(el("div", { className: "author" }, embed.author.name));
+        if (embed.title)
+          box.append(
+            embed.url
+              ? el(
+                  "a",
+                  { className: "title", href: embed.url, target: "_blank" },
+                  [markdown(embed.title)],
+                )
+              : el("div", { className: "title" }, [markdown(embed.title)]),
+          );
+        if (embed.description)
+          box.append(
+            el("div", { className: "desc" }, [markdown(embed.description)]),
+          );
+        if (embed.fields?.length)
+          box.append(
+            el(
+              "div",
+              { className: "fields" },
+              embed.fields.map((field) =>
+                el("div", {}, [
+                  el("div", { className: "field-name" }, [
+                    markdown(field.name),
+                  ]),
+                  el("div", {}, [markdown(field.value)]),
+                ]),
+              ),
+            ),
+          );
+        if (embed.footer)
+          box.append(el("div", { className: "footer" }, embed.footer.text));
+        return box;
+      }
+
+      function renderSamples() {
+        const preview = $("#preview");
+        preview.replaceChildren();
+        for (const sample of samples) {
+          const body = el("div", {}, [
+            el("div", { className: "meta" }, [
+              el("b", {}, "라피"),
+              el("span", { className: "tag" }, "앱"),
+              el(
+                "span",
+                { className: "sample-name" },
+                `${sample.name} — ${sample.note}`,
+              ),
+            ]),
+          ]);
+          if (sample.error)
+            body.append(
+              el(
+                "div",
+                { className: "error-box" },
+                `만들지 못함: ${sample.error}`,
+              ),
+            );
+          if (sample.content)
+            body.append(
+              el("div", { className: "content" }, [markdown(sample.content)]),
+            );
+          for (const embed of sample.embeds ?? [])
+            body.append(embedView(embed));
+          if (sample.buttons?.length)
+            body.append(
+              el(
+                "div",
+                { className: "buttons" },
+                sample.buttons.map((button) =>
+                  el(
+                    "span",
+                    { className: `s${button.style}` },
+                    button.url ? `${button.label} ↗` : button.label,
+                  ),
+                ),
+              ),
+            );
+          preview.append(
+            el("div", { className: "message" }, [
+              el("div", { className: "avatar" }, "R"),
+              body,
+            ]),
+          );
+        }
+      }
+
+      async function call(path, body) {
+        const response = await fetch(path, {
+          method: body === undefined ? "GET" : "POST",
+          headers: { "content-type": "application/json" },
+          ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        });
+        const json = await response.json();
+        if (!response.ok) throw new Error(json.error ?? response.statusText);
+        return json;
+      }
+
+      async function renderPreview() {
+        try {
+          samples = (await call("/api/render", templates)).samples;
+          renderSamples();
+        } catch (error) {
+          setStatus(`미리보기 실패: ${error.message}`, "error");
+        }
+      }
+
+      async function load() {
+        const state = await call("/api/templates");
+        templates = state.templates;
+        saved = JSON.stringify(templates);
+        samples = state.samples;
+        buildForms();
+        renderSamples();
+        changed();
+      }
+
+      $("#save").addEventListener("click", async () => {
+        try {
+          await call("/api/save", templates);
+          saved = JSON.stringify(templates);
+          changed();
+          setStatus("저장됨. 커밋하면 배포됩니다.");
+        } catch (error) {
+          setStatus(`저장 실패: ${error.message}`, "error");
+        }
+      });
+      $("#revert").addEventListener("click", () => {
+        if (
+          JSON.stringify(templates) !== saved &&
+          !confirm("저장하지 않은 변경을 버릴까요?")
+        )
+          return;
+        load().catch((error) => setStatus(error.message, "error"));
+      });
+      window.addEventListener("beforeunload", (event) => {
+        if (JSON.stringify(templates) !== saved) event.preventDefault();
+      });
+      load().catch((error) => setStatus(error.message, "error"));
+    </script>
+  </body>
+</html>
