@@ -67,6 +67,46 @@ describe("discount candidates", () => {
     }
   });
 
+  it("tells a reported deal a route found first from one it missed", async () => {
+    const store = new PostgresStore(databaseUrl);
+    try {
+      await store.resetForTests();
+      const row = (
+        route: "changelog" | "report",
+        domain: string,
+        key: string,
+      ) =>
+        ({
+          kind: "discount",
+          route,
+          dedupeKey: key,
+          domain,
+          title: domain,
+          url: `https://${domain}/deal`,
+          evidence: "",
+          publishedAt: null,
+        }) as const;
+      await store.saveDiscountCandidate(row("changelog", "found.io", "c"));
+      await store.pool.query(
+        "UPDATE discount_candidates SET first_seen_at = now() - interval '1 day'",
+      );
+      await store.saveDiscountCandidate(row("report", "found.io", "r1"));
+      await store.saveDiscountCandidate(row("report", "missed.io", "r2"));
+      const reports = await store.reportedDeals(
+        new Date(Date.now() - 3_600_000),
+      );
+      assert.deepEqual(
+        reports.map((r) => [r.domain, r.foundBy]),
+        [
+          ["found.io", "changelog"],
+          ["missed.io", null],
+        ],
+      );
+    } finally {
+      await store.close();
+    }
+  });
+
   it("records a verification once and never overwrites a red set by hand", async () => {
     const store = new PostgresStore(databaseUrl);
     try {

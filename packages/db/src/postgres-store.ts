@@ -210,6 +210,48 @@ export class PostgresStore {
   }
 
   /** Re-seeing a candidate changes nothing; returns whether this one is new. */
+  /**
+   * Deals people reported since a time, each with when a route had first found
+   * the same domain, or null. A report with no earlier find is one Rapi missed.
+   */
+  async reportedDeals(since: Date): Promise<
+    Array<{
+      domain: string;
+      url: string;
+      reportedAt: Date;
+      foundAt: Date | null;
+      foundBy: string | null;
+    }>
+  > {
+    const { rows } = await this.pool.query<{
+      domain: string;
+      url: string;
+      reported_at: Date;
+      found_at: Date | null;
+      found_by: string | null;
+    }>(
+      `SELECT r.domain, r.url, r.first_seen_at AS reported_at,
+              found.first_seen_at AS found_at, found.route AS found_by
+       FROM discount_candidates r
+       LEFT JOIN LATERAL (
+         SELECT c.first_seen_at, c.route FROM discount_candidates c
+         WHERE c.route <> 'report' AND c.domain = r.domain
+           AND c.first_seen_at <= r.first_seen_at
+         ORDER BY c.first_seen_at LIMIT 1
+       ) found ON true
+       WHERE r.route = 'report' AND r.kind = 'discount' AND r.first_seen_at >= $1
+       ORDER BY r.first_seen_at`,
+      [since],
+    );
+    return rows.map((row) => ({
+      domain: row.domain,
+      url: row.url,
+      reportedAt: row.reported_at,
+      foundAt: row.found_at,
+      foundBy: row.found_by,
+    }));
+  }
+
   /** Which of these keys are stored already. */
   async knownCandidateKeys(keys: readonly string[]): Promise<Set<string>> {
     const { rows } = await this.pool.query<{ dedupe_key: string }>(
