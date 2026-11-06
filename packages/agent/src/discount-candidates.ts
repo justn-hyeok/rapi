@@ -11,6 +11,7 @@ import {
   PullRequestRoute,
   readServicePage,
   RelayListRoute,
+  RelaySiteRoute,
   UncertainDeliveryError,
   type CandidateResult,
   type CatalogSource,
@@ -19,6 +20,7 @@ import {
   type HackerNewsSource,
   type PromoClockSource,
   type RelayListSource,
+  type RelaySiteSource,
   type ResolveHostname,
   type SourceHttpOptions,
 } from "@rapi/adapters";
@@ -53,6 +55,7 @@ export interface DiscountSources {
   community?: FeedOfferSource;
   relayLists?: RelayListSource[];
   promoClock?: PromoClockSource;
+  relaySites?: RelaySiteSource[];
   operators: KnownOperator[];
 }
 
@@ -176,6 +179,15 @@ export async function collectDiscountCandidates(input: {
         await store.sourceCursor(sourceId),
       ),
   });
+  const relaySiteJob = (source: RelaySiteSource) => ({
+    kind: "candidate_relay_site",
+    locator: source.url,
+    collect: async (sourceId: string) =>
+      new RelaySiteRoute(http).collect(
+        source,
+        await store.sourceCursor(sourceId),
+      ),
+  });
   const jobs: Array<{
     kind: string;
     locator: string;
@@ -204,6 +216,7 @@ export async function collectDiscountCandidates(input: {
     ...(sources.community ? [communityJob(sources.community)] : []),
     ...(sources.relayLists ?? []).map(relayListJob),
     ...(sources.promoClock ? [promoClockJob(sources.promoClock)] : []),
+    ...(sources.relaySites ?? []).map(relaySiteJob),
   ];
 
   const failures: string[] = [];

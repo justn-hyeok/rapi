@@ -125,8 +125,9 @@ export function verifyCandidate(
   // A forum post or a list entry is a stranger's claim, whatever it says about itself.
   const unvetted = UNVETTED_ROUTES.includes(candidate.route);
   if (unvetted) tags.add("#위험");
-  // The lists are of relay sites, which pass on someone else's models.
-  if (candidate.route === "relay_list") tags.add("#재판매");
+  // Relay sites pass on someone else's models.
+  if (candidate.route === "relay_list" || candidate.route === "relay_site")
+    tags.add("#재판매");
 
   return {
     band: green && !unvetted ? "green" : "yellow",

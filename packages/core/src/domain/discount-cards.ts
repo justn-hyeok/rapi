@@ -55,6 +55,7 @@ const ROUTE_LABEL: Record<DiscountCandidateRoute, string> = {
   community: "linux.do",
   relay_list: "무료 중계 목록",
   promoclock: "PromoClock",
+  relay_site: "중계 사이트",
 };
 const DETAIL_MAX_CHARS = 300;
 // The longest URL Discord accepts on a link button.
