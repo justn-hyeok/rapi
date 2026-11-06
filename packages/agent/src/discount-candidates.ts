@@ -74,6 +74,7 @@ export async function loadDiscountSources(
 
 type CandidateStore = Pick<
   PostgresStore,
+  | "knownCandidateKeys"
   | "createSource"
   | "sourceCursor"
   | "saveCursor"
@@ -83,19 +84,44 @@ type CandidateStore = Pick<
 
 const NO_TOKEN = "GITHUB_READ_TOKEN이 없어 건너뜀";
 const CHINESE = /\p{Script=Han}/u;
+const KOREAN = /\p{Script=Hangul}/u;
+// Three words in a row: an English sentence, not a name, an address or "PR #7".
+const ENGLISH_WORDS =
+  /[A-Za-z]{3,}[\s,:'’-]+[A-Za-z]{2,}[\s,:'’-]+[A-Za-z]{2,}/;
 
 /**
- * Rows written in Chinese, in Korean. A failed translation keeps the original
- * wording: an untranslated card still says what was offered.
+ * Whether a row's field is read by people in another language: Chinese
+ * anywhere, or English with no Korean in it, on an offer. A new service's
+ * title is its name or address, and a report's is the reporter's domain.
+ */
+export function needsKorean(
+  candidate: Pick<DiscountCandidate, "kind" | "route">,
+  text: string,
+): boolean {
+  if (CHINESE.test(text)) return true;
+  if (candidate.kind !== "discount" || candidate.route === "report")
+    return false;
+  return (
+    !KOREAN.test(text) && !/^https?:\/\//.test(text) && ENGLISH_WORDS.test(text)
+  );
+}
+
+/**
+ * Rows in Korean before they are stored. Rows already stored are left out, so
+ * a feed seen again every day is translated once. A failed translation keeps
+ * the original wording: an untranslated card still says what was offered.
  */
 async function inKorean(
   candidates: DiscountCandidate[],
   translate: ((texts: string[]) => Promise<string[]>) | undefined,
+  known: ReadonlySet<string> = new Set(),
 ): Promise<{ candidates: DiscountCandidate[]; problem?: string }> {
   const fields = candidates.flatMap((candidate, index) =>
-    (["title", "evidence"] as const)
-      .filter((field) => CHINESE.test(candidate[field]))
-      .map((field) => ({ index, field })),
+    known.has(candidate.dedupeKey)
+      ? []
+      : (["title", "evidence"] as const)
+          .filter((field) => needsKorean(candidate, candidate[field]))
+          .map((field) => ({ index, field })),
   );
   if (!translate || !fields.length) return { candidates };
   try {
@@ -250,7 +276,15 @@ export async function collectDiscountCandidates(input: {
       }
       const collected = await job.collect(sourceId);
       const { problem, cursor } = collected;
-      const translated = await inKorean(collected.candidates, input.translate);
+      const translated = await inKorean(
+        collected.candidates,
+        input.translate,
+        input.translate && collected.candidates.length
+          ? await store.knownCandidateKeys(
+              collected.candidates.map((candidate) => candidate.dedupeKey),
+            )
+          : new Set(),
+      );
       if (translated.problem)
         failures.push(`${job.locator}: ${translated.problem}`);
       for (const candidate of translated.candidates)

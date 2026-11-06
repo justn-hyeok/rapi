@@ -210,6 +210,15 @@ export class PostgresStore {
   }
 
   /** Re-seeing a candidate changes nothing; returns whether this one is new. */
+  /** Which of these keys are stored already. */
+  async knownCandidateKeys(keys: readonly string[]): Promise<Set<string>> {
+    const { rows } = await this.pool.query<{ dedupe_key: string }>(
+      "SELECT dedupe_key FROM discount_candidates WHERE dedupe_key = ANY($1)",
+      [[...keys]],
+    );
+    return new Set(rows.map((row) => row.dedupe_key));
+  }
+
   async saveDiscountCandidate(candidate: DiscountCandidate): Promise<boolean> {
     const result = await this.pool.query(
       `INSERT INTO discount_candidates

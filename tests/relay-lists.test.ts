@@ -188,6 +188,8 @@ function fakeStore() {
   const rows = new Map<string, DiscountCandidate>();
   const cursors = new Map<string, string>();
   const store = {
+    knownCandidateKeys: async (keys: string[]) =>
+      new Set(keys.filter((key) => rows.has(key))),
     createSource: async (kind: string, locator: string) => `${kind}|${locator}`,
     sourceCursor: async (id: string) => cursors.get(id) ?? null,
     saveDiscountCandidate: async (candidate: DiscountCandidate) => {
