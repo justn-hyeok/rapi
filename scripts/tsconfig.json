@@ -6,10 +6,23 @@
   },
   "include": ["*.ts", "*.d.mts"],
   "references": [
-    { "path": "../packages/config" },
-    { "path": "../packages/adapters" },
-    { "path": "../packages/agent" },
-    { "path": "../packages/db" },
-    { "path": "../apps/bot" }
+    {
+      "path": "../packages/core"
+    },
+    {
+      "path": "../packages/config"
+    },
+    {
+      "path": "../packages/adapters"
+    },
+    {
+      "path": "../packages/agent"
+    },
+    {
+      "path": "../packages/db"
+    },
+    {
+      "path": "../apps/bot"
+    }
   ]
 }
