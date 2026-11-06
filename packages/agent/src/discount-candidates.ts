@@ -52,7 +52,7 @@ export interface DiscountSources {
   catalog?: CatalogSource;
   hackerNews?: HackerNewsSource;
   creditFeed?: FeedOfferSource;
-  community?: FeedOfferSource;
+  communities?: FeedOfferSource[];
   relayLists?: RelayListSource[];
   promoClock?: PromoClockSource;
   relaySites?: RelaySiteSource[];
@@ -213,7 +213,7 @@ export async function collectDiscountCandidates(input: {
     ...(sources.catalog ? [catalogJob(sources.catalog)] : []),
     ...(sources.hackerNews ? hackerNewsJobs(sources.hackerNews) : []),
     ...(sources.creditFeed ? [creditFeedJob(sources.creditFeed)] : []),
-    ...(sources.community ? [communityJob(sources.community)] : []),
+    ...(sources.communities ?? []).map(communityJob),
     ...(sources.relayLists ?? []).map(relayListJob),
     ...(sources.promoClock ? [promoClockJob(sources.promoClock)] : []),
     ...(sources.relaySites ?? []).map(relaySiteJob),

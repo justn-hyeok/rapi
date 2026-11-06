@@ -52,7 +52,7 @@ const ROUTE_LABEL: Record<DiscountCandidateRoute, string> = {
   catalog: "OpenRouter",
   hacker_news: "Hacker News",
   credit_feed: "aifree.dev",
-  community: "linux.do",
+  community: "커뮤니티",
   relay_list: "무료 중계 목록",
   promoclock: "PromoClock",
   relay_site: "중계 사이트",
@@ -229,7 +229,12 @@ export function discountCard(
   deadline = "",
 ): DiscordCard {
   const link = cardLink(candidate.url);
-  const domain = plainLine(candidate.domain ?? "");
+  // A post's domain stays empty so a red mark cannot reach the whole forum; the
+  // card still names the forum.
+  const domain = plainLine(
+    candidate.domain ??
+      (candidate.route === "community" && link ? new URL(link).hostname : ""),
+  );
   const title = plainLine(candidate.title);
   const detail = plainLine(
     candidate.evidence.startsWith(candidate.title)

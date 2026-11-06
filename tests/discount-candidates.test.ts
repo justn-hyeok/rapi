@@ -796,6 +796,8 @@ test("the offers board keeps AI deals and leaves coupons and accounts", () => {
     "【富可敌国】TokenU双十一活动震撼来袭！充 $10 送 $3 起",
     "SoleAPI｜限时福利「Kiro-Claude 折扣分组」0.1x 上线",
     "【NEXA】领取你的11月5号免费2鸡蛋 | deepseek0.15x稳定性继续提高",
+    "「又来撒 Token 了」11 月福袋已开放领取 Newape.AI 低价｜稳定｜防封",
+    "[全场 8 折] 0x567 中转站,纯 pro 号池 不降智,套餐倍率 0.175！",
   ])
     assert.ok(isCommunityOffer(title), title);
   for (const title of [
@@ -803,6 +805,9 @@ test("the offers board keeps AI deals and leaves coupons and accounts", () => {
     "「周四10点」移动随机话费券",
     "抽一个GPT PLUS账号",
     "京东金融对口令活动（小羊毛）",
+    "API 中转站测评，让你少折腾。",
+    "ChatGPT Plus/Pro 长期稳定充值",
+    "🎁活动进行中｜纯净 ISP / 动态住宅 IP 免费送，支持 API，可对接指纹浏览器",
   ])
     assert.ok(!isCommunityOffer(title), title);
 });
@@ -832,4 +837,27 @@ test("a board post is recorded without following it anywhere", async () => {
     candidates.map((c) => [c.route, c.dedupeKey, c.domain, c.url]),
     [["community", "community:a", null, "https://site.test/a"]],
   );
+});
+
+test("a V2EX post links the topic, not its changing reply count", async () => {
+  const url = "https://www.v2ex.com/feed/promotions.xml";
+  const { candidates } = await new CommunityRoute(
+    {
+      fetch: pages({
+        [url]: `<feed xmlns="http://www.w3.org/2005/Atom"><entry><title>VelaMost 中转站，注册即送$5</title><link rel="alternate" type="text/html" href="https://www.v2ex.com/t/1254849#reply12" /><id>tag:www.v2ex.com,2026-11-04:/t/1254849</id><published>2026-11-04T10:00:00Z</published><content type="html">注册即送</content></entry></feed>`,
+      }),
+    },
+    now,
+  ).collect({ url, maxAgeDays: 3 });
+  assert.deepEqual(
+    candidates.map((c) => [c.url, c.domain]),
+    [["https://www.v2ex.com/t/1254849", null]],
+  );
+});
+
+test("the shipped boards are V2EX's promotions, not linux.do", async () => {
+  const sources = await loadDiscountSources(process.cwd());
+  assert.deepEqual(sources.communities, [
+    { url: "https://www.v2ex.com/feed/promotions.xml", maxAgeDays: 3 },
+  ]);
 });

@@ -224,5 +224,11 @@
       "url": "https://api.hcnsec.cn",
       "pricing": false
     }
+  ],
+  "communities": [
+    {
+      "url": "https://www.v2ex.com/feed/promotions.xml",
+      "maxAgeDays": 3
+    }
   ]
 }
