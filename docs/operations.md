@@ -208,6 +208,7 @@ npm run start:monitor              # 모니터
 | `credit_feed` | 할인 | aifree.dev 무료 크레딧 피드에서 30일 안에 새로 등록된 항목만. 변경 감지와 재확인 항목은 뺀다 |
 | `community` | 할인 | linux.do 福利羊毛 게시판. **꺼져 있음**: Cloudflare가 Node 요청을 검사로 막는다(`cf-mitigated: challenge`). 우회하지 않는다 |
 | `relay_list` | 할인 | 다른 사람이 GitHub에 관리하는 무료 중계 사이트(公益站) 목록 4개(`relayLists`). 전날과 비교해 새로 올라온 사이트와 좋아진 혜택만. 금액이 숫자로 적힌 목록은 금액이 오를 때만, 글로 적힌 목록은 문장부호를 뺀 글이 바뀌고 숫자나 지급 문구가 있을 때만 잡는다. 하루에 8건 넘게 바뀌면 목록을 고쳐 쓴 것으로 보고 기록만 한다. 첫 실행은 기준만 저장한다. 링크는 사이트 첫 화면이고 초대 코드는 뗀다 |
+| `promoclock` | 할인 | PromoClock(`promoclock.co/llms.txt`)의 AI 딜 목록. 전날 없던 딜만. 링크는 PromoClock이 확인한 공식 출처이고, 제휴 링크가 섞일 수 있는 PromoClock 페이지는 걸지 않는다. 일시 중지된 딜은 뺀다. 첫 실행은 기준만 저장한다. 딜 목록이라 할인 문구 검사 없이 끝난 날짜만 본다 |
 
 GitHub 경로 둘은 `GITHUB_READ_TOKEN`이 있어야 돈다. 없으면 건너뛰고 공식 변경로그만 돈다. 공개 저장소 읽기 권한이면 충분하다.
 
