@@ -330,6 +330,9 @@ async function collectCandidates(): Promise<void> {
     ...(await verifyDiscountCandidates({
       store,
       operators: sources.operators,
+      ...(summarizer?.translate && {
+        translate: (texts: string[]) => summarizer.translate!(texts),
+      }),
     })),
   ];
   if (failures.length)

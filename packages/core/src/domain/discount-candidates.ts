@@ -12,17 +12,19 @@ export type DiscountCandidateRoute =
   | "promoclock"
   | "relay_site"
   | "free_list"
-  | "commit_log";
+  | "commit_log"
+  | "site_offer";
 
 /**
  * Routes whose rows are strangers' claims: a forum post, someone else's list of
- * free relay sites, or a relay site about itself. They are always risky, and they
+ * free relay sites, or a relay site or an unknown service about itself. They are always risky, and they
  * share one daily card limit.
  */
 export const UNVETTED_ROUTES: readonly DiscountCandidateRoute[] = [
   "community",
   "relay_list",
   "relay_site",
+  "site_offer",
 ];
 
 export interface DiscountCandidate {

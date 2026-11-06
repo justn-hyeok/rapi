@@ -527,10 +527,14 @@ const resolve = async () => ["93.184.216.34"];
 
 function verificationStore(rows: CandidateToVerify[]) {
   const saved = new Map<string, CandidateVerification>();
+  const offers: DiscountCandidate[] = [];
   return {
     saved,
+    offers,
     store: {
       unverifiedDiscountCandidates: async () => rows,
+      saveDiscountCandidate: async (candidate: DiscountCandidate) =>
+        void offers.push(candidate),
       saveCandidateVerification: async (
         id: string,
         verification: CandidateVerification,
@@ -572,11 +576,78 @@ test("one candidate failing to read or save leaves the others checked", async ()
   assert.equal(saved.get("up")!.termsNote, null);
   for (const verification of saved.values())
     assert.equal(verification.band, "yellow");
+  // A page this short could be a new-api shell, so its status gets one look.
   assert.deepEqual(requested, [
     "https://down.io/",
+    "https://down.io/api/status",
     "https://up.io/",
     "https://up.io/",
+    "https://up.io/api/status",
   ]);
+});
+
+test("a new service whose page offers something becomes a deal of its own", async () => {
+  const { store, offers } = verificationStore([
+    toVerify("page", "code0.io"),
+    toVerify("shell", "relay.io"),
+    toVerify("plain", "plain.io"),
+    toVerify("official", "openai.com"),
+  ]);
+  const longPage = (words: string) =>
+    `<p>${"Fast routing for every model. ".repeat(20)}${words}</p>`;
+  const asked: string[][] = [];
+  await verifyDiscountCandidates({
+    store: store as never,
+    operators: [
+      { domain: "openai.com", name: "OpenAI", service: "official", tags: [] },
+    ],
+    http: {
+      resolve,
+      fetch: (async (url: string) => {
+        if (url === "https://code0.io/")
+          return new Response(longPage("注册即可获得免费额度 免费开始使用"), {
+            headers: HOME,
+          });
+        if (url === "https://relay.io/")
+          return new Response("<div id=root></div>", { headers: HOME });
+        if (url === "https://relay.io/api/status")
+          return new Response(
+            JSON.stringify({
+              data: { quota_for_invitee: 25_000_000, quota_per_unit: 500_000 },
+            }),
+          );
+        if (url === "https://openai.com/")
+          return new Response(longPage("$5 in free credits"), {
+            headers: HOME,
+          });
+        return new Response(longPage("Try it 100x cheaper with a free tier."), {
+          headers: HOME,
+        });
+      }) as typeof fetch,
+    },
+    translate: async (texts) => {
+      asked.push(texts);
+      return texts.map(() => "가입하면 무료 크레딧");
+    },
+  });
+  assert.deepEqual(
+    offers.map((o) => [o.route, o.dedupeKey, o.url, o.title]),
+    [
+      [
+        "site_offer",
+        "site_offer:code0.io",
+        "https://code0.io/",
+        "가입하면 무료 크레딧",
+      ],
+      [
+        "site_offer",
+        "site_offer:relay.io",
+        "https://relay.io/",
+        "relay.io: 초대받아 가입하면 $50",
+      ],
+    ],
+  );
+  assert.equal(asked.length, 1);
 });
 
 test("the store failing to list is reported, not thrown", async () => {
