@@ -56,6 +56,7 @@ const ROUTE_LABEL: Record<DiscountCandidateRoute, string> = {
   relay_list: "무료 중계 목록",
   promoclock: "PromoClock",
   relay_site: "중계 사이트",
+  free_list: "무료 API 목록",
 };
 const DETAIL_MAX_CHARS = 300;
 // The longest URL Discord accepts on a link button.
@@ -173,10 +174,11 @@ export function shouldCardCandidate(
   if (candidate.kind === "new_service" || candidate.route === "report")
     return true;
   // The collector already judged its Chinese wording, which the rules below cannot read.
-  // PromoClock lists only deals, each checked against its official page.
+  // PromoClock and the free API lists hold nothing but offers.
   if (
     UNVETTED_ROUTES.includes(candidate.route) ||
-    candidate.route === "promoclock"
+    candidate.route === "promoclock" ||
+    candidate.route === "free_list"
   )
     return !offerHasEnded(candidate, now);
   if (POLICY_NOTICE.test(candidate.title)) return false;

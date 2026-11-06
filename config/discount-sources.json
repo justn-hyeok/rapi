@@ -230,5 +230,18 @@
       "url": "https://www.v2ex.com/feed/promotions.xml",
       "maxAgeDays": 3
     }
+  ],
+  "freeLists": [
+    {
+      "repository": "mnfst/awesome-free-llm-apis",
+      "path": "data.json",
+      "format": "free-llm-apis",
+      "exclude": ["openrouter.ai"]
+    },
+    {
+      "repository": "nejib1/Free-LLM",
+      "path": "README.md",
+      "format": "table"
+    }
   ]
 }

@@ -54,6 +54,7 @@ export interface DiscountSources {
   creditFeed?: FeedOfferSource;
   communities?: FeedOfferSource[];
   relayLists?: RelayListSource[];
+  freeLists?: RelayListSource[];
   promoClock?: PromoClockSource;
   relaySites?: RelaySiteSource[];
   operators: KnownOperator[];
@@ -161,15 +162,17 @@ export async function collectDiscountCandidates(input: {
     locator: source.url,
     collect: () => new CommunityRoute(http, input.now).collect(source),
   });
-  const relayListJob = (source: RelayListSource) => ({
-    kind: "candidate_relay_list",
-    locator: `${source.repository}/${source.path}`,
-    collect: async (sourceId: string) =>
-      new RelayListRoute(http).collect(
-        source,
-        await store.sourceCursor(sourceId),
-      ),
-  });
+  const listJob =
+    (route: "relay_list" | "free_list") => (source: RelayListSource) => ({
+      kind: `candidate_${route}`,
+      locator: `${source.repository}/${source.path}`,
+      collect: async (sourceId: string) =>
+        new RelayListRoute(http).collect(
+          source,
+          await store.sourceCursor(sourceId),
+          route,
+        ),
+    });
   const promoClockJob = (source: PromoClockSource) => ({
     kind: "candidate_promoclock",
     locator: source.url,
@@ -214,7 +217,8 @@ export async function collectDiscountCandidates(input: {
     ...(sources.hackerNews ? hackerNewsJobs(sources.hackerNews) : []),
     ...(sources.creditFeed ? [creditFeedJob(sources.creditFeed)] : []),
     ...(sources.communities ?? []).map(communityJob),
-    ...(sources.relayLists ?? []).map(relayListJob),
+    ...(sources.relayLists ?? []).map(listJob("relay_list")),
+    ...(sources.freeLists ?? []).map(listJob("free_list")),
     ...(sources.promoClock ? [promoClockJob(sources.promoClock)] : []),
     ...(sources.relaySites ?? []).map(relaySiteJob),
   ];
