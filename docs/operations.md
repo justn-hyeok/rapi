@@ -622,7 +622,7 @@ docker exec rapi-postgres-1 psql -U rapi -d rapi -c "UPDATE discord_guilds SET c
 출처를 더 늘릴지는 놓친 딜로 정한다. 직접 본 딜을 Rapi가 안 보냈으면 `/제보`로 넣는다. VM에서 아래를 돌리면 제보마다 다른 경로가 같은 도메인을 먼저 찾았는지 보여 준다.
 
 ```sh
-cd /home/justn/rapi-releases/current && npm run -s missed-deals -- 2026-11-07
+cd /home/justn/rapi-releases/current && node --env-file=/home/justn/rapi/.env --import tsx scripts/missed-deals.ts 2026-11-07
 ```
 
 `먼저 찾음(경로)`은 Rapi가 이미 알던 딜이고, `놓침`은 어느 경로도 몰랐던 딜이다. 도메인으로만 맞춰 보므로, 게시판 글처럼 도메인이 없는 후보와 겹친 제보는 놓침으로 나온다.
