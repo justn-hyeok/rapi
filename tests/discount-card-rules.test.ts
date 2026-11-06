@@ -364,7 +364,7 @@ test("a risky card says so first, in the warning color, on the public card too",
   assert.match(card.description!, /^위험: 검증하지 않은 커뮤니티 글입니다/);
   assert.match(card.description!, /#위험$/);
   assert.equal(card.color, CARD_COLOR.warn);
-  assert.equal(card.author, "linux.do");
+  assert.equal(card.author, "커뮤니티 · linux.do");
   assert.doesNotMatch(discountCard(offer()).description!, /위험:/);
 });
 
@@ -383,4 +383,11 @@ test("a PromoClock deal is a card until its own end date", () => {
   assert.ok(
     !shouldCardCandidate(deal("Half price (2026-08-01 ~ 2026-08-20).")),
   );
+});
+
+test("a board post's card names its forum without giving it a domain", () => {
+  const card = discountCard(
+    boardPost({ url: "https://www.v2ex.com/t/1254849" }),
+  );
+  assert.equal(card.author, "커뮤니티 · www.v2ex.com");
 });

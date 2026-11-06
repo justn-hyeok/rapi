@@ -633,22 +633,31 @@ export class CreditFeedRoute {
   }
 }
 
-// The board also carries phone coupons and game accounts. Checked against its 25
-// newest posts on 2026-11-05.
+// The boards also carry phone coupons, game accounts and proxy IPs. Checked
+// against linux.do's 25 newest posts on 2026-11-05 and V2EX's 50 on 2026-11-06.
 const COMMUNITY_AI =
   /api|gpt|claude|gemini|deepseek|kiro|codex|llm|token|glm|qwen|kimi|大模型|模型|中转|号池/i;
+// Not a bare 折, which is also 折腾 (fuss); not 充值 (top-up), which sellers of
+// subscriptions use for their everyday service.
 const COMMUNITY_OFFER =
-  /送|折|免费|限时|福利|优惠|活动|白嫖|充值|\d(?:\.\d+)?\s*x\b/i;
+  /送|免费|限时|福利|优惠|活动|白嫖|福袋|体验金|\d+(?:\.\d+)?\s*折|打折|折扣|\d(?:\.\d+)?\s*x\b/i;
+// Proxy IPs, phone numbers for sign-up codes and resold subscriptions.
+const NOT_TOKENS = /住宅|代理|机场|接码|账号|账户|代充|直充|充值/;
 
 export function isCommunityOffer(title: string): boolean {
-  return COMMUNITY_AI.test(title) && COMMUNITY_OFFER.test(title);
+  return (
+    COMMUNITY_AI.test(title) &&
+    COMMUNITY_OFFER.test(title) &&
+    !NOT_TOKENS.test(title)
+  );
 }
 
 /**
- * linux.do's offers board, where relay services announce their deals. Strangers
- * write these, so the post is not followed to any service: its link is the post.
- * Not in the shipped source list: Cloudflare answers this client with a challenge,
- * and that is the site's call. It stays off rather than being worked around.
+ * A forum board where relay services announce their deals, such as V2EX's
+ * promotions node. Strangers write these, so the post is not followed to any
+ * service: its link is the post. linux.do's offers board is not in the shipped
+ * list: Cloudflare answers this client with a challenge, and that is the site's
+ * call. It stays off rather than being worked around.
  */
 export class CommunityRoute {
   private readonly feed: FeedSourceAdapter;
@@ -675,7 +684,8 @@ export class CommunityRoute {
           dedupeKey: `community:${item.externalId}`,
           domain: null,
           title: plainText(item.title, 300),
-          url: item.url,
+          // V2EX links a post at its reply count, which changes.
+          url: item.url.replace(/#reply\d+$/, ""),
           evidence: plainText(item.body, 600).slice(
             0,
             DISCOUNT_EVIDENCE_MAX_CHARS,
