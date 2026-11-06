@@ -10,7 +10,6 @@ import { readSource, type SourceHttpOptions } from "./sources.js";
 // sign-up credit. Not "free tier" or "100x cheaper", which every page says.
 const OFFER =
   /\$\s?\d[\d.,]*\s*(?:in\s+)?(?:free\s+)?(?:api\s+)?(?:credits?|bonus)\b|\bfree\s+(?:api\s+)?credits?\b|\d+\s?%\s*(?:off|discount)\b|注册.{0,8}(?:送|赠|获得)|赠送.{0,10}(?:\$|¥|￥|额度)|免费额度|가입.{0,8}(?:지급|증정)|무료\s*크레딧/i;
-const AROUND_CHARS = 70;
 // A page this short is a script shell, such as new-api's front page.
 const SHELL_PAGE_CHARS = 500;
 
@@ -21,12 +20,9 @@ const BREAK =
 const PHRASE_MAX_CHARS = 80;
 
 /**
- * The first concrete offer on a page, or null: the phrase it sits in, for a
- * title, and the words around it, for the evidence.
+ * The first concrete offer on a page, or null: the phrase it sits in.
  */
-export function offerOnPage(
-  text: string,
-): { phrase: string; around: string } | null {
+export function offerOnPage(text: string): { phrase: string } | null {
   const clean = plainText(text, 200_000);
   const match = OFFER.exec(clean);
   if (!match) return null;
@@ -41,11 +37,8 @@ export function offerOnPage(
     windowStart + (lastBreak ? lastBreak.index + lastBreak[0].length : 0);
   const after = clean.slice(end, end + PHRASE_MAX_CHARS);
   const to = end + (BREAK.exec(after)?.index ?? after.length);
-  const start = Math.max(0, match.index - AROUND_CHARS);
-  const stop = Math.min(clean.length, end + AROUND_CHARS);
   return {
     phrase: clean.slice(from, to).trim().slice(0, PHRASE_MAX_CHARS),
-    around: `${start > 0 ? "…" : ""}${clean.slice(start, stop).trim()}${stop < clean.length ? "…" : ""}`,
   };
 }
 
@@ -111,7 +104,10 @@ export async function siteOffer(
     domain,
     title: `${domain}: ${plainText(phrase, 200)}`,
     url: `https://${domain.startsWith("api.") ? domain.slice(4) : domain}/`,
-    evidence: plainText(onPage?.around ?? phrase, 600),
+    // The page around an offer is menus and quotes; the card says where it was.
+    evidence: onPage
+      ? `${domain} 첫 화면에 적힌 혜택`
+      : `${domain}의 공개 상태(/api/status)에 적힌 초대 보너스`,
     publishedAt: null,
   };
 }
