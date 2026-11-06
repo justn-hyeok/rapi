@@ -1,4 +1,5 @@
-import { CARD_COLOR, clip, type DiscordCard } from "./discord-card.js";
+import { templateCard, templateText } from "./card-template.js";
+import { clip, type DiscordCard } from "./discord-card.js";
 import { escapeMarkdown, plainLine } from "./discount-cards.js";
 
 /** Shown to anyone using Rapi in a guild the operator has not approved. */
@@ -37,30 +38,16 @@ export function cleanGuildText(
 export function guildRequestCard(request: GuildRequestForCard): DiscordCard {
   const text = (value: string, limit: number) =>
     escapeMarkdown(clip(plainLine(value), limit));
-  return {
-    title: "새 서버 승인 요청",
-    fields: [
-      {
-        name: "서버",
-        value: request.name
-          ? text(request.name, GUILD_NAME_MAX_CHARS)
-          : "이름을 확인하지 못했습니다. 봇이 그 서버에 없을 수 있습니다.",
-      },
-      { name: "서버 ID", value: request.guildId },
-      ...(request.requesterId
-        ? [{ name: "요청자", value: `<@${request.requesterId}>` }]
-        : []),
-      ...(request.reason
-        ? [
-            {
-              name: "사유",
-              value: text(request.reason, GUILD_REQUEST_REASON_MAX_CHARS),
-            },
-          ]
-        : []),
-    ],
-    color: CARD_COLOR.warn,
-  };
+  return templateCard("guildRequest", {
+    서버: request.name
+      ? text(request.name, GUILD_NAME_MAX_CHARS)
+      : templateText("guildNameUnknown"),
+    서버ID: request.guildId,
+    요청자: request.requesterId ? `<@${request.requesterId}>` : "",
+    사유: request.reason
+      ? text(request.reason, GUILD_REQUEST_REASON_MAX_CHARS)
+      : "",
+  });
 }
 
 /** Home guild: explicit setting, then the community guild, then the first allowed guild. */

@@ -1,7 +1,7 @@
 import {
-  CARD_COLOR,
   discordEmbed,
   releaseSummary,
+  templateCard,
   type DeliveryAdapter,
 } from "@rapi/core";
 import type { PostgresStore } from "@rapi/db";
@@ -49,12 +49,13 @@ export async function announceRapiUpdate(input: {
           html: "",
           itemIds: [],
           discord: messageBody([
-            discordEmbed({
-              title: `라피 ${release.tag}`,
-              url: release.url,
-              description: releaseSummary(release.body),
-              color: CARD_COLOR.info,
-            }),
+            discordEmbed(
+              templateCard(
+                "rapiUpdate",
+                { 태그: release.tag, 요약: releaseSummary(release.body) },
+                { url: release.url },
+              ),
+            ),
           ]),
         },
         `rapi-update:${release.tag}:${channelId}`,

@@ -1,4 +1,5 @@
-import { CARD_COLOR, clip, type DiscordCard } from "./discord-card.js";
+import { templateCard } from "./card-template.js";
+import { clip, type DiscordCard } from "./discord-card.js";
 import { kstDateKey } from "./curation.js";
 import { cardLink, escapeMarkdown, plainLine } from "./discount-cards.js";
 
@@ -65,27 +66,19 @@ export function pickForgottenStars(
 
 /** The repository's own words are a stranger's, so they show as plain text. */
 export function starCard(star: StoredStar): DiscordCard {
-  const link = cardLink(star.url);
-  return {
-    author: "잊고 있던 스타",
-    title: escapeMarkdown(plainLine(star.fullName)),
-    ...(link ? { url: link } : {}),
-    description: [
-      escapeMarkdown(
+  return templateCard(
+    "star",
+    {
+      저장소: escapeMarkdown(plainLine(star.fullName)),
+      설명: escapeMarkdown(
         clip(plainLine(star.description), STAR_DESCRIPTION_MAX_CHARS),
       ),
-      [
-        star.language ? escapeMarkdown(plainLine(star.language)) : "",
-        `★ ${star.stars.toLocaleString("en-US")}`,
-        `${kstDateKey(star.starredAt)}에 누름`,
-      ]
-        .filter(Boolean)
-        .join(" · "),
-    ]
-      .filter(Boolean)
-      .join("\n"),
-    color: CARD_COLOR.info,
-  };
+      언어: star.language ? escapeMarkdown(plainLine(star.language)) : "",
+      별: star.stars.toLocaleString("en-US"),
+      누른날: kstDateKey(star.starredAt),
+    },
+    { url: cardLink(star.url) },
+  );
 }
 
 /** A link button to the repository. Discord shows a label as plain text. */
