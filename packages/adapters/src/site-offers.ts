@@ -14,17 +14,39 @@ const AROUND_CHARS = 70;
 // A page this short is a script shell, such as new-api's front page.
 const SHELL_PAGE_CHARS = 500;
 
-/** The words around the first concrete offer on a page, or null. */
-export function offerOnPage(text: string): string | null {
+// Where a phrase on a page ends: a sentence mark, the gap between page parts,
+// or a space between Chinese words, which Chinese only puts between buttons.
+const BREAK =
+  /[。！？，!?|·•]|\.\s|\s{2,}|(?<=\p{Script=Han})\s(?=\p{Script=Han})/u;
+const PHRASE_MAX_CHARS = 80;
+
+/**
+ * The first concrete offer on a page, or null: the phrase it sits in, for a
+ * title, and the words around it, for the evidence.
+ */
+export function offerOnPage(
+  text: string,
+): { phrase: string; around: string } | null {
   const clean = plainText(text, 200_000);
   const match = OFFER.exec(clean);
   if (!match) return null;
+  const end = match.index + match[0].length;
+  // One character past the match start, so a break right before it can see what follows.
+  const windowStart = Math.max(0, match.index - PHRASE_MAX_CHARS);
+  const before = clean.slice(windowStart, match.index + 1);
+  const lastBreak = [...before.matchAll(new RegExp(BREAK, "gu"))]
+    .filter((mark) => mark.index < match.index - windowStart)
+    .at(-1);
+  const from =
+    windowStart + (lastBreak ? lastBreak.index + lastBreak[0].length : 0);
+  const after = clean.slice(end, end + PHRASE_MAX_CHARS);
+  const to = end + (BREAK.exec(after)?.index ?? after.length);
   const start = Math.max(0, match.index - AROUND_CHARS);
-  const end = Math.min(
-    clean.length,
-    match.index + match[0].length + AROUND_CHARS,
-  );
-  return `${start > 0 ? "…" : ""}${clean.slice(start, end).trim()}${end < clean.length ? "…" : ""}`;
+  const stop = Math.min(clean.length, end + AROUND_CHARS);
+  return {
+    phrase: clean.slice(from, to).trim().slice(0, PHRASE_MAX_CHARS),
+    around: `${start > 0 ? "…" : ""}${clean.slice(start, stop).trim()}${stop < clean.length ? "…" : ""}`,
+  };
 }
 
 /**
@@ -75,20 +97,21 @@ export async function siteOffer(
   page: ServicePage | null,
   options: SourceHttpOptions & { resolve?: ResolveHostname } = {},
 ): Promise<DiscountCandidate | null> {
-  const words =
-    (page ? offerOnPage(page.text) : null) ??
-    (!page || page.text.length < SHELL_PAGE_CHARS
+  const onPage = page ? offerOnPage(page.text) : null;
+  const bonus =
+    !onPage && (!page || page.text.length < SHELL_PAGE_CHARS)
       ? await newApiBonus(domain, options)
-      : null);
-  if (!words) return null;
+      : null;
+  const phrase = onPage?.phrase ?? bonus;
+  if (!phrase) return null;
   return {
     kind: "discount",
     route: "site_offer",
     dedupeKey: `site_offer:${domain}`,
     domain,
-    title: `${domain}: ${plainText(words, 200)}`,
+    title: `${domain}: ${plainText(phrase, 200)}`,
     url: `https://${domain.startsWith("api.") ? domain.slice(4) : domain}/`,
-    evidence: plainText(words, 600),
+    evidence: plainText(onPage?.around ?? phrase, 600),
     publishedAt: null,
   };
 }
