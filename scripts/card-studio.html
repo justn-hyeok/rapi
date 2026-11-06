@@ -291,7 +291,7 @@
       <h1>카드 스튜디오</h1>
       <span id="status">불러오는 중</span>
       <button id="revert" type="button">파일에서 다시 읽기</button>
-      <button id="save" class="primary" type="button" disabled>저장</button>
+      <button id="save" class="primary" type="button">저장</button>
     </header>
     <main>
       <section id="editor" aria-label="템플릿 편집">
@@ -345,10 +345,22 @@
         $("#status").className = kind;
       }
 
+      const DRAFT = "rapi-card-studio-draft";
+      function keepDraft(dirty) {
+        try {
+          if (dirty) localStorage.setItem(DRAFT, JSON.stringify(templates));
+          else localStorage.removeItem(DRAFT);
+        } catch {}
+      }
+
       function changed() {
         const dirty = JSON.stringify(templates) !== saved;
-        $("#save").disabled = !dirty;
-        setStatus(dirty ? "저장 안 됨" : "저장됨", dirty ? "dirty" : "");
+        // Saving is always possible: a missed edit must never make it a no-op.
+        keepDraft(dirty);
+        setStatus(
+          dirty ? "저장 안 됨 (브라우저에 임시 보관 중)" : "파일과 같음",
+          dirty ? "dirty" : "",
+        );
         clearTimeout(timer);
         timer = setTimeout(renderPreview, 150);
       }
@@ -671,24 +683,35 @@
         }
       }
 
-      async function load() {
+      async function load({ useDraft = true } = {}) {
         const state = await call("/api/templates");
-        templates = state.templates;
-        saved = JSON.stringify(templates);
+        saved = JSON.stringify(state.templates);
+        let draft = null;
+        try {
+          draft = useDraft ? localStorage.getItem(DRAFT) : null;
+        } catch {}
+        const restored = Boolean(draft && draft !== saved);
+        templates = restored ? JSON.parse(draft) : state.templates;
         samples = state.samples;
         buildForms();
         renderSamples();
         changed();
+        if (restored)
+          setStatus("저장 안 한 변경을 브라우저에서 되살렸습니다", "dirty");
       }
 
       $("#save").addEventListener("click", async () => {
+        setStatus("저장 중…");
         try {
-          await call("/api/save", templates);
+          const result = await call("/api/save", templates);
           saved = JSON.stringify(templates);
           changed();
-          setStatus("저장됨. 커밋하면 배포됩니다.");
+          setStatus(
+            `저장됨 ${new Date(result.at).toLocaleTimeString()} · 커밋하면 배포됩니다`,
+          );
         } catch (error) {
           setStatus(`저장 실패: ${error.message}`, "error");
+          alert(`저장 실패: ${error.message}`);
         }
       });
       $("#revert").addEventListener("click", () => {
@@ -697,7 +720,9 @@
           !confirm("저장하지 않은 변경을 버릴까요?")
         )
           return;
-        load().catch((error) => setStatus(error.message, "error"));
+        load({ useDraft: false }).catch((error) =>
+          setStatus(error.message, "error"),
+        );
       });
       window.addEventListener("beforeunload", (event) => {
         if (JSON.stringify(templates) !== saved) event.preventDefault();

@@ -289,17 +289,21 @@ const server = createServer(async (request, response) => {
     if (request.method === "POST" && request.url === "/api/save") {
       const templates = (await readBody(request)) as CardTemplates;
       render(templates);
-      await writeFile(
-        TEMPLATE_FILE,
-        await format(JSON.stringify(templates), { parser: "json" }),
-      );
-      return send(200, { saved: TEMPLATE_FILE });
+      const text = await format(JSON.stringify(templates), { parser: "json" });
+      await writeFile(TEMPLATE_FILE, text);
+      // Read it back, so the page only says saved when the file says so.
+      const written = await readFile(TEMPLATE_FILE, "utf8");
+      if (written !== text) throw new Error("파일에 쓴 내용이 다릅니다");
+      console.log(`${new Date().toLocaleTimeString()} 저장: ${TEMPLATE_FILE}`);
+      return send(200, { saved: TEMPLATE_FILE, at: new Date().toISOString() });
     }
     send(404, { error: "not_found" });
   } catch (error) {
-    send(400, {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    const message = error instanceof Error ? error.message : String(error);
+    console.log(
+      `${new Date().toLocaleTimeString()} ${request.method} ${request.url} 실패: ${message}`,
+    );
+    send(400, { error: message });
   }
 });
 
