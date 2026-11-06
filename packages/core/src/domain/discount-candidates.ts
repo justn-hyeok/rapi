@@ -11,7 +11,8 @@ export type DiscountCandidateRoute =
   | "relay_list"
   | "promoclock"
   | "relay_site"
-  | "free_list";
+  | "free_list"
+  | "commit_log";
 
 /**
  * Routes whose rows are strangers' claims: a forum post, someone else's list of
