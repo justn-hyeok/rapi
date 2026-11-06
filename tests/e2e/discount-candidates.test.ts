@@ -23,6 +23,10 @@ describe("discount candidates", () => {
         publishedAt: "2026-11-01T00:00:00.000Z",
       } as const;
       assert.equal(await store.saveDiscountCandidate(candidate), true);
+      assert.deepEqual(
+        [...(await store.knownCandidateKeys(["changelog:a", "changelog:b"]))],
+        ["changelog:a"],
+      );
       assert.equal(
         await store.saveDiscountCandidate({ ...candidate, title: "Changed" }),
         false,
