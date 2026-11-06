@@ -53,7 +53,7 @@ const ROUTE_LABEL: Record<DiscountCandidateRoute, string> = {
   hacker_news: "Hacker News",
   credit_feed: "aifree.dev",
   community: "linux.do",
-  relay_list: "공익站 목록",
+  relay_list: "무료 중계 목록",
 };
 const DETAIL_MAX_CHARS = 300;
 // The longest URL Discord accepts on a link button.
