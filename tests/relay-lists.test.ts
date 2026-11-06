@@ -264,6 +264,21 @@ test("a failed translation keeps the original and says so", async () => {
   assert.deepEqual(failures, ["o/t/README.md: translation: model down"]);
 });
 
+test("the shipped free lists skip what the OpenRouter route already watches", async () => {
+  const sources = await loadDiscountSources(process.cwd());
+  assert.deepEqual(
+    sources.freeLists?.map(({ repository, format, exclude }) => [
+      repository,
+      format,
+      exclude,
+    ]),
+    [
+      ["mnfst/awesome-free-llm-apis", "free-llm-apis", ["openrouter.ai"]],
+      ["nejib1/Free-LLM", "table", undefined],
+    ],
+  );
+});
+
 test("the shipped lists are the four relay lists", async () => {
   const sources = await loadDiscountSources(process.cwd());
   assert.deepEqual(
@@ -274,5 +289,81 @@ test("the shipped lists are the four relay lists", async () => {
       ["kirito8/free-newapi", "table"],
       ["yeziqaz/API-Public-Benefits-Sites", "table"],
     ],
+  );
+});
+
+const FREE: RelayListSource = {
+  repository: "o/free",
+  path: "data.json",
+  format: "free-llm-apis",
+  exclude: ["openrouter.ai"],
+};
+const provider = (
+  name: string,
+  url: string,
+  description: string,
+  models: string[],
+) => ({
+  name,
+  url,
+  description,
+  models: models.map((id) => ({ id })),
+});
+const freeData = (...providers: unknown[]) => JSON.stringify({ providers });
+
+test("a free list reports new providers and new free models, never reworded limits", async () => {
+  const before = freeData(
+    provider(
+      "Cohere",
+      "https://dashboard.cohere.com/api-keys",
+      "1,000 calls/month.",
+      ["a"],
+    ),
+    provider("OpenRouter", "https://openrouter.ai/keys", "50 a day.", [
+      "x:free",
+    ]),
+  );
+  const after = freeData(
+    provider(
+      "Cohere",
+      "https://dashboard.cohere.com/api-keys",
+      "500 calls/month.",
+      ["a", "b"],
+    ),
+    provider("OpenRouter", "https://openrouter.ai/keys", "50 a day.", [
+      "x:free",
+      "y:free",
+    ]),
+    provider("Gonka", "https://gonka.test/", "Permanent free tier.", []),
+  );
+  const route = (body: string) => new RelayListRoute({ fetch: serving(body) });
+  const { cursor } = await route(before).collect(FREE, null, "free_list");
+  const { candidates } = await route(after).collect(FREE, cursor!, "free_list");
+  assert.deepEqual(
+    candidates.map((c) => [
+      c.route,
+      c.dedupeKey.replace(/:[0-9a-f]{12}$/, ":#"),
+      c.title,
+    ]),
+    [
+      [
+        "free_list",
+        "free_list:dashboard.cohere.com:models:#",
+        "Cohere: 무료 모델 추가 (b)",
+      ],
+      ["free_list", "free_list:gonka.test:new", "Gonka: Permanent free tier."],
+    ],
+  );
+});
+
+test("a README table's limit columns are read when there is no credit column", () => {
+  const readme = [
+    "| Provider | Credit Card? | Daily Limit | Monthly Limit |",
+    "|:---|:---:|:---|:---|",
+    "| [Mistral](https://console.mistral.ai/) | Phone | - | Free |",
+  ].join("\n");
+  assert.deepEqual(
+    parseRelayList("table", readme).map(({ key, offer }) => [key, offer]),
+    [["console.mistral.ai", "Free"]],
   );
 });

@@ -10,7 +10,8 @@ export type DiscountCandidateRoute =
   | "community"
   | "relay_list"
   | "promoclock"
-  | "relay_site";
+  | "relay_site"
+  | "free_list";
 
 /**
  * Routes whose rows are strangers' claims: a forum post, someone else's list of
