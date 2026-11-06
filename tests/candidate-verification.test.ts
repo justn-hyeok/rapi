@@ -304,3 +304,21 @@ test("a board post is yellow and risky whatever it says about itself", () => {
   assert.equal(result.band, "yellow");
   assert.ok(result.tags.includes("#위험"));
 });
+
+test("a listed relay site is yellow, risky and resold whatever its page says", () => {
+  const result = verifyCandidate(
+    {
+      id: "10",
+      kind: "discount",
+      route: "relay_list",
+      domain: "relay.test",
+      title: "Relay: 가입 $100",
+      evidence: "a/b 목록에 새로 올라옴",
+    },
+    null,
+    page("Acme Inc. no markup, our own GPUs"),
+  );
+  assert.equal(result.band, "yellow");
+  assert.ok(result.tags.includes("#위험"));
+  assert.ok(result.tags.includes("#재판매"));
+});

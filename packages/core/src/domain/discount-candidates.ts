@@ -7,7 +7,17 @@ export type DiscountCandidateRoute =
   | "catalog"
   | "hacker_news"
   | "credit_feed"
-  | "community";
+  | "community"
+  | "relay_list";
+
+/**
+ * Routes whose rows are strangers' claims: a forum post, or someone else's list of
+ * free relay sites. They are always risky, and they share one daily card limit.
+ */
+export const UNVETTED_ROUTES: readonly DiscountCandidateRoute[] = [
+  "community",
+  "relay_list",
+];
 
 export interface DiscountCandidate {
   kind: DiscountCandidateKind;

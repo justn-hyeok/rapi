@@ -16,7 +16,11 @@ import type {
   StoredStar,
   Visibility,
 } from "@rapi/core";
-import { parseHtmlSourcePolicy, validateHtmlSourceLocator } from "@rapi/core";
+import {
+  parseHtmlSourcePolicy,
+  UNVETTED_ROUTES,
+  validateHtmlSourceLocator,
+} from "@rapi/core";
 
 interface RawEventResult {
   id: string;
@@ -337,12 +341,13 @@ export class PostgresStore {
   }
 
   /** Sent ones only, as for new services. */
-  async communityCardsInLastDay(): Promise<number> {
+  async unvettedCardsInLastDay(): Promise<number> {
     const { rows } = await this.pool.query<{ count: number }>(
       `SELECT count(*)::int AS count FROM discount_candidates
-       WHERE route = 'community'
+       WHERE route = ANY($1)
          AND card_message_id IS NOT NULL
          AND carded_at > now() - interval '24 hours'`,
+      [[...UNVETTED_ROUTES]],
     );
     return rows[0]!.count;
   }

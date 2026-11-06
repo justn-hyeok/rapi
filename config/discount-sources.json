@@ -179,5 +179,27 @@
       "service": "reseller",
       "tags": []
     }
+  ],
+  "relayLists": [
+    {
+      "repository": "boyan0928/ai-welfare-hub",
+      "path": "data/sites.json",
+      "format": "welfare-hub"
+    },
+    {
+      "repository": "liumowan/Free-API",
+      "path": "data/stations.json",
+      "format": "stations"
+    },
+    {
+      "repository": "kirito8/free-newapi",
+      "path": "README.md",
+      "format": "table"
+    },
+    {
+      "repository": "yeziqaz/API-Public-Benefits-Sites",
+      "path": "README.md",
+      "format": "table"
+    }
   ]
 }

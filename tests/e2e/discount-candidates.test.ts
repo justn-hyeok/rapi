@@ -37,6 +37,32 @@ describe("discount candidates", () => {
     }
   });
 
+  it("counts board posts and list entries together toward their daily limit", async () => {
+    const store = new PostgresStore(databaseUrl);
+    try {
+      await store.resetForTests();
+      const row = (route: "community" | "relay_list" | "changelog") =>
+        ({
+          kind: "discount",
+          route,
+          dedupeKey: `${route}:a`,
+          domain: null,
+          title: "送 $5",
+          url: "https://x.test/a",
+          evidence: "",
+          publishedAt: null,
+        }) as const;
+      for (const route of ["community", "relay_list", "changelog"] as const)
+        await store.saveDiscountCandidate(row(route));
+      await store.pool.query(
+        "UPDATE discount_candidates SET carded_at = now(), card_message_id = '1'",
+      );
+      assert.equal(await store.unvettedCardsInLastDay(), 2);
+    } finally {
+      await store.close();
+    }
+  });
+
   it("records a verification once and never overwrites a red set by hand", async () => {
     const store = new PostgresStore(databaseUrl);
     try {
