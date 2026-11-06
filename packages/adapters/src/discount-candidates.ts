@@ -584,6 +584,8 @@ export class HackerNewsRoute {
 export interface FeedOfferSource {
   url: string;
   maxAgeDays: number;
+  // "curl" for a site that challenges Node's HTTP client but answers curl.
+  client?: "curl";
 }
 
 const LISTED_SUFFIX = /:\s*Listed$/i;
@@ -655,9 +657,8 @@ export function isCommunityOffer(title: string): boolean {
 /**
  * A forum board where relay services announce their deals, such as V2EX's
  * promotions node. Strangers write these, so the post is not followed to any
- * service: its link is the post. linux.do's offers board is not in the shipped
- * list: Cloudflare answers this client with a challenge, and that is the site's
- * call. It stays off rather than being worked around.
+ * service: its link is the post. linux.do's offers board challenges Node's HTTP
+ * client, so it is read through curl, still saying it is rapi.
  */
 export class CommunityRoute {
   private readonly feed: FeedSourceAdapter;
