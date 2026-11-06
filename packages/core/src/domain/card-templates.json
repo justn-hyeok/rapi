@@ -1,0 +1,89 @@
+{
+  "colors": {
+    "info": "#365d46",
+    "warn": "#b5651d",
+    "green": "#2e9e5b",
+    "yellow": "#e0b020"
+  },
+  "routeLabels": {
+    "changelog": "공식 변경로그",
+    "pull_request": "PR",
+    "code_search": "코드 검색",
+    "report": "제보",
+    "catalog": "OpenRouter",
+    "hacker_news": "Hacker News",
+    "credit_feed": "aifree.dev",
+    "community": "커뮤니티",
+    "relay_list": "무료 중계 목록",
+    "promoclock": "PromoClock",
+    "relay_site": "중계 사이트",
+    "free_list": "무료 API 목록",
+    "commit_log": "요금제 변경 기록"
+  },
+  "cards": {
+    "discount": {
+      "author": "{출처}[[ · {도메인}]]",
+      "title": "{제목}",
+      "lines": [
+        "[[{위험}]]",
+        "{내용}",
+        "[[마감: {마감}]]",
+        "[[운영: {운영}]]",
+        "[[가격: {가격}]]",
+        "[[약관: {약관}]]",
+        "{태그}"
+      ],
+      "footer": "",
+      "color": "{띠}",
+      "risk": "위험: 검증하지 않은 커뮤니티 글입니다. 계정 풀 재판매이거나 갑자기 막힐 수 있습니다."
+    },
+    "review": {
+      "author": "",
+      "title": "",
+      "lines": ["[[메모: {메모}]]"],
+      "footer": "",
+      "color": ""
+    },
+    "problem": {
+      "author": "문제 제보",
+      "title": "{도메인}",
+      "lines": ["링크: {링크}", "[[메모: {메모}]]", "제보자: {제보자}"],
+      "footer": "",
+      "color": "warn"
+    },
+    "guildRequest": {
+      "author": "",
+      "title": "새 서버 승인 요청",
+      "lines": [],
+      "fields": [
+        { "name": "서버", "value": "{서버}" },
+        { "name": "서버 ID", "value": "{서버ID}" },
+        { "name": "요청자", "value": "[[{요청자}]]" },
+        { "name": "사유", "value": "[[{사유}]]" }
+      ],
+      "footer": "",
+      "color": "warn"
+    },
+    "star": {
+      "author": "잊고 있던 스타",
+      "title": "{저장소}",
+      "lines": ["{설명}", "[[{언어} · ]]★ {별} · {누른날}에 누름"],
+      "footer": "",
+      "color": "info"
+    },
+    "rapiUpdate": {
+      "author": "",
+      "title": "라피 {태그}",
+      "lines": ["{요약}"],
+      "footer": "",
+      "color": "info"
+    }
+  },
+  "texts": {
+    "channelTest": "이 채널로 {종류} 알림을 보냅니다.",
+    "priceBelowList": "정가보다 쌈",
+    "priceList": "정가",
+    "unnamed": "이름 없는 후보",
+    "guildNameUnknown": "이름을 확인하지 못했습니다. 봇이 그 서버에 없을 수 있습니다."
+  }
+}

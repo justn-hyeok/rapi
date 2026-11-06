@@ -10,7 +10,13 @@ import {
   type DiscountCandidateKind,
   type DiscountCandidateRoute,
 } from "./discount-candidates.js";
-import { CARD_COLOR, clip, type DiscordCard } from "./discord-card.js";
+import {
+  cardTemplates,
+  fillTemplate,
+  templateCard,
+  templateText,
+} from "./card-template.js";
+import { clip, type DiscordCard } from "./discord-card.js";
 
 export interface CandidateForCard {
   id: string;
@@ -43,22 +49,6 @@ export interface ProblemReportForCard {
 
 export type ProblemDecision = "red" | "no_problem";
 
-const BAND_COLOR = { green: 0x2e9e5b, yellow: 0xe0b020 } as const;
-const ROUTE_LABEL: Record<DiscountCandidateRoute, string> = {
-  changelog: "공식 변경로그",
-  pull_request: "PR",
-  code_search: "코드 검색",
-  report: "제보",
-  catalog: "OpenRouter",
-  hacker_news: "Hacker News",
-  credit_feed: "aifree.dev",
-  community: "커뮤니티",
-  relay_list: "무료 중계 목록",
-  promoclock: "PromoClock",
-  relay_site: "중계 사이트",
-  free_list: "무료 API 목록",
-  commit_log: "요금제 변경 기록",
-};
 const DETAIL_MAX_CHARS = 300;
 // The longest URL Discord accepts on a link button.
 const LINK_MAX_CHARS = 512;
@@ -87,9 +77,6 @@ const END_DATE = new RegExp(
   "iu",
 );
 export const DEADLINE_MAX_CHARS = 40;
-const RISK_LINE =
-  "위험: 검증하지 않은 커뮤니티 글입니다. 계정 풀 재판매이거나 갑자기 막힐 수 있습니다.";
-
 const MONTHS = "janfebmaraprmayjunjulaugsepoctnovdec";
 const HOURS_AHEAD_OF_UTC = 9;
 
@@ -219,18 +206,25 @@ export function findDeadline(
   return end?.[1] ?? end?.[2] ?? ANY_DATE.exec(text)?.[0] ?? "";
 }
 
-/** The line a confirmed deadline shows as. Blank shows nothing. */
-export function deadlineLine(deadline: string): string {
+const deadlineValue = (deadline: string) => {
   const clean = plainLine(deadline);
-  return clean
-    ? `마감: ${escapeMarkdown(clip(clean, DEADLINE_MAX_CHARS))}`
-    : "";
+  return clean ? escapeMarkdown(clip(clean, DEADLINE_MAX_CHARS)) : "";
+};
+
+/** The line a confirmed deadline shows as, from the card's own deadline line. Blank shows nothing. */
+export function deadlineLine(deadline: string): string {
+  const line =
+    cardTemplates().cards.discount.lines.find((text) =>
+      text.includes("{마감}"),
+    ) ?? "[[마감: {마감}]]";
+  return fillTemplate(line, { 마감: deadlineValue(deadline) });
 }
 
 /** ROADMAP's "정해진 카드 규칙": source, linked title, details, tags. */
 export function discountCard(
   candidate: CandidateForCard,
   deadline = "",
+  extraLines: string[] = [],
 ): DiscordCard {
   const link = cardLink(candidate.url);
   // A post's domain stays empty so a red mark cannot reach the whole forum; the
@@ -247,49 +241,42 @@ export function discountCard(
   );
   const price =
     candidate.priceCheck === "below_list"
-      ? "정가보다 쌈"
+      ? templateText("priceBelowList")
       : candidate.priceCheck === "list_price"
-        ? "정가"
-        : null;
+        ? templateText("priceList")
+        : "";
   const risky = candidate.tags.includes("#위험");
-  return {
-    author: [ROUTE_LABEL[candidate.route], domain].filter(Boolean).join(" · "),
-    title: escapeMarkdown(title || domain) || "이름 없는 후보",
-    ...(link ? { url: link } : {}),
-    description: [
-      risky ? RISK_LINE : "",
-      escapeMarkdown(clip(detail, DETAIL_MAX_CHARS)),
-      deadlineLine(deadline),
-      candidate.operator
-        ? `운영: ${escapeMarkdown(plainLine(candidate.operator))}`
+  return templateCard(
+    "discount",
+    {
+      출처: cardTemplates().routeLabels[candidate.route] ?? candidate.route,
+      도메인: domain,
+      제목: escapeMarkdown(title || domain) || templateText("unnamed"),
+      위험: risky ? (cardTemplates().cards.discount.risk ?? "") : "",
+      내용: escapeMarkdown(clip(detail, DETAIL_MAX_CHARS)),
+      마감: deadlineValue(deadline),
+      운영: candidate.operator
+        ? escapeMarkdown(plainLine(candidate.operator))
         : "",
-      price ? `가격: ${price}` : "",
-      candidate.termsNote ? `약관: ${candidate.termsNote}` : "",
-      candidate.tags.join(" "),
-    ]
-      .filter(Boolean)
-      .join("\n"),
-    color: risky
-      ? CARD_COLOR.warn
-      : candidate.band === "green"
-        ? BAND_COLOR.green
-        : BAND_COLOR.yellow,
-  };
+      가격: price,
+      약관: candidate.termsNote ?? "",
+      태그: candidate.tags.join(" "),
+      띠: risky ? "warn" : candidate.band === "green" ? "green" : "yellow",
+    },
+    { url: link, extraLines },
+  );
 }
-
-const memoLine = (memo: string) => `메모: ${escapeMarkdown(plainLine(memo))}`;
 
 /** The card as the owner sees it: a report's memo is for reviewing, not publishing. */
 export function reviewCard(candidate: CandidateForCard): DiscordCard {
-  const card = discountCard(candidate);
-  return candidate.memo
-    ? {
-        ...card,
-        description: [card.description, memoLine(candidate.memo)]
-          .filter(Boolean)
-          .join("\n"),
-      }
-    : card;
+  const memo = candidate.memo ? escapeMarkdown(plainLine(candidate.memo)) : "";
+  return discountCard(
+    candidate,
+    "",
+    cardTemplates().cards.review.lines.map((line) =>
+      fillTemplate(line, { 메모: memo }),
+    ),
+  );
 }
 
 /**
@@ -297,18 +284,14 @@ export function reviewCard(candidate: CandidateForCard): DiscordCard {
  * can weigh it; a mention inside an embed shows the name and pings nobody.
  */
 export function problemCard(report: ProblemReportForCard): DiscordCard {
-  const link = cardLink(report.url);
-  return {
-    author: "문제 제보",
-    title: escapeMarkdown(plainLine(report.domain)),
-    ...(link ? { url: link } : {}),
-    description: [
-      `링크: ${escapeMarkdown(plainLine(report.url))}`,
-      report.memo ? memoLine(report.memo) : "",
-      `제보자: <@${report.reporterId}>`,
-    ]
-      .filter(Boolean)
-      .join("\n"),
-    color: CARD_COLOR.warn,
-  };
+  return templateCard(
+    "problem",
+    {
+      도메인: escapeMarkdown(plainLine(report.domain)),
+      링크: escapeMarkdown(plainLine(report.url)),
+      메모: report.memo ? escapeMarkdown(plainLine(report.memo)) : "",
+      제보자: `<@${report.reporterId}>`,
+    },
+    { url: cardLink(report.url) },
+  );
 }

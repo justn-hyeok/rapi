@@ -4,6 +4,7 @@ import {
   isAlertKind,
   isGuildAllowed,
   isReviewAlertKind,
+  templateText,
   type DeliveryAdapter,
   type DiscordIdentity,
   type PublicAlertKind,
@@ -130,7 +131,7 @@ export function createNotificationChannels(input: {
         throw new Error("채널을 찾지 못했습니다.");
 
       // Sending is the only sure test that the bot can post there.
-      const text = `이 채널로 ${label} 알림을 보냅니다.`;
+      const text = templateText("channelTest", { 종류: label });
       try {
         await input.delivery.send(
           { channel: "discord_channel", recipientId: channelId },
