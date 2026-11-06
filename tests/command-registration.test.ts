@@ -66,12 +66,24 @@ describe("command registration", () => {
       bodies.get(GLOBAL)?.map((command) => command.name),
       ["서버신청"],
     );
-    assert.deepEqual(
+    const names = (guild: string) =>
       bodies
-        .get("https://discord.com/api/v10/applications/app/guilds/c/commands")
-        ?.map((command) => command.name),
+        .get(
+          `https://discord.com/api/v10/applications/app/guilds/${guild}/commands`,
+        )
+        ?.map((command) => command.name);
+    assert.deepEqual(
+      names("home"),
       slashCommandDefinitions.map((command) => command.name),
     );
+    // Only the owner sets review alerts, at home, so nobody else is shown one.
+    for (const guild of ["a", "b", "c"])
+      assert.deepEqual(
+        names(guild),
+        slashCommandDefinitions
+          .map((command) => command.name)
+          .filter((name) => name !== "검토-알림"),
+      );
     assert.ok(
       !slashCommandDefinitions.some((command) => command.name === "서버신청"),
     );

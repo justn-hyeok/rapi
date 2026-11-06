@@ -305,17 +305,32 @@ async function putCommands(
   }
 }
 
-/** A guild gets every command; without one, only what an unapproved server may see. */
+/** What an approved guild sees. Only the owner sets review alerts, and only at home. */
+export function guildCommandDefinitions(
+  guildId: string,
+  homeGuildId: string | undefined,
+) {
+  return guildId === homeGuildId
+    ? slashCommandDefinitions
+    : slashCommandDefinitions.filter(
+        (command) => command.name !== REVIEW_ALERT_COMMAND,
+      );
+}
+
+/** A guild gets its commands; without one, only what an unapproved server may see. */
 export function registerSlashCommands(
   applicationId: string,
   botToken: string,
   guildId?: string,
+  homeGuildId?: string,
 ): Promise<void> {
   return putCommands(
     applicationId,
     botToken,
     guildId,
-    guildId ? slashCommandDefinitions : globalCommandDefinitions,
+    guildId
+      ? guildCommandDefinitions(guildId, homeGuildId)
+      : globalCommandDefinitions,
   );
 }
 
@@ -380,7 +395,12 @@ export async function registerAllowedGuildCommands(input: {
   );
   for (const guildId of [undefined, ...guildIds]) {
     try {
-      await registerSlashCommands(input.applicationId, input.botToken, guildId);
+      await registerSlashCommands(
+        input.applicationId,
+        input.botToken,
+        guildId,
+        input.homeGuildId,
+      );
     } catch (error) {
       failures.push(`${guildId ?? "global"}: ${reason(error)}`);
     }
