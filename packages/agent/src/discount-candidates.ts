@@ -5,6 +5,7 @@ import {
   CodeSearchRoute,
   CommitLogRoute,
   CommunityRoute,
+  curlFetch,
   CreditFeedRoute,
   DiscordRateLimitError,
   HackerNewsRoute,
@@ -161,7 +162,11 @@ export async function collectDiscountCandidates(input: {
   const communityJob = (source: FeedOfferSource) => ({
     kind: "candidate_community",
     locator: source.url,
-    collect: () => new CommunityRoute(http, input.now).collect(source),
+    collect: () =>
+      new CommunityRoute(
+        source.client === "curl" ? { ...http, fetch: curlFetch() } : http,
+        input.now,
+      ).collect(source),
   });
   const listJob =
     (route: "relay_list" | "free_list") => (source: RelayListSource) => ({

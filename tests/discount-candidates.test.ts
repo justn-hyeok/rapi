@@ -855,9 +855,10 @@ test("a V2EX post links the topic, not its changing reply count", async () => {
   );
 });
 
-test("the shipped boards are V2EX's promotions, not linux.do", async () => {
+test("the shipped boards are linux.do, read through curl, and V2EX", async () => {
   const sources = await loadDiscountSources(process.cwd());
   assert.deepEqual(sources.communities, [
+    { url: "https://linux.do/c/welfare/36.rss", maxAgeDays: 3, client: "curl" },
     { url: "https://www.v2ex.com/feed/promotions.xml", maxAgeDays: 3 },
   ]);
 });
