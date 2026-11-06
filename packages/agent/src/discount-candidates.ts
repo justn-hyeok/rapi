@@ -12,6 +12,7 @@ import {
   PromoClockRoute,
   PullRequestRoute,
   readServicePage,
+  siteOffer,
   RelayListRoute,
   RelaySiteRoute,
   UncertainDeliveryError,
@@ -307,7 +308,9 @@ export async function collectDiscountCandidates(input: {
 
 type VerificationStore = Pick<
   PostgresStore,
-  "unverifiedDiscountCandidates" | "saveCandidateVerification"
+  | "unverifiedDiscountCandidates"
+  | "saveCandidateVerification"
+  | "saveDiscountCandidate"
 >;
 
 // Pages are read one at a time; anything past this waits for tomorrow's run.
@@ -325,6 +328,7 @@ export async function verifyDiscountCandidates(
     store: VerificationStore;
     operators: readonly KnownOperator[];
     http?: SourceHttpOptions & { resolve?: ResolveHostname };
+    translate?: (texts: string[]) => Promise<string[]>;
   },
   only: { limit: number; route?: DiscountCandidateRoute } = {
     limit: VERIFICATIONS_PER_RUN,
@@ -348,14 +352,22 @@ export async function verifyDiscountCandidates(
       const page = candidate.domain
         ? await readServicePage(candidate.domain, http)
         : null;
+      const known = knownOperator(candidate.domain, operators);
       await store.saveCandidateVerification(
         candidate.id,
-        verifyCandidate(
-          candidate,
-          knownOperator(candidate.domain, operators),
-          page,
-        ),
+        verifyCandidate(candidate, known, page),
       );
+      // A new service's own page may already offer something: that is a deal
+      // of its own, found once, when the service is first checked.
+      if (candidate.kind === "new_service" && candidate.domain && !known) {
+        const offer = await siteOffer(candidate.domain, page, http);
+        if (offer) {
+          const translated = await inKorean([offer], input.translate);
+          if (translated.problem)
+            failures.push(`${candidate.domain}: ${translated.problem}`);
+          await store.saveDiscountCandidate(translated.candidates[0]!);
+        }
+      }
     } catch (error) {
       failures.push(
         `${candidate.domain ?? candidate.id}: ${error instanceof Error ? error.message : "failed"}`,

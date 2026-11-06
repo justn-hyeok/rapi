@@ -18,7 +18,8 @@
     "promoclock": "PromoClock",
     "relay_site": "중계 사이트",
     "free_list": "무료 API 목록",
-    "commit_log": "요금제 변경 기록"
+    "commit_log": "요금제 변경 기록",
+    "site_offer": "사이트 혜택"
   },
   "cards": {
     "discount": {
@@ -56,10 +57,22 @@
       "title": "새 서버 승인 요청",
       "lines": [],
       "fields": [
-        { "name": "서버", "value": "{서버}" },
-        { "name": "서버 ID", "value": "{서버ID}" },
-        { "name": "요청자", "value": "[[{요청자}]]" },
-        { "name": "사유", "value": "[[{사유}]]" }
+        {
+          "name": "서버",
+          "value": "{서버}"
+        },
+        {
+          "name": "서버 ID",
+          "value": "{서버ID}"
+        },
+        {
+          "name": "요청자",
+          "value": "[[{요청자}]]"
+        },
+        {
+          "name": "사유",
+          "value": "[[{사유}]]"
+        }
       ],
       "footer": "",
       "color": "warn"
