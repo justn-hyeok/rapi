@@ -12,6 +12,7 @@ import {
   HackerNewsRoute,
   isCommunityOffer,
   isPriceCut,
+  offerOnPage,
   PullRequestRoute,
 } from "@rapi/adapters";
 import {
@@ -932,4 +933,20 @@ test("the shipped boards are linux.do, read through curl, and V2EX", async () =>
     { url: "https://linux.do/c/welfare/36.rss", maxAgeDays: 3, client: "curl" },
     { url: "https://www.v2ex.com/feed/promotions.xml", maxAgeDays: 3 },
   ]);
+});
+
+test("a site offer's title is the phrase it sits in, not the page around it", () => {
+  assert.equal(
+    offerOnPage(
+      "稳定性99.9%以上 李文博 CTO 立即开始 注册即可获得免费额度 免费开始使用 浏览模型列表",
+    )!.phrase,
+    "注册即可获得免费额度",
+  );
+  assert.equal(
+    offerOnPage(
+      "Fast routing. Sign up today and get $5 in free credits. No card needed.",
+    )!.phrase,
+    "Sign up today and get $5 in free credits",
+  );
+  assert.equal(offerOnPage("Try it 100x cheaper with a free tier."), null);
 });
