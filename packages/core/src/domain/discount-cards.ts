@@ -57,6 +57,7 @@ const ROUTE_LABEL: Record<DiscountCandidateRoute, string> = {
   promoclock: "PromoClock",
   relay_site: "중계 사이트",
   free_list: "무료 API 목록",
+  commit_log: "요금제 변경 기록",
 };
 const DETAIL_MAX_CHARS = 300;
 // The longest URL Discord accepts on a link button.
@@ -174,11 +175,12 @@ export function shouldCardCandidate(
   if (candidate.kind === "new_service" || candidate.route === "report")
     return true;
   // The collector already judged its Chinese wording, which the rules below cannot read.
-  // PromoClock and the free API lists hold nothing but offers.
+  // PromoClock, the free API lists and the plan logs' kept commits are all offers.
   if (
     UNVETTED_ROUTES.includes(candidate.route) ||
     candidate.route === "promoclock" ||
-    candidate.route === "free_list"
+    candidate.route === "free_list" ||
+    candidate.route === "commit_log"
   )
     return !offerHasEnded(candidate, now);
   if (POLICY_NOTICE.test(candidate.title)) return false;

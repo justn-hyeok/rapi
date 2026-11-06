@@ -3,6 +3,7 @@ import {
   CatalogRoute,
   ChangelogRoute,
   CodeSearchRoute,
+  CommitLogRoute,
   CommunityRoute,
   CreditFeedRoute,
   DiscordRateLimitError,
@@ -15,6 +16,7 @@ import {
   UncertainDeliveryError,
   type CandidateResult,
   type CatalogSource,
+  type CommitLogSource,
   type ChangelogSource,
   type FeedOfferSource,
   type HackerNewsSource,
@@ -55,6 +57,7 @@ export interface DiscountSources {
   communities?: FeedOfferSource[];
   relayLists?: RelayListSource[];
   freeLists?: RelayListSource[];
+  commitLogs?: CommitLogSource[];
   promoClock?: PromoClockSource;
   relaySites?: RelaySiteSource[];
   operators: KnownOperator[];
@@ -81,19 +84,17 @@ const NO_TOKEN = "GITHUB_READ_TOKEN이 없어 건너뜀";
 const CHINESE = /\p{Script=Han}/u;
 
 /**
- * Strangers' rows written in Chinese, in Korean. A failed translation keeps the
- * original wording: an untranslated card still says what was offered.
+ * Rows written in Chinese, in Korean. A failed translation keeps the original
+ * wording: an untranslated card still says what was offered.
  */
 async function inKorean(
   candidates: DiscountCandidate[],
   translate: ((texts: string[]) => Promise<string[]>) | undefined,
 ): Promise<{ candidates: DiscountCandidate[]; problem?: string }> {
   const fields = candidates.flatMap((candidate, index) =>
-    UNVETTED_ROUTES.includes(candidate.route)
-      ? (["title", "evidence"] as const)
-          .filter((field) => CHINESE.test(candidate[field]))
-          .map((field) => ({ index, field }))
-      : [],
+    (["title", "evidence"] as const)
+      .filter((field) => CHINESE.test(candidate[field]))
+      .map((field) => ({ index, field })),
   );
   if (!translate || !fields.length) return { candidates };
   try {
@@ -191,6 +192,15 @@ export async function collectDiscountCandidates(input: {
         await store.sourceCursor(sourceId),
       ),
   });
+  const commitLogJob = (source: CommitLogSource) => ({
+    kind: "candidate_commit_log",
+    locator: source.repository,
+    collect: async (sourceId: string) =>
+      new CommitLogRoute(token, http).collect(
+        source,
+        await store.sourceCursor(sourceId),
+      ),
+  });
   const jobs: Array<{
     kind: string;
     locator: string;
@@ -219,6 +229,7 @@ export async function collectDiscountCandidates(input: {
     ...(sources.communities ?? []).map(communityJob),
     ...(sources.relayLists ?? []).map(listJob("relay_list")),
     ...(sources.freeLists ?? []).map(listJob("free_list")),
+    ...(sources.commitLogs ?? []).map(commitLogJob),
     ...(sources.promoClock ? [promoClockJob(sources.promoClock)] : []),
     ...(sources.relaySites ?? []).map(relaySiteJob),
   ];
