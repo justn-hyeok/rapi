@@ -3,6 +3,7 @@ import {
   discountEvidence,
   parseHtmlSourcePolicy,
   plainText,
+  postSummary,
   type DiscountCandidate,
   type DiscountCandidateKind,
   type ServicePage,
@@ -687,7 +688,7 @@ export class CommunityRoute {
           title: plainText(item.title, 300),
           // V2EX links a post at its reply count, which changes.
           url: item.url.replace(/#reply\d+$/, ""),
-          evidence: plainText(item.body, 600).slice(
+          evidence: postSummary(plainText(item.body, 600)).slice(
             0,
             DISCOUNT_EVIDENCE_MAX_CHARS,
           ),
