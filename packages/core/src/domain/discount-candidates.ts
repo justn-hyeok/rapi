@@ -8,7 +8,8 @@ export type DiscountCandidateRoute =
   | "hacker_news"
   | "credit_feed"
   | "community"
-  | "relay_list";
+  | "relay_list"
+  | "promoclock";
 
 /**
  * Routes whose rows are strangers' claims: a forum post, or someone else's list of

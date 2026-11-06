@@ -367,3 +367,20 @@ test("a risky card says so first, in the warning color, on the public card too",
   assert.equal(card.author, "linux.do");
   assert.doesNotMatch(discountCard(offer()).description!, /위험:/);
 });
+
+test("a PromoClock deal is a card until its own end date", () => {
+  const deal = (evidence: string) =>
+    offer({
+      route: "promoclock",
+      title: "Synthesia: first month from $9",
+      evidence,
+      priceCheck: "unknown",
+    });
+  // The terms say neither free nor a cut; PromoClock lists only deals.
+  assert.ok(
+    shouldCardCandidate(deal("First month from $9 (since 2026-08-27).")),
+  );
+  assert.ok(
+    !shouldCardCandidate(deal("Half price (2026-08-01 ~ 2026-08-20).")),
+  );
+});

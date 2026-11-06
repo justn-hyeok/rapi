@@ -7,6 +7,7 @@ import {
   CreditFeedRoute,
   DiscordRateLimitError,
   HackerNewsRoute,
+  PromoClockRoute,
   PullRequestRoute,
   readServicePage,
   RelayListRoute,
@@ -16,6 +17,7 @@ import {
   type ChangelogSource,
   type FeedOfferSource,
   type HackerNewsSource,
+  type PromoClockSource,
   type RelayListSource,
   type ResolveHostname,
   type SourceHttpOptions,
@@ -50,6 +52,7 @@ export interface DiscountSources {
   creditFeed?: FeedOfferSource;
   community?: FeedOfferSource;
   relayLists?: RelayListSource[];
+  promoClock?: PromoClockSource;
   operators: KnownOperator[];
 }
 
@@ -164,6 +167,15 @@ export async function collectDiscountCandidates(input: {
         await store.sourceCursor(sourceId),
       ),
   });
+  const promoClockJob = (source: PromoClockSource) => ({
+    kind: "candidate_promoclock",
+    locator: source.url,
+    collect: async (sourceId: string) =>
+      new PromoClockRoute(http).collect(
+        source,
+        await store.sourceCursor(sourceId),
+      ),
+  });
   const jobs: Array<{
     kind: string;
     locator: string;
@@ -191,6 +203,7 @@ export async function collectDiscountCandidates(input: {
     ...(sources.creditFeed ? [creditFeedJob(sources.creditFeed)] : []),
     ...(sources.community ? [communityJob(sources.community)] : []),
     ...(sources.relayLists ?? []).map(relayListJob),
+    ...(sources.promoClock ? [promoClockJob(sources.promoClock)] : []),
   ];
 
   const failures: string[] = [];
