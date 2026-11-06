@@ -201,5 +201,8 @@
       "path": "README.md",
       "format": "table"
     }
-  ]
+  ],
+  "promoClock": {
+    "url": "https://promoclock.co/llms.txt"
+  }
 }

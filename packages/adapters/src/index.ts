@@ -11,3 +11,4 @@ export * from "./openai-compatible-client.js";
 export * from "./metered-model-client.js";
 export * from "./model-factory.js";
 export * from "./relay-lists.js";
+export * from "./promoclock.js";
