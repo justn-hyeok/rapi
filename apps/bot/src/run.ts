@@ -174,6 +174,7 @@ const guildRequests = {
         config.DISCORD_APPLICATION_ID,
         config.DISCORD_BOT_TOKEN,
         guildId,
+        homeGuildId,
       ),
     clear: (guildId: string) =>
       clearGuildCommands(
