@@ -616,3 +616,13 @@ docker exec rapi-postgres-1 psql -U rapi -d rapi -c "UPDATE discord_guilds SET c
 - `routeLabels`는 할인 카드의 `{출처}`다. 새 경로를 만들면 여기에도 이름을 넣는다(테스트가 확인한다).
 
 고칠 때는 `npm run card-studio`를 실행하고 `http://127.0.0.1:4700`을 연다. 실제 카드 함수에 예시 데이터를 넣어 Discord 모양으로 보여 주고, 고치는 대로 미리보기가 바뀐다. 저장하면 위 JSON 파일에 써진다. 이 컴퓨터에서만 열리고, 봇에는 커밋해서 배포해야 반영된다.
+
+## 놓친 딜 세기
+
+출처를 더 늘릴지는 놓친 딜로 정한다. 직접 본 딜을 Rapi가 안 보냈으면 `/제보`로 넣는다. VM에서 아래를 돌리면 제보마다 다른 경로가 같은 도메인을 먼저 찾았는지 보여 준다.
+
+```sh
+cd /home/justn/rapi-releases/current && npm run -s missed-deals -- 2026-11-07
+```
+
+`먼저 찾음(경로)`은 Rapi가 이미 알던 딜이고, `놓침`은 어느 경로도 몰랐던 딜이다. 도메인으로만 맞춰 보므로, 게시판 글처럼 도메인이 없는 후보와 겹친 제보는 놓침으로 나온다.
