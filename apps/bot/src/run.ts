@@ -34,6 +34,7 @@ import {
   receiveGuildRequest,
   receiveReport,
   remindEveryone,
+  starCommand,
   type StarService,
   STAR_VOTE_PREFIX,
   starVoteButton,
@@ -200,6 +201,7 @@ const commands = new DiscordCommandService(agent, allowlists, {
   notificationChannels: channels,
   changeGuild: (actorId, action, target) =>
     changeGuild(guildRequests, actorId, action, target),
+  stars: (identity, options) => starCommand(starService, identity, options),
   report: (identity, options) =>
     receiveReport(
       {
