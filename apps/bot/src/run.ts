@@ -9,6 +9,11 @@ import {
   createModelClient,
   readLatestRapiRelease,
   readOwnStars,
+  encryptSecret,
+  decryptSecret,
+  finishGitHubOAuth,
+  githubAuthorizeUrl,
+  revokeGitHubGrant,
   searchRepos,
   digTrails,
   followNeighbors,
@@ -32,9 +37,10 @@ import {
   publishDiscountCard,
   receiveGuildRequest,
   receiveReport,
-  remindStars,
+  remindEveryone,
+  starCommand,
+  type StarService,
   STAR_VOTE_PREFIX,
-  starInterestUrl,
   starVoteButton,
   sendDiscountCards,
   sendGuildRequestCards,
@@ -60,6 +66,7 @@ import {
   PostgresStore,
 } from "@rapi/db";
 import { readFile } from "node:fs/promises";
+import { githubConnectPages } from "./github-connect-page.js";
 import { starPages } from "./star-page.js";
 import {
   clearGuildCommands,
@@ -199,6 +206,7 @@ const commands = new DiscordCommandService(agent, allowlists, {
   notificationChannels: channels,
   changeGuild: (actorId, action, target) =>
     changeGuild(guildRequests, actorId, action, target),
+  stars: (identity, options) => starCommand(starService, identity, options),
   report: (identity, options) =>
     receiveReport(
       {
@@ -387,47 +395,74 @@ async function sendCards(): Promise<void> {
     throw new Error(`Discount cards failed: ${failures.join("; ")}`);
 }
 
-// Stars show the owner's taste, so they go to one person's DM and nowhere else.
+// Star reminders go to each person's own DM, for the GitHub account they
+// connected with /스타 through GitHub OAuth, read with the token they granted.
+// The configured owner is connected from the environment, read with the
+// deployment's token, and keeps the rows from before stars had owners.
 const starOwnerId = config.DISCORD_SUPERADMIN_USER_IDS?.[0];
 const starLogin = config.STAR_REMINDER_GITHUB_USER;
-// The interest page needs a public address and a key to sign its link with.
-const starPage =
-  starOwnerId && config.RAPI_PUBLIC_BASE_URL && config.WEBHOOK_ENCRYPTION_KEY
+// The interest page needs a public address and a key to sign its links with.
+const starSite =
+  config.RAPI_PUBLIC_BASE_URL && config.WEBHOOK_ENCRYPTION_KEY
     ? {
         store,
-        ownerId: starOwnerId,
         secret: config.WEBHOOK_ENCRYPTION_KEY,
         baseUrl: config.RAPI_PUBLIC_BASE_URL,
+        defaultOwnerId: starOwnerId,
       }
     : undefined;
-const starReminder =
-  starLogin && starOwnerId
+const githubApp =
+  config.GITHUB_OAUTH_CLIENT_ID &&
+  config.GITHUB_OAUTH_CLIENT_SECRET &&
+  config.RAPI_PUBLIC_BASE_URL
     ? {
-        store,
-        delivery: discord,
-        ownerId: starOwnerId,
-        readStars: () => readOwnStars(starLogin, config.GITHUB_READ_TOKEN),
-        digTrails: (seeds: string[]) =>
-          digTrails(seeds, config.GITHUB_READ_TOKEN),
-        followNeighbors: (logins: string[]) =>
-          followNeighbors(logins, config.GITHUB_READ_TOKEN),
-        searchRepos: (queries: string[]) =>
-          searchRepos(queries, config.GITHUB_READ_TOKEN),
-        githubLogin: starLogin,
-        ...(starPage && {
-          interestUrl: (now: Date) => starInterestUrl(starPage, now),
-        }),
-        reads: {},
+        clientId: config.GITHUB_OAUTH_CLIENT_ID,
+        clientSecret: config.GITHUB_OAUTH_CLIENT_SECRET,
+        redirectUri: `${config.RAPI_PUBLIC_BASE_URL.replace(/\/+$/, "")}/github/callback`,
       }
     : undefined;
-if (starLogin && !starOwnerId)
-  process.stderr.write(
-    "stars: off, DISCORD_SUPERADMIN_USER_IDS has nobody to DM\n",
-  );
+const encryptionKey = config.WEBHOOK_ENCRYPTION_KEY;
+const starService: StarService = {
+  store,
+  delivery: discord,
+  github: {
+    readStars: (login, token) => readOwnStars(login, token),
+    digTrails: (seeds, token) => digTrails(seeds, token),
+    followNeighbors: (logins, token) => followNeighbors(logins, token),
+    searchRepos: (queries, token) => searchRepos(queries, token),
+  },
+  oauth:
+    githubApp && encryptionKey
+      ? {
+          authorizeUrl: (state) => githubAuthorizeUrl(githubApp, state),
+          finish: (code) => finishGitHubOAuth(githubApp, code),
+          revoke: (token) => revokeGitHubGrant(githubApp, token),
+          encrypt: (token) => encryptSecret(token, encryptionKey),
+          decrypt: (value) => decryptSecret(value, encryptionKey),
+          secret: encryptionKey,
+        }
+      : undefined,
+  owner: starOwnerId
+    ? { userId: starOwnerId, token: config.GITHUB_READ_TOKEN }
+    : undefined,
+  site: starSite,
+  reads: new Map(),
+};
+let starsReady: Promise<void> | undefined;
+const prepareStars = async () => {
+  if (!starOwnerId) return;
+  await store.adoptOwnerlessStars(starOwnerId);
+  if (starLogin) await store.addStarSubscriber(starOwnerId, starLogin);
+};
 
 async function sendStarReminder(): Promise<void> {
-  if (!starReminder) return;
-  const failures = await remindStars(starReminder);
+  // Once per start, and again after a failure.
+  starsReady ??= prepareStars().catch((error: unknown) => {
+    starsReady = undefined;
+    throw error;
+  });
+  await starsReady;
+  const failures = await remindEveryone(starService);
   if (failures.length)
     throw new Error(`Star reminder failed: ${failures.join("; ")}`);
 }
@@ -461,15 +496,17 @@ const server = createDiscordInteractionServer(
       button: (identity, customId) =>
         problemCardButton(discountApproval, identity, customId),
     },
-    ...(starPage && {
+    ...(starSite && {
       starVotes: {
         prefix: STAR_VOTE_PREFIX,
         button: (
           identity: Parameters<typeof starVoteButton>[1],
           customId: string,
-        ) => starVoteButton(starPage, identity, customId),
+        ) => starVoteButton(starSite, identity, customId),
       },
-      pages: starPages(starPage),
+      pages: async (method: string, url: URL, body: () => Promise<Buffer>) =>
+        (await starPages(starSite)(method, url, body)) ??
+        githubConnectPages(starService)(method, url),
     }),
     component: async (identity, customId) => {
       if (!identity.guildId)
@@ -616,10 +653,11 @@ const cardsTimer = setInterval(
   () => void runLoop("cards", sendCards),
   10 * 60_000,
 );
-if (starReminder) void runLoop("stars", sendStarReminder);
-const starsTimer = starReminder
-  ? setInterval(() => void runLoop("stars", sendStarReminder), 10 * 60_000)
-  : undefined;
+void runLoop("stars", sendStarReminder);
+const starsTimer = setInterval(
+  () => void runLoop("stars", sendStarReminder),
+  10 * 60_000,
+);
 
 const shutdown = (): void => {
   clearInterval(collectionTimer);
@@ -627,7 +665,7 @@ const shutdown = (): void => {
   clearTimeout(candidatesStart);
   clearInterval(candidatesTimer);
   clearInterval(cardsTimer);
-  if (starsTimer) clearInterval(starsTimer);
+  clearInterval(starsTimer);
   server.close(() => {
     void store.close().finally(() => process.exit(0));
   });

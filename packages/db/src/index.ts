@@ -24,4 +24,5 @@ export function compareMigrationNames(
 }
 
 export * from "./postgres-store.js";
+export * from "./star-owner-store.js";
 export * from "./model-usage-store.js";

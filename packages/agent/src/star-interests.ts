@@ -5,7 +5,7 @@ import {
   type DiscordIdentity,
   type Interests,
 } from "@rapi/core";
-import type { PostgresStore } from "@rapi/db";
+import type { StarOwnerStore } from "@rapi/db";
 import { STAR_VOTE_PREFIX } from "./star-reminders.js";
 
 // A link in today's DM keeps working for a week, so an old message still opens it.
@@ -15,7 +15,7 @@ const MAX_FACETS = 3000;
 const FACET_KEY = /^[^:\s][^:]{0,20}:.{1,100}$/u;
 
 type InterestStore = Pick<
-  PostgresStore,
+  StarOwnerStore,
   | "currentStars"
   | "starInterests"
   | "saveStarInterests"
@@ -23,12 +23,42 @@ type InterestStore = Pick<
   | "starRepo"
 >;
 
+/** One person's interest page. */
 export interface StarInterestPage {
   store: InterestStore;
   ownerId: string;
   // A key only this deployment has. The link is signed with a key derived from it.
   secret: string;
   baseUrl: string;
+}
+
+/** Everyone's interest pages: each person's data, and whether they are connected. */
+export interface StarInterestSite {
+  store: {
+    starsOf(ownerId: string): InterestStore;
+    starSubscriber(userId: string): Promise<{ userId: string } | null>;
+  };
+  secret: string;
+  baseUrl: string;
+  // Whose page a link from before links named their owner opens.
+  defaultOwnerId?: string | undefined;
+}
+
+const DISCORD_ID = /^\d{1,25}$/;
+
+/** The page of one person, or null for an id that cannot be anyone's. */
+export function interestPageOf(
+  site: StarInterestSite,
+  ownerId: string | null | undefined,
+): StarInterestPage | null {
+  const owner = ownerId || site.defaultOwnerId;
+  if (!owner || !DISCORD_ID.test(owner)) return null;
+  return {
+    store: site.store.starsOf(owner),
+    ownerId: owner,
+    secret: site.secret,
+    baseUrl: site.baseUrl,
+  };
 }
 
 const linkKey = (secret: string) =>
@@ -43,7 +73,7 @@ const signature = (secret: string, ownerId: string, expires: number) =>
 export function starInterestUrl(page: StarInterestPage, now: Date): string {
   const expires = Math.floor((now.getTime() + LINK_DAYS * DAY_MS) / 1000);
   const token = `${expires}.${signature(page.secret, page.ownerId, expires)}`;
-  return `${page.baseUrl.replace(/\/+$/, "")}/stars?t=${token}`;
+  return `${page.baseUrl.replace(/\/+$/, "")}/stars?u=${page.ownerId}&t=${token}`;
 }
 
 /** Whether a token is this owner's and has not expired. */
@@ -65,7 +95,7 @@ export function validStarToken(
 export async function starInterestData(page: StarInterestPage, now: Date) {
   const [stars, saved] = await Promise.all([
     page.store.currentStars(),
-    page.store.starInterests(page.ownerId),
+    page.store.starInterests(),
   ]);
   return {
     stars: stars.length,
@@ -98,7 +128,7 @@ export async function saveStarInterestChoices(
   body: unknown,
 ): Promise<number> {
   const facets = cleanInterests(body);
-  await page.store.saveStarInterests(page.ownerId, facets);
+  await page.store.saveStarInterests(facets);
   return Object.keys(facets).length;
 }
 
@@ -107,14 +137,19 @@ const ephemeral = (content: string) => ({
   data: { content, flags: 64, allowed_mentions: { parse: [] } },
 });
 
-/** A thumb on a reminder card: only the owner's counts, with the repository's facets now. */
+/**
+ * A thumb on a reminder card. The card is in the DM of whoever presses it, so
+ * it counts for them, when they get star reminders, with the repository's
+ * facets now.
+ */
 export async function starVoteButton(
-  page: StarInterestPage,
+  site: StarInterestSite,
   identity: DiscordIdentity,
   customId: string,
   now = new Date(),
 ) {
-  if (identity.userId !== page.ownerId)
+  const page = interestPageOf(site, identity.userId);
+  if (!page || !(await site.store.starSubscriber(identity.userId)))
     return ephemeral("스타 알림을 받는 사람만 누를 수 있습니다.");
   const rest = customId.slice(STAR_VOTE_PREFIX.length);
   const vote = rest.startsWith("1:") ? 1 : rest.startsWith("-1:") ? -1 : 0;
@@ -124,7 +159,6 @@ export async function starVoteButton(
     const repo = await page.store.starRepo(fullName);
     if (!repo) return ephemeral("이 저장소 기록을 찾지 못했습니다.");
     await page.store.saveStarVote(
-      page.ownerId,
       repo.fullName,
       vote,
       repoFacets(repo, now).slice(0, 60),

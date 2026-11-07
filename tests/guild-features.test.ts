@@ -109,7 +109,7 @@ describe("home guild", () => {
     const { commands, store, guildFeatures, reported } = setup(t, {
       report: false,
     });
-    assert.equal((await guildFeatures.enabled("home")).size, 4);
+    assert.equal((await guildFeatures.enabled("home")).size, 5);
     assert.deepEqual((await commands.execute(home, report)).messages, [
       "받았습니다",
     ]);
