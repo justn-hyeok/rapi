@@ -11,6 +11,7 @@ import {
   readOwnStars,
   searchRepos,
   digTrails,
+  followNeighbors,
   superadminDmNotifier,
 } from "@rapi/adapters";
 import {
@@ -408,6 +409,8 @@ const starReminder =
         readStars: () => readOwnStars(starLogin, config.GITHUB_READ_TOKEN),
         digTrails: (seeds: string[]) =>
           digTrails(seeds, config.GITHUB_READ_TOKEN),
+        followNeighbors: (logins: string[]) =>
+          followNeighbors(logins, config.GITHUB_READ_TOKEN),
         searchRepos: (queries: string[]) =>
           searchRepos(queries, config.GITHUB_READ_TOKEN),
         githubLogin: starLogin,
