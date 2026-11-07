@@ -21,7 +21,7 @@ const REMINDER_KST_HOUR = 9;
 const DIGS_PER_RUN = 4;
 // Each person is read with their own token, so the limit is how long a morning takes.
 const MAX_SUBSCRIBERS = 500;
-// The link to GitHub works this long after /스타 연결.
+// The link to GitHub works this long after /스타 깃허브-연결.
 const CONNECT_MINUTES = 15;
 
 type Reads = {
@@ -303,7 +303,7 @@ export async function finishStarConnect(
     return {
       ok: false,
       message:
-        "연결 링크가 만료됐습니다. Discord에서 /스타 연결을 다시 해 주세요.",
+        "연결 링크가 만료됐습니다. Discord에서 /스타 깃허브-연결을 다시 해 주세요.",
     };
   if (query.get("error"))
     return { ok: false, message: "GitHub 연결을 취소했습니다." };
@@ -326,7 +326,7 @@ export async function finishStarConnect(
     return {
       ok: false,
       message:
-        "GitHub에서 연결을 확인하지 못했습니다. Discord에서 /스타 연결을 다시 해 주세요.",
+        "GitHub에서 연결을 확인하지 못했습니다. Discord에서 /스타 깃허브-연결을 다시 해 주세요.",
     };
   }
   await service.store.saveStarSubscriber(
@@ -339,7 +339,7 @@ export async function finishStarConnect(
     ok: true,
     message:
       sent === "closed"
-        ? `GitHub ${granted.login} 연결은 했지만 DM을 보낼 수 없습니다. 라피가 있는 서버의 개인정보 설정에서 다이렉트 메시지를 허용한 뒤 /스타 연결을 한 번 더 해 주세요.`
+        ? `GitHub ${granted.login} 연결은 했지만 DM을 보낼 수 없습니다. 라피가 있는 서버의 개인정보 설정에서 다이렉트 메시지를 허용한 뒤 /스타 깃허브-연결을 한 번 더 해 주세요.`
         : `GitHub ${granted.login} 연결했습니다. 매일 아침 9시에 Discord DM으로 보내 드립니다. 이 창은 닫아도 됩니다.`,
   };
 }
@@ -360,7 +360,7 @@ export async function starCommand(
   const userId = identity.userId;
   const current = await service.store.starSubscriber(userId);
   switch (action) {
-    case "연결": {
+    case "깃허브-연결": {
       if (!service.oauth || !service.site)
         return "이 라피에는 아직 GitHub 연결이 설정되지 않았습니다. 운영자에게 알려 주세요.";
       if (
@@ -374,7 +374,7 @@ export async function starCommand(
       ].join("\n");
     }
     case "관심사": {
-      if (!current) return "먼저 `/스타 연결`로 GitHub를 연결해 주세요.";
+      if (!current) return "먼저 `/스타 깃허브-연결`로 GitHub를 연결해 주세요.";
       const url = linkFor(service, userId, now);
       return url
         ? `관심사 고르기 (7일 동안 열림): ${url}`
@@ -403,11 +403,11 @@ export async function starCommand(
     }
     case "보기":
       if (!current)
-        return "스타 알림을 받고 있지 않습니다. `/스타 연결`로 GitHub를 연결하면 매일 아침 DM으로 보내 드립니다.";
+        return "스타 알림을 받고 있지 않습니다. `/스타 깃허브-연결`로 GitHub를 연결하면 매일 아침 DM으로 보내 드립니다.";
       return [
         `GitHub **${current.githubLogin}** 스타 알림을 받고 있습니다. 매일 아침 9시(한국 시간) DM.`,
         current.pausedAt
-          ? `멈춤: ${current.pausedReason ?? "이유 모름"}. \`/스타 연결\`을 다시 하면 이어서 받습니다.`
+          ? `멈춤: ${current.pausedReason ?? "이유 모름"}. \`/스타 깃허브-연결\`을 다시 하면 이어서 받습니다.`
           : "",
       ]
         .filter(Boolean)

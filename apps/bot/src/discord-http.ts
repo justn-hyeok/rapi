@@ -189,7 +189,7 @@ export const slashCommandDefinitions = [
     options: [
       {
         type: 1,
-        name: "연결",
+        name: "깃허브-연결",
         description: "GitHub로 로그인해 연결하고 DM을 받기 시작합니다",
       },
       {
