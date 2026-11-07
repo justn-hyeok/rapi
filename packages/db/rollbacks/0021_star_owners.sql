@@ -1,0 +1,20 @@
+-- Keeps only the first subscriber's rows, which is the configured owner.
+DELETE FROM github_stars WHERE owner_id <> COALESCE((SELECT user_id FROM star_subscribers ORDER BY subscribed_at LIMIT 1), '');
+DELETE FROM star_reminder_days WHERE owner_id <> COALESCE((SELECT user_id FROM star_subscribers ORDER BY subscribed_at LIMIT 1), '');
+DELETE FROM star_suggestions WHERE owner_id <> COALESCE((SELECT user_id FROM star_subscribers ORDER BY subscribed_at LIMIT 1), '');
+DELETE FROM star_neighbors WHERE owner_id <> COALESCE((SELECT user_id FROM star_subscribers ORDER BY subscribed_at LIMIT 1), '');
+DELETE FROM star_interests WHERE owner_id <> COALESCE((SELECT user_id FROM star_subscribers ORDER BY subscribed_at LIMIT 1), '');
+DELETE FROM star_votes WHERE owner_id <> COALESCE((SELECT user_id FROM star_subscribers ORDER BY subscribed_at LIMIT 1), '');
+DROP TABLE IF EXISTS star_subscribers;
+ALTER TABLE star_neighbors DROP CONSTRAINT star_neighbors_pkey;
+ALTER TABLE star_neighbors ADD PRIMARY KEY (login);
+ALTER TABLE star_neighbors DROP COLUMN owner_id;
+ALTER TABLE star_suggestions DROP CONSTRAINT star_suggestions_pkey;
+ALTER TABLE star_suggestions ADD PRIMARY KEY (full_name);
+ALTER TABLE star_suggestions DROP COLUMN owner_id;
+ALTER TABLE star_reminder_days DROP CONSTRAINT star_reminder_days_pkey;
+ALTER TABLE star_reminder_days ADD PRIMARY KEY (day);
+ALTER TABLE star_reminder_days DROP COLUMN owner_id;
+ALTER TABLE github_stars DROP CONSTRAINT github_stars_pkey;
+ALTER TABLE github_stars ADD PRIMARY KEY (full_name);
+ALTER TABLE github_stars DROP COLUMN owner_id;

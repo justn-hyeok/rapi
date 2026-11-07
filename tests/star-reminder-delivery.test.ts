@@ -138,7 +138,11 @@ test("one DM to the owner, marked as sent, and only once however often it runs",
   for (let run = 0; run < 3; run += 1)
     assert.deepEqual(await remindStars({ ...input, now: MORNING }), []);
   assert.deepEqual(sent, [
-    { recipient: "42", channel: "discord_dm", key: "star-reminder:2026-11-05" },
+    {
+      recipient: "42",
+      channel: "discord_dm",
+      key: "star-reminder:42:2026-11-05",
+    },
   ]);
   assert.equal(reads(), 1);
   assert.equal(store.days.get("2026-11-05"), "message-1");
