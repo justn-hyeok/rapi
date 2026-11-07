@@ -240,6 +240,31 @@ export class GitHubStarRecommender {
 const OWN_STAR_PAGES = 10;
 const FULL_NAME = /^[\w.-]+\/[\w.-]+$/;
 
+const TOPIC = /^[a-z0-9][a-z0-9-]{0,49}$/;
+
+/** What the interest page sorts by, from GitHub's repository object. */
+function repoExtras(repo: Record<string, unknown> | undefined) {
+  const owner = repo?.owner as Record<string, unknown> | undefined;
+  const license = repo?.license as Record<string, unknown> | null | undefined;
+  const date = (value: unknown) =>
+    typeof value === "string" && !Number.isNaN(Date.parse(value))
+      ? value
+      : null;
+  return {
+    topics: Array.isArray(repo?.topics)
+      ? repo.topics
+          .filter((topic): topic is string => typeof topic === "string")
+          .filter((topic) => TOPIC.test(topic))
+          .slice(0, 20)
+      : [],
+    pushedAt: date(repo?.pushed_at),
+    createdAt: date(repo?.created_at),
+    ownerType: typeof owner?.type === "string" ? clip(owner.type, 20) : null,
+    license:
+      typeof license?.spdx_id === "string" ? clip(license.spdx_id, 40) : null,
+  };
+}
+
 function toOwnStar(value: unknown): GitHubStar {
   const record = value as Record<string, unknown> | null;
   const repo = record?.repo as Record<string, unknown> | undefined;
@@ -249,6 +274,7 @@ function toOwnStar(value: unknown): GitHubStar {
   if (typeof record?.starred_at !== "string")
     throw new Error("GitHub star has no starred_at");
   return {
+    ...repoExtras(repo),
     fullName,
     url: `https://github.com/${fullName}`,
     description:
@@ -297,4 +323,56 @@ export async function readOwnStars(
     }
   }
   return { stars: [...stars.values()], complete: false };
+}
+
+/**
+ * Repositories for each search query, most starred first. A failed query is
+ * skipped, so one bad search never drops the day. The rows are strangers' words
+ * and are clipped the same way the owner's stars are.
+ */
+export async function searchRepos(
+  queries: readonly string[],
+  token?: string,
+  options: SourceHttpOptions = {},
+): Promise<GitHubStar[]> {
+  const found = new Map<string, GitHubStar>();
+  for (const query of queries) {
+    try {
+      const { body } = await readSource(
+        `https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&sort=stars&order=desc&per_page=20`,
+        {
+          Accept: "application/vnd.github+json",
+          "User-Agent": "rapi",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        options,
+      );
+      const { items } = JSON.parse(body) as { items?: unknown };
+      for (const item of Array.isArray(items) ? items : []) {
+        const repo = item as Record<string, unknown>;
+        const fullName = repo.full_name;
+        if (typeof fullName !== "string" || !FULL_NAME.test(fullName)) continue;
+        if (repo.fork === true || repo.archived === true) continue;
+        found.set(fullName.toLowerCase(), {
+          ...repoExtras(repo),
+          fullName,
+          url: `https://github.com/${fullName}`,
+          description:
+            typeof repo.description === "string"
+              ? clip(plainLine(repo.description), STAR_DESCRIPTION_MAX_CHARS)
+              : "",
+          language:
+            typeof repo.language === "string"
+              ? clip(plainLine(repo.language), 50)
+              : null,
+          stars: Number(repo.stargazers_count ?? 0),
+          archived: false,
+          starredAt: new Date().toISOString(),
+        });
+      }
+    } catch {
+      continue;
+    }
+  }
+  return [...found.values()];
 }

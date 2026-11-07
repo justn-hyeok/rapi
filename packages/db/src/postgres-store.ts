@@ -97,7 +97,7 @@ export class PostgresStore {
     if (!database.rows[0]?.name.endsWith("_test"))
       throw new Error("Refusing to reset a database without an _test suffix");
     await this.pool
-      .query(`TRUNCATE discord_guilds, discord_guild_features, discord_guild_channels, rapi_update_notices, github_stars, star_reminder_days, discount_candidates, problem_reports, discord_layout_plans, discord_managed_resources, summaries, classifications,
+      .query(`TRUNCATE discord_guilds, discord_guild_features, discord_guild_channels, rapi_update_notices, github_stars, star_reminder_days, star_interests, star_votes, star_suggestions, discount_candidates, problem_reports, discord_layout_plans, discord_managed_resources, summaries, classifications,
       item_relations, source_items, source_cursors, raw_events, sources RESTART IDENTITY CASCADE`);
   }
 
@@ -1084,13 +1084,22 @@ export class PostgresStore {
     await this.transaction(async (client) => {
       await client.query(
         `INSERT INTO github_stars
-           (full_name, url, description, language, stars_count, archived, starred_at)
-         SELECT * FROM unnest($1::text[], $2::text[], $3::text[], $4::text[],
-                              $5::int[], $6::boolean[], $7::timestamptz[])
+           (full_name, url, description, language, stars_count, archived, starred_at,
+            topics, pushed_at, repo_created_at, owner_type, license)
+         SELECT full_name, url, description, language, stars_count, archived, starred_at,
+                string_to_array(topics, ' '), pushed_at, repo_created_at, owner_type, license
+         FROM unnest($1::text[], $2::text[], $3::text[], $4::text[],
+                     $5::int[], $6::boolean[], $7::timestamptz[], $8::text[],
+                     $9::timestamptz[], $10::timestamptz[], $11::text[], $12::text[])
+              AS s(full_name, url, description, language, stars_count, archived,
+                   starred_at, topics, pushed_at, repo_created_at, owner_type, license)
          ON CONFLICT (full_name) DO UPDATE
          SET url = EXCLUDED.url, description = EXCLUDED.description,
              language = EXCLUDED.language, stars_count = EXCLUDED.stars_count,
              archived = EXCLUDED.archived, starred_at = EXCLUDED.starred_at,
+             topics = EXCLUDED.topics, pushed_at = EXCLUDED.pushed_at,
+             repo_created_at = EXCLUDED.repo_created_at,
+             owner_type = EXCLUDED.owner_type, license = EXCLUDED.license,
              unstarred_at = NULL`,
         [
           stars.map((star) => star.fullName),
@@ -1100,6 +1109,12 @@ export class PostgresStore {
           stars.map((star) => star.stars),
           stars.map((star) => star.archived),
           stars.map((star) => star.starredAt),
+          // GitHub topics never hold a space.
+          stars.map((star) => (star.topics ?? []).join(" ")),
+          stars.map((star) => star.pushedAt ?? null),
+          stars.map((star) => star.createdAt ?? null),
+          stars.map((star) => star.ownerType ?? null),
+          stars.map((star) => star.license ?? null),
         ],
       );
       if (complete)
@@ -1115,10 +1130,94 @@ export class PostgresStore {
     const { rows } = await this.pool.query<StoredStar>(
       `SELECT full_name AS "fullName", url, description, language,
               stars_count AS stars, archived, starred_at AS "starredAt",
-              last_reminded_at AS "lastRemindedAt"
+              last_reminded_at AS "lastRemindedAt", topics,
+              pushed_at AS "pushedAt", repo_created_at AS "createdAt",
+              owner_type AS "ownerType", license
        FROM github_stars WHERE unstarred_at IS NULL`,
     );
     return rows;
+  }
+
+  /** What the owner picked on the interest page, and every vote on a card. */
+  async starInterests(ownerId: string): Promise<{
+    picked: Record<string, number>;
+    votes: Array<{ fullName: string; vote: number; facets: string[] }>;
+  }> {
+    const [picked, votes] = await Promise.all([
+      this.pool.query<{ facets: Record<string, number> }>(
+        "SELECT facets FROM star_interests WHERE owner_id = $1",
+        [ownerId],
+      ),
+      this.pool.query<{ fullName: string; vote: number; facets: string[] }>(
+        `SELECT full_name AS "fullName", vote, facets FROM star_votes
+         WHERE owner_id = $1`,
+        [ownerId],
+      ),
+    ]);
+    return { picked: picked.rows[0]?.facets ?? {}, votes: votes.rows };
+  }
+
+  async saveStarInterests(
+    ownerId: string,
+    facets: Record<string, number>,
+  ): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO star_interests (owner_id, facets) VALUES ($1, $2)
+       ON CONFLICT (owner_id) DO UPDATE SET facets = EXCLUDED.facets, updated_at = now()`,
+      [ownerId, JSON.stringify(facets)],
+    );
+  }
+
+  /** A second vote on the same repository replaces the first. */
+  async saveStarVote(
+    ownerId: string,
+    fullName: string,
+    vote: 1 | -1,
+    facets: readonly string[],
+  ): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO star_votes (owner_id, full_name, vote, facets) VALUES ($1, $2, $3, $4)
+       ON CONFLICT (owner_id, full_name) DO UPDATE
+       SET vote = EXCLUDED.vote, facets = EXCLUDED.facets, voted_at = now()`,
+      [ownerId, fullName, vote, facets],
+    );
+  }
+
+  /** A repository the owner was shown: one of their stars, or one a search found. */
+  async starRepo(fullName: string): Promise<GitHubStar | null> {
+    const { rows } = await this.pool.query<GitHubStar>(
+      `SELECT full_name AS "fullName", url, description, language,
+              stars_count AS stars, archived, starred_at::text AS "starredAt", topics,
+              pushed_at::text AS "pushedAt", repo_created_at::text AS "createdAt",
+              owner_type AS "ownerType", license
+       FROM github_stars WHERE full_name = $1
+       UNION ALL
+       SELECT full_name, repo->>'url', repo->>'description', repo->>'language',
+              (repo->>'stars')::int, false, suggested_at::text,
+              ARRAY(SELECT jsonb_array_elements_text(COALESCE(repo->'topics', '[]'))),
+              repo->>'pushedAt', repo->>'createdAt', repo->>'ownerType', repo->>'license'
+       FROM star_suggestions WHERE full_name = $1
+       LIMIT 1`,
+      [fullName],
+    );
+    return rows[0] ?? null;
+  }
+
+  async saveStarSuggestion(repo: GitHubStar): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO star_suggestions (full_name, repo) VALUES ($1, $2)
+       ON CONFLICT (full_name) DO NOTHING`,
+      [repo.fullName, JSON.stringify(repo)],
+    );
+  }
+
+  /** Names a search must not suggest: shown before, or any of the owner's stars. */
+  async seenStarRepos(): Promise<Set<string>> {
+    const { rows } = await this.pool.query<{ name: string }>(
+      `SELECT lower(full_name) AS name FROM star_suggestions
+       UNION SELECT lower(full_name) FROM github_stars`,
+    );
+    return new Set(rows.map((row) => row.name));
   }
 
   async starReminderClaimed(day: string): Promise<boolean> {
