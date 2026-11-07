@@ -4,6 +4,7 @@ import {
   STAR_DESCRIPTION_MAX_CHARS,
   type DigTrail,
   type GitHubStar,
+  type NeighborRole,
 } from "@rapi/core";
 import {
   readSource,
@@ -398,6 +399,11 @@ const STARGAZER_PAGE_LIMIT = 400;
 const NEIGHBORS_PER_SEED = 12;
 const NEIGHBOR_STARS = 100;
 const CONTRIBUTORS_PER_SEED = 2;
+// Fewer neighbors with stars than this, and the maker's follows fill in.
+const THIN_SEED_NEIGHBORS = 4;
+const FOLLOWED_PER_SEED = 4;
+// A kept neighbor's stars: what they starred since they were kept, and older.
+const KEPT_PAGES = [1, 2, 3];
 const DIG_CONCURRENCY = 4;
 
 const lastPage = (link: string | null) =>
@@ -420,10 +426,10 @@ async function inBatches<T, R>(
  * Follows each seed one step out: the people who use it lately (who filed an
  * issue or a pull request, forked it, or starred it, where the token may list
  * stargazers) and what else they starred, what its owner made besides, and
- * what its contributors made. Every
- * request may fail on its own and only leaves its part of the trail empty, so
- * a private profile or a rate limit never drops the day. About 20 requests a
- * seed.
+ * what its contributors made. When few people are around it, what the people
+ * its owner follows made. Every request may fail on its own and only leaves
+ * its part of the trail empty, so a private profile or a rate limit never
+ * drops the day. About 20 requests a seed, 25 for a thin one.
  */
 export async function digTrails(
   seeds: readonly string[],
@@ -451,6 +457,20 @@ export async function digTrails(
       ({ json }) =>
         list(json)
           .map((repo) => strangerRepo(repo))
+          .filter((repo): repo is GitHubStar => repo !== null),
+      () => [],
+    );
+  const starredBy = (name: string) =>
+    get(
+      `users/${name}/starred?per_page=${NEIGHBOR_STARS}`,
+      "application/vnd.github.star+json",
+    ).then(
+      ({ json }) =>
+        list(json)
+          .map((row) => {
+            const record = row as Record<string, unknown>;
+            return strangerRepo(record.repo, record.starred_at);
+          })
           .filter((repo): repo is GitHubStar => repo !== null),
       () => [],
     );
@@ -509,36 +529,29 @@ export async function digTrails(
           })(),
     ]);
     // Taken in turns, so the people who file issues, fork and star all count.
-    const people: string[] = [];
+    const people: Array<{ name: string; role: NeighborRole }> = [];
     for (let index = 0; people.length < NEIGHBORS_PER_SEED; index += 1) {
-      const row = [authors[index], forkers[index], stargazers[index]];
-      if (row.every((name) => name === undefined)) break;
-      for (const name of row)
+      const row: Array<[string | undefined, NeighborRole]> = [
+        [authors[index], "issue"],
+        [forkers[index], "fork"],
+        [stargazers[index], "star"],
+      ];
+      if (row.every(([name]) => name === undefined)) break;
+      for (const [name, role] of row)
         if (
           name &&
-          !people.includes(name) &&
+          !people.some((person) => person.name === name) &&
           people.length < NEIGHBORS_PER_SEED
         )
-          people.push(name);
+          people.push({ name, role });
     }
     const neighbors = await inBatches(
       people,
       DIG_CONCURRENCY,
-      async (name) => ({
+      async ({ name, role }) => ({
         login: name,
-        starred: await get(
-          `users/${name}/starred?per_page=${NEIGHBOR_STARS}`,
-          "application/vnd.github.star+json",
-        ).then(
-          ({ json }) =>
-            list(json)
-              .map((row) => {
-                const record = row as Record<string, unknown>;
-                return strangerRepo(record.repo, record.starred_at);
-              })
-              .filter((repo): repo is GitHubStar => repo !== null),
-          () => [],
-        ),
+        role,
+        starred: await starredBy(name),
       }),
     );
     const contributorLogins = await get(
@@ -555,10 +568,29 @@ export async function digTrails(
           .slice(0, CONTRIBUTORS_PER_SEED),
       () => [],
     );
-    const [maker, ...contributed] = await Promise.all([
+    // A seed with few people around it borrows its maker's eye instead.
+    const followedLogins =
+      neighbors.filter((neighbor) => neighbor.starred.length > 0).length <
+      THIN_SEED_NEIGHBORS
+        ? await get(`users/${owner}/following?per_page=30`).then(
+            ({ json }) =>
+              list(json)
+                .filter(
+                  (row) => (row as Record<string, unknown>).type === "User",
+                )
+                .map(login)
+                .filter((name): name is string => name !== null)
+                .slice(0, FOLLOWED_PER_SEED),
+            () => [],
+          )
+        : [];
+    const [maker, ...others] = await Promise.all([
       ownRepos(owner!),
       ...contributorLogins.map(ownRepos),
+      ...followedLogins.map(ownRepos),
     ]);
+    const contributed = others.slice(0, contributorLogins.length);
+    const followedRepos = others.slice(contributorLogins.length);
     trails.push({
       seed,
       neighbors,
@@ -567,7 +599,52 @@ export async function digTrails(
         login,
         repos: contributed[index]!,
       })),
+      ...(followedLogins.length > 0 && {
+        followed: followedLogins.map((login, index) => ({
+          login,
+          repos: followedRepos[index]!,
+        })),
+      }),
     });
   }
   return trails;
+}
+
+/**
+ * The stars of neighbors kept from earlier digs, three pages deep: what they
+ * starred since, and what they starred before, which a dig from a seed never
+ * reaches. Three requests a neighbor; a failed page is left empty.
+ */
+export async function followNeighbors(
+  logins: readonly string[],
+  token?: string,
+  options: SourceHttpOptions = {},
+): Promise<Array<{ login: string; starred: GitHubStar[] }>> {
+  const page = (name: string, number: number) =>
+    readSource(
+      `https://api.github.com/users/${name}/starred?per_page=${NEIGHBOR_STARS}&page=${number}`,
+      githubHeaders(token, "application/vnd.github.star+json"),
+      { maxBodyBytes: 3_000_000, ...options },
+    ).then(
+      ({ body }) => {
+        const rows = JSON.parse(body) as unknown;
+        return (Array.isArray(rows) ? rows : [])
+          .map((row) => {
+            const record = row as Record<string, unknown>;
+            return strangerRepo(record.repo, record.starred_at);
+          })
+          .filter((repo): repo is GitHubStar => repo !== null);
+      },
+      () => [],
+    );
+  return inBatches(
+    logins.filter((name) => LOGIN.test(name)),
+    DIG_CONCURRENCY,
+    async (name) => ({
+      login: name,
+      starred: (
+        await Promise.all(KEPT_PAGES.map((number) => page(name, number)))
+      ).flat(),
+    }),
+  );
 }
