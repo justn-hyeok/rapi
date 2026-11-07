@@ -97,7 +97,7 @@ export class PostgresStore {
     if (!database.rows[0]?.name.endsWith("_test"))
       throw new Error("Refusing to reset a database without an _test suffix");
     await this.pool
-      .query(`TRUNCATE discord_guilds, discord_guild_features, discord_guild_channels, rapi_update_notices, github_stars, star_reminder_days, star_interests, star_votes, star_suggestions, discount_candidates, problem_reports, discord_layout_plans, discord_managed_resources, summaries, classifications,
+      .query(`TRUNCATE discord_guilds, discord_guild_features, discord_guild_channels, rapi_update_notices, github_stars, star_reminder_days, star_interests, star_votes, star_suggestions, star_neighbors, discount_candidates, problem_reports, discord_layout_plans, discord_managed_resources, summaries, classifications,
       item_relations, source_items, source_cursors, raw_events, sources RESTART IDENTITY CASCADE`);
   }
 
@@ -1141,16 +1141,26 @@ export class PostgresStore {
   /** What the owner picked on the interest page, and every vote on a card. */
   async starInterests(ownerId: string): Promise<{
     picked: Record<string, number>;
-    votes: Array<{ fullName: string; vote: number; facets: string[] }>;
+    votes: Array<{
+      fullName: string;
+      vote: number;
+      facets: string[];
+      votedAt: Date;
+    }>;
   }> {
     const [picked, votes] = await Promise.all([
       this.pool.query<{ facets: Record<string, number> }>(
         "SELECT facets FROM star_interests WHERE owner_id = $1",
         [ownerId],
       ),
-      this.pool.query<{ fullName: string; vote: number; facets: string[] }>(
-        `SELECT full_name AS "fullName", vote, facets FROM star_votes
-         WHERE owner_id = $1 ORDER BY voted_at, full_name`,
+      this.pool.query<{
+        fullName: string;
+        vote: number;
+        facets: string[];
+        votedAt: Date;
+      }>(
+        `SELECT full_name AS "fullName", vote, facets, voted_at AS "votedAt"
+         FROM star_votes WHERE owner_id = $1 ORDER BY voted_at, full_name`,
         [ownerId],
       ),
     ]);
@@ -1203,11 +1213,83 @@ export class PostgresStore {
     return rows[0] ?? null;
   }
 
-  async saveStarSuggestion(repo: GitHubStar): Promise<void> {
+  async saveStarSuggestion(
+    repo: GitHubStar,
+    trail?: { kind: string; seed: string },
+  ): Promise<void> {
     await this.pool.query(
-      `INSERT INTO star_suggestions (full_name, repo) VALUES ($1, $2)
+      `INSERT INTO star_suggestions (full_name, repo, trail_kind, trail_seed)
+       VALUES ($1, $2, $3, $4)
        ON CONFLICT (full_name) DO NOTHING`,
-      [repo.fullName, JSON.stringify(repo)],
+      [
+        repo.fullName,
+        JSON.stringify(repo),
+        trail?.kind ?? null,
+        trail?.seed ?? null,
+      ],
+    );
+  }
+
+  /** Every repository a dig or search showed, with the way it came and the owner's thumb. */
+  async starDigHistory(ownerId: string): Promise<
+    Array<{
+      fullName: string;
+      kind: string | null;
+      seed: string | null;
+      suggestedAt: Date;
+      vote: number | null;
+      votedAt: Date | null;
+    }>
+  > {
+    const { rows } = await this.pool.query<{
+      fullName: string;
+      kind: string | null;
+      seed: string | null;
+      suggestedAt: Date;
+      vote: number | null;
+      votedAt: Date | null;
+    }>(
+      `SELECT s.full_name AS "fullName", s.trail_kind AS kind, s.trail_seed AS seed,
+              s.suggested_at AS "suggestedAt", v.vote, v.voted_at AS "votedAt"
+       FROM star_suggestions s
+       LEFT JOIN star_votes v ON v.full_name = s.full_name AND v.owner_id = $1
+       ORDER BY s.suggested_at`,
+      [ownerId],
+    );
+    return rows;
+  }
+
+  /** Keeps neighbors who share many stars; a known one keeps when it was followed. */
+  async saveStarNeighbors(
+    neighbors: ReadonlyArray<{ login: string; shared: number; from: string }>,
+  ): Promise<void> {
+    for (const neighbor of neighbors)
+      await this.pool.query(
+        `INSERT INTO star_neighbors (login, shared, found_from) VALUES ($1, $2, $3)
+         ON CONFLICT (login) DO UPDATE SET
+           shared = GREATEST(star_neighbors.shared, EXCLUDED.shared),
+           found_from = EXCLUDED.found_from, found_at = now()`,
+        [neighbor.login, neighbor.shared, neighbor.from],
+      );
+  }
+
+  /** The kept neighbors to follow next: never followed first, then longest ago, closest first. */
+  async starNeighbors(
+    limit: number,
+  ): Promise<Array<{ login: string; shared: number }>> {
+    const { rows } = await this.pool.query<{ login: string; shared: number }>(
+      `SELECT login, shared FROM star_neighbors
+       ORDER BY followed_at NULLS FIRST, shared DESC, login LIMIT $1`,
+      [limit],
+    );
+    return rows;
+  }
+
+  async markStarNeighborsFollowed(logins: readonly string[]): Promise<void> {
+    if (logins.length === 0) return;
+    await this.pool.query(
+      "UPDATE star_neighbors SET followed_at = now() WHERE login = ANY($1)",
+      [logins],
     );
   }
 

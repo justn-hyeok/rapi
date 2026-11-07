@@ -113,10 +113,15 @@ describe("star reminders", () => {
       await store.saveStarInterests("42", { "topic:tui": 1, "분야:게임": -1 });
       await store.saveStarVote("42", "a/one", 1, ["topic:tui"]);
       await store.saveStarVote("42", "a/one", -1, ["topic:tui"]);
-      assert.deepEqual(await store.starInterests("42"), {
-        picked: { "topic:tui": 1, "분야:게임": -1 },
-        votes: [{ fullName: "a/one", vote: -1, facets: ["topic:tui"] }],
-      });
+      const saved = await store.starInterests("42");
+      assert.deepEqual(saved.picked, { "topic:tui": 1, "분야:게임": -1 });
+      assert.deepEqual(
+        saved.votes.map(({ votedAt, ...vote }) => {
+          assert.ok(votedAt instanceof Date);
+          return vote;
+        }),
+        [{ fullName: "a/one", vote: -1, facets: ["topic:tui"] }],
+      );
 
       await store.saveStarSuggestion(
         star("New/Found", { topics: ["mcp"], license: null }),
@@ -134,6 +139,59 @@ describe("star reminders", () => {
         "a/one",
         "a/two",
         "new/found",
+      ]);
+    } finally {
+      await store.close();
+    }
+  });
+
+  it("remembers how each find came, the thumbs on it, and the neighbors to follow", async () => {
+    const store = new PostgresStore(databaseUrl);
+    try {
+      await store.resetForTests();
+      await store.saveStarSuggestion(star("dug/one"), {
+        kind: "people",
+        seed: "me/seed",
+      });
+      await store.saveStarSuggestion(star("searched/two"));
+      await store.saveStarVote("42", "dug/one", -1, []);
+      await store.saveStarVote("7", "searched/two", 1, []);
+      const history = await store.starDigHistory("42");
+      assert.deepEqual(
+        history.map(({ fullName, kind, seed, vote }) => ({
+          fullName,
+          kind,
+          seed,
+          vote,
+        })),
+        [
+          { fullName: "dug/one", kind: "people", seed: "me/seed", vote: -1 },
+          // Another owner's thumb is not this owner's.
+          { fullName: "searched/two", kind: null, seed: null, vote: null },
+        ],
+      );
+      assert.ok(history[0]!.suggestedAt instanceof Date);
+      assert.ok(history[0]!.votedAt instanceof Date);
+
+      await store.saveStarNeighbors([
+        { login: "close", shared: 9, from: "me/seed" },
+        { login: "near", shared: 4, from: "me/seed" },
+        { login: "nearer", shared: 6, from: "me/seed" },
+      ]);
+      // Seen again with fewer shared stars, it keeps the most it ever shared.
+      await store.saveStarNeighbors([
+        { login: "close", shared: 3, from: "x/y" },
+      ]);
+      assert.deepEqual(await store.starNeighbors(2), [
+        { login: "close", shared: 9 },
+        { login: "nearer", shared: 6 },
+      ]);
+      await store.markStarNeighborsFollowed(["close", "nearer"]);
+      await store.markStarNeighborsFollowed([]);
+      assert.deepEqual(await store.starNeighbors(3), [
+        { login: "near", shared: 4 },
+        { login: "close", shared: 9 },
+        { login: "nearer", shared: 6 },
       ]);
     } finally {
       await store.close();
