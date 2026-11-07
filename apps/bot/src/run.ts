@@ -10,6 +10,7 @@ import {
   readLatestRapiRelease,
   readOwnStars,
   searchRepos,
+  digTrails,
   superadminDmNotifier,
 } from "@rapi/adapters";
 import {
@@ -405,8 +406,11 @@ const starReminder =
         delivery: discord,
         ownerId: starOwnerId,
         readStars: () => readOwnStars(starLogin, config.GITHUB_READ_TOKEN),
+        digTrails: (seeds: string[]) =>
+          digTrails(seeds, config.GITHUB_READ_TOKEN),
         searchRepos: (queries: string[]) =>
           searchRepos(queries, config.GITHUB_READ_TOKEN),
+        githubLogin: starLogin,
         ...(starPage && {
           interestUrl: (now: Date) => starInterestUrl(starPage, now),
         }),
