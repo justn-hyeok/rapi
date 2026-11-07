@@ -434,6 +434,401 @@ export const FIELDS: readonly Field[] = [
     match: /bssm|school|club|student|hackathon|동아리|학교|해커톤|외주/i,
     search: ["hackathon"],
   },
+  // Finer slices. A repository sits in every field that matches, so these sit
+  // beside the broad ones rather than replacing them.
+  { name: "Codex 전용", match: /\bcodex\b/i, search: ["codex"] },
+  { name: "OpenCode 전용", match: /opencode/i, search: ["opencode"] },
+  { name: "Cursor 전용", match: /\bcursor\b/i, search: ["cursor"] },
+  { name: "Gemini 전용", match: /gemini/i, search: ["gemini"] },
+  { name: "GitHub Copilot", match: /copilot/i, search: ["github-copilot"] },
+  {
+    name: "OpenClaw·Hermes 계열",
+    match: /openclaw|hermes[- ]agent/i,
+    search: ["openclaw"],
+  },
+  {
+    name: "에이전트 하네스·런타임",
+    match:
+      /harness|agent runtime|agent framework|agent sdk|agents sdk|runtime for agents|하네스/i,
+    search: ["agent-framework"],
+  },
+  {
+    name: "에이전트 작업 관리·칸반",
+    match:
+      /kanban|task (?:board|manager|queue)|todo|backlog|issue tracker|작업 관리/i,
+    search: ["task-management"],
+  },
+  {
+    name: "에이전트 관측·로그",
+    match:
+      /trace|tracing|observab|telemetry|session viewer|transcript|log viewer|replay/i,
+    search: ["llm-observability"],
+  },
+  {
+    name: "에이전트 보안·샌드박스",
+    match:
+      /sandbox|guardrail|permission|jail|isolat|prompt injection|safe(?:ty)? (?:layer|mode)/i,
+    search: ["ai-security", "sandbox"],
+  },
+  {
+    name: "에이전트 평가·벤치마크",
+    match: /benchmark|\bevals?\b|evaluation|leaderboard|swe-bench|arena/i,
+    search: ["llm-evaluation", "benchmark"],
+  },
+  {
+    name: "에이전트 상태 표시·알림",
+    match:
+      /statusline|status line|notification|notify|menubar|menu bar|\bhud\b|알림/i,
+    search: ["notifications"],
+  },
+  {
+    name: "에이전트 원격 조종·모바일",
+    match:
+      /remote control|from (?:your )?phone|mobile (?:client|app) for|telegram.*agent|agent.*telegram|원격/i,
+    search: ["remote-control"],
+  },
+  {
+    name: "음성으로 코딩",
+    match: /voice (?:coding|control|input)|speak to|dictation|받아쓰기/i,
+    search: ["voice-coding"],
+  },
+  {
+    name: "코드베이스 이해·검색",
+    match:
+      /codebase|code search|code graph|repo map|semantic code|grep|ast[- ]grep|indexing/i,
+    search: ["code-search"],
+  },
+  {
+    name: "리팩터링·마이그레이션",
+    match: /refactor|migrat|codemod|upgrade|modernize|리팩터/i,
+    search: ["codemod", "refactoring"],
+  },
+  {
+    name: "문서 자동 생성",
+    match: /readme|docs? generat|auto[- ]?doc|changelog|release notes/i,
+    search: ["documentation-generator"],
+  },
+  {
+    name: "커밋·PR 자동화",
+    match:
+      /commit message|pull request|\bpr\b|code owners|github app|release automation/i,
+    search: ["github-bot"],
+  },
+  {
+    name: "LLM 출력 구조화",
+    match:
+      /structured output|json schema|function calling|tool calling|\bzod\b|pydantic|instructor/i,
+    search: ["structured-output"],
+  },
+  {
+    name: "토큰 절약·압축",
+    match:
+      /compress|token[- ]?(?:saving|efficient|reduction)|minif|cache|caching|절약/i,
+    search: ["token-optimization"],
+  },
+  {
+    name: "멀티 모델·모델 전환",
+    match:
+      /multi[- ]model|any (?:llm|model)|model (?:switch|router|agnostic)|provider[- ]agnostic|100\+ (?:llms|models)/i,
+    search: ["llm-router"],
+  },
+  {
+    name: "AI 검색·딥리서치",
+    match:
+      /deep research|research agent|perplexity|web search|search engine|검색/i,
+    search: ["deep-research", "ai-search"],
+  },
+  {
+    name: "AI 글쓰기·콘텐츠",
+    match:
+      /writing|copywrit|content creat|blog post|essay|newsletter|글쓰기|콘텐츠/i,
+    search: ["ai-writing"],
+  },
+  {
+    name: "AI 디자인·피그마 연동",
+    match: /figma|design to code|screenshot to code|ui generat|피그마/i,
+    search: ["design-to-code"],
+  },
+  {
+    name: "AI 프레젠테이션·문서",
+    match: /slides?|presentation|pptx|docx|\bpdf\b|deck/i,
+    search: ["presentation", "pdf"],
+  },
+  {
+    name: "OCR·문서 파싱",
+    match:
+      /\bocr\b|document pars|pdf pars|extract (?:text|tables)|layout analysis/i,
+    search: ["ocr", "document-parsing"],
+  },
+  {
+    name: "AI 트레이딩·금융 에이전트",
+    match: /trading agent|financial agent|ai (?:trader|trading)|quant.*llm/i,
+    search: ["ai-trading"],
+  },
+  {
+    name: "AI 돈벌이·자율 경제",
+    match:
+      /\bearns?\b|make money|\bmoney\b|revenue|income|startup|돈 ?벌|수익/i,
+    search: ["make-money"],
+  },
+  {
+    name: "숏폼·영상 자동화",
+    match:
+      /short[- ]?video|shorts|reels|tiktok|video automation|youtube shorts/i,
+    search: ["short-video"],
+  },
+  {
+    name: "Rust 생태계",
+    match: /\brust\b|\bcrate\b|cargo|tokio/i,
+    search: ["rust"],
+  },
+  {
+    name: "Go 생태계",
+    match: /\bgolang\b|\bgo (?:library|module)/i,
+    search: ["golang"],
+  },
+  {
+    name: "Python 생태계",
+    match: /\bpython\b|\bpip\b|\buv\b|pypi|fastapi|django/i,
+    search: ["python"],
+  },
+  {
+    name: "TypeScript·Node 생태계",
+    match: /typescript|\bnode(?:\.?js)?\b|deno|\bbun\b|\bnpm\b/i,
+    search: ["typescript"],
+  },
+  {
+    name: "Swift 생태계",
+    match: /\bswift\b|swiftui|\bspm\b/i,
+    search: ["swift"],
+  },
+  {
+    name: "React 생태계",
+    match: /\breact\b|next\.?js|remix|react[- ]native/i,
+    search: ["react"],
+  },
+  {
+    name: "상태 관리·데이터 패칭",
+    match:
+      /state management|zustand|redux|jotai|tanstack|react query|signals?\b/i,
+    search: ["state-management"],
+  },
+  {
+    name: "폼·검증",
+    match: /\bforms?\b|validation|validator|schema/i,
+    search: ["form-validation"],
+  },
+  {
+    name: "인증·권한",
+    match: /\bauth|oauth|login|sso|session|jwt|passkey|권한|로그인/i,
+    search: ["authentication"],
+  },
+  {
+    name: "결제·구독",
+    match: /payment|stripe|billing|subscription|checkout|결제/i,
+    search: ["payments"],
+  },
+  {
+    name: "이메일",
+    match: /\bemail|\bmail\b|smtp|inbox|gmail|newsletter/i,
+    search: ["email"],
+  },
+  {
+    name: "실시간·동기화",
+    match:
+      /real[- ]?time|sync|crdt|collaborative|multiplayer|local[- ]first|websocket/i,
+    search: ["local-first", "crdt"],
+  },
+  {
+    name: "검색 엔진·인덱스",
+    match:
+      /full[- ]text|search index|meilisearch|elasticsearch|typesense|lucene/i,
+    search: ["search-engine"],
+  },
+  {
+    name: "캐시·큐·메시징",
+    match:
+      /\bqueue\b|kafka|rabbitmq|nats|pub\/?sub|job scheduler|cron|background jobs?/i,
+    search: ["message-queue"],
+  },
+  {
+    name: "홈랩·셀프호스팅",
+    match: /homelab|self[- ]host|home server|nas\b|proxmox|unraid/i,
+    search: ["homelab", "self-hosted"],
+  },
+  {
+    name: "VPS·서버 관리",
+    match: /\bvps\b|server management|ssh|provision|cloud[- ]init|systemd/i,
+    search: ["server-management"],
+  },
+  {
+    name: "모니터링·대시보드",
+    match: /monitor|uptime|metrics|grafana|prometheus|status page|dashboard/i,
+    search: ["monitoring"],
+  },
+  {
+    name: "웹 성능·최적화",
+    match:
+      /performance|perf\b|fast(?:er|est)|optimi[sz]|benchmark|lighthouse|bundle size/i,
+    search: ["performance"],
+  },
+  {
+    name: "접근성",
+    match: /accessib|a11y|screen reader|aria/i,
+    search: ["accessibility"],
+  },
+  {
+    name: "로딩·스켈레톤·마이크로 UI",
+    match: /skeleton|loading state|spinner|toast|tooltip|micro[- ]interaction/i,
+    search: ["skeleton-loader"],
+  },
+  {
+    name: "아이콘·일러스트·이미지 에셋",
+    match: /\bicons?\b|illustration|emoji|sprite|\bassets?\b|wallpaper/i,
+    search: ["icons"],
+  },
+  {
+    name: "색·테마",
+    match: /colou?r|palette|theme|dark mode|light mode/i,
+    search: ["color-palette"],
+  },
+  {
+    name: "스타일 가이드·코딩 규칙",
+    match:
+      /style ?guide|conventions?|best practices|guidelines|rules|코딩 규칙/i,
+    search: ["style-guide"],
+  },
+  {
+    name: "웹 서버·프레임워크",
+    match:
+      /web framework|http server|router|middleware|hono|express|fastify|elysia/i,
+    search: ["web-framework"],
+  },
+  {
+    name: "정적 분석·타입",
+    match:
+      /static analysis|type[- ]?check|typescript compiler|\btsc\b|type system|linter/i,
+    search: ["static-analysis"],
+  },
+  { name: "WebAssembly", match: /wasm|webassembly/i, search: ["webassembly"] },
+  {
+    name: "함수형·새 언어",
+    match:
+      /functional|elm|haskell|ocaml|lisp|clojure|new language|bend\b|zig\b/i,
+    search: ["functional-programming"],
+  },
+  {
+    name: "macOS 앱",
+    match: /macos app|mac app|menubar app|native mac|appkit/i,
+    search: ["macos-app"],
+  },
+  {
+    name: "윈도우·리눅스 데스크톱",
+    match: /windows|linux desktop|wayland|\bx11\b|gnome|kde|hyprland/i,
+    search: ["linux-desktop"],
+  },
+  {
+    name: "창 관리·런처",
+    match:
+      /window manager|tiling|launcher|alt[- ]tab|spotlight|raycast|alfred/i,
+    search: ["window-manager"],
+  },
+  {
+    name: "클립보드·스크린샷",
+    match: /clipboard|screenshot|screen capture|screen record|캡처/i,
+    search: ["screenshot"],
+  },
+  {
+    name: "파일·동기화·백업",
+    match:
+      /file manager|file sync|backup|cloud storage|\bs3\b|google drive|dropbox/i,
+    search: ["file-manager"],
+  },
+  {
+    name: "브라우저",
+    match: /\bbrowser\b|chromium|webkit|firefox|\btab(?:s)?\b/i,
+    search: ["browser"],
+  },
+  {
+    name: "데이터 수집·RSS",
+    match: /\brss\b|feed|aggregat|newsletter|scraper|monitor changes/i,
+    search: ["rss"],
+  },
+  {
+    name: "SNS·커뮤니티",
+    match:
+      /twitter|\bx\.com\b|reddit|social|community|forum|mastodon|bluesky|threads/i,
+    search: ["social-media"],
+  },
+  {
+    name: "학습 정리·TIL",
+    match: /\btil\b|today i learned|study notes|정리|공부/i,
+    search: ["til"],
+  },
+  {
+    name: "알고리즘·코딩테스트",
+    match: /algorithm|leetcode|coding test|baekjoon|백준|코딩테스트|자료구조/i,
+    search: ["algorithms"],
+  },
+  {
+    name: "이력서·커리어",
+    match: /resume|\bcv\b|career|hiring|job|이력서|커리어|취업|이직/i,
+    search: ["resume"],
+  },
+  {
+    name: "LLM 강의·책",
+    match:
+      /llm (?:course|book|tutorial)|dive into llms|from scratch|build (?:a|your own) (?:llm|gpt)|大模型/i,
+    search: ["llm-tutorial"],
+  },
+  {
+    name: "논문 구현",
+    match:
+      /paper|arxiv|implementation of|official (?:code|implementation)|reproduc/i,
+    search: ["paper-implementation"],
+  },
+  {
+    name: "온톨로지·지식 그래프",
+    match:
+      /ontology|knowledge graph|semantic layer|graph database|neo4j|온톨로지/i,
+    search: ["knowledge-graph"],
+  },
+  {
+    name: "텍스트 투 SQL·데이터 질의",
+    match:
+      /text[- ]to[- ]sql|nl2sql|natural language.*(?:sql|query)|semantic layer/i,
+    search: ["text-to-sql"],
+  },
+  {
+    name: "스프레드시트·표",
+    match: /spreadsheet|excel|csv|table|sheets/i,
+    search: ["spreadsheet"],
+  },
+  {
+    name: "마인드맵·다이어그램",
+    match: /mind ?map|markmap|diagram|mermaid|excalidraw|flowchart|whiteboard/i,
+    search: ["diagram"],
+  },
+  {
+    name: "Live2D·스파인·캐릭터",
+    match: /live2d|spine|character|avatar|vtuber|nikke/i,
+    search: ["live2d"],
+  },
+  {
+    name: "게임 데이터·API",
+    match: /game (?:data|api)|nikke|wiki api|game assets|datamin/i,
+    search: ["game-data"],
+  },
+  {
+    name: "한국 서비스 클론·연동",
+    match: /kakao|naver|toss|coupang|baemin|당근|카카오|네이버|토스/i,
+    search: ["korea"],
+  },
+  {
+    name: "교회·단체 사이트",
+    match: /church|교회|nonprofit|ngo|단체/i,
+    search: ["nonprofit"],
+  },
 ];
 
 // What the repository is, rather than what it is about. The first match wins.
