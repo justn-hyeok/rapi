@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>스타 관심사</title>
+    <style>
+      :root {
+        --bg: #f6f6f4;
+        --panel: #ffffff;
+        --text: #1f2328;
+        --muted: #6a737d;
+        --line: #e3e3df;
+        --like: #1f883d;
+        --like-bg: #dafbe1;
+        --dislike: #b42318;
+        --dislike-bg: #fde7e4;
+        --accent: #365d46;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #15171a;
+          --panel: #1d2024;
+          --text: #e6e6e3;
+          --muted: #9aa1a9;
+          --line: #2d3137;
+          --like: #4ac26b;
+          --like-bg: #133d22;
+          --dislike: #ff7b72;
+          --dislike-bg: #4a1714;
+          --accent: #6fae86;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          15px/1.5 -apple-system,
+          BlinkMacSystemFont,
+          "Apple SD Gothic Neo",
+          "Pretendard",
+          "Noto Sans KR",
+          sans-serif;
+      }
+      header {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: var(--bg);
+        border-bottom: 1px solid var(--line);
+        padding: 14px 16px 12px;
+      }
+      .top {
+        max-width: 980px;
+        margin: 0 auto;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      h1 {
+        font-size: 18px;
+        margin: 0 auto 0 0;
+      }
+      input[type="search"] {
+        flex: 1 1 220px;
+        min-width: 0;
+        padding: 8px 10px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+        color: var(--text);
+        font: inherit;
+      }
+      button {
+        font: inherit;
+        cursor: pointer;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+        background: var(--panel);
+        color: var(--text);
+        padding: 8px 14px;
+      }
+      #save {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+        font-weight: 600;
+      }
+      #status {
+        max-width: 980px;
+        margin: 6px auto 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      #status.error {
+        color: var(--dislike);
+      }
+      main {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 12px 16px 80px;
+      }
+      .help {
+        color: var(--muted);
+        font-size: 14px;
+        margin: 4px 0 16px;
+      }
+      .legend span {
+        display: inline-block;
+        padding: 0 8px;
+        border-radius: 999px;
+        margin-right: 4px;
+      }
+      section {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 14px 14px 10px;
+        margin-bottom: 14px;
+      }
+      section h2 {
+        font-size: 15px;
+        margin: 0 0 2px;
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      section h2 small {
+        color: var(--muted);
+        font-weight: 400;
+      }
+      section p {
+        margin: 0 0 10px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .chip {
+        border-radius: 999px;
+        padding: 5px 11px;
+        font-size: 14px;
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        max-width: 100%;
+      }
+      .chip .name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .chip .count {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .chip.like {
+        background: var(--like-bg);
+        border-color: var(--like);
+        color: var(--like);
+        font-weight: 600;
+      }
+      .chip.dislike {
+        background: var(--dislike-bg);
+        border-color: var(--dislike);
+        color: var(--dislike);
+        text-decoration: line-through;
+      }
+      .chip.hidden {
+        display: none;
+      }
+      .more {
+        margin-top: 8px;
+        font-size: 13px;
+        padding: 4px 10px;
+        color: var(--muted);
+      }
+      #examples {
+        position: fixed;
+        left: 16px;
+        right: 16px;
+        bottom: 16px;
+        max-width: 948px;
+        margin: 0 auto;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px 14px;
+        font-size: 13px;
+        color: var(--muted);
+        box-shadow: 0 6px 24px rgb(0 0 0 / 0.15);
+      }
+      #examples b {
+        color: var(--text);
+      }
+      #examples:empty {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="top">
+        <h1>스타 관심사</h1>
+        <input
+          id="filter"
+          type="search"
+          placeholder="찾기: rust, 터미널, mcp…"
+        />
+        <button id="clear" type="button">전부 지우기</button>
+        <button id="save" type="button">저장</button>
+      </div>
+      <div id="status">불러오는 중…</div>
+    </header>
+    <main>
+      <p class="help">
+        내 스타에서 뽑은 항목입니다. 한 번 누르면
+        <span class="legend"><span class="chip like">관심</span></span
+        >, 두 번이면
+        <span class="legend"><span class="chip dislike">별로</span></span
+        >, 세 번이면 다시 무관입니다. 매일 아침 DM에 관심과 맞는 잊은 스타
+        하나와, GitHub에서 새로 찾은 저장소 하나가 옵니다. 카드의 👍/👎도 여기
+        고른 것에 조금씩 더해집니다.
+      </p>
+      <div id="groups"></div>
+    </main>
+    <div id="examples"></div>
+    <script>
+      const GROUP_HELP = {
+        분야: "무엇에 관한 저장소인지. 가장 크게 반영됩니다.",
+        언어: "주로 쓰인 언어.",
+        형태: "라이브러리인지, 앱인지, 자료 모음인지.",
+        규모: "GitHub 별 수. 숨은 것과 유명한 것 중 어느 쪽이 좋은지.",
+        활동: "마지막으로 코드가 바뀐 때.",
+        나이: "저장소가 만들어진 지 얼마나 됐는지.",
+        "만든 쪽": "회사·단체 저장소인지 개인 저장소인지.",
+        라이선스: "가져다 쓸 때의 조건.",
+        topic: "저장소에 달린 GitHub topic. 스타 두 개 이상에 있는 것만.",
+      };
+      const COLLAPSED = 24;
+      const token = new URLSearchParams(location.search).get("t") ?? "";
+      const DRAFT = "rapi-star-interests-draft";
+      let picked = {};
+      let saved = "{}";
+      const $ = (selector) => document.querySelector(selector);
+      const el = (tag, props = {}, children = []) => {
+        const node = Object.assign(document.createElement(tag), props);
+        for (const child of [].concat(children))
+          node.append(
+            child instanceof Node ? child : document.createTextNode(child),
+          );
+        return node;
+      };
+      const groupOf = (key) => key.slice(0, key.indexOf(":"));
+      const valueOf = (key) => key.slice(key.indexOf(":") + 1);
+
+      function setStatus(text, error = false) {
+        $("#status").textContent = text;
+        $("#status").className = error ? "error" : "";
+      }
+
+      function summary() {
+        const values = Object.values(picked);
+        const likes = values.filter((v) => v > 0).length;
+        const dislikes = values.filter((v) => v < 0).length;
+        return `관심 ${likes} · 별로 ${dislikes}`;
+      }
+
+      function changed() {
+        const dirty = JSON.stringify(picked) !== saved;
+        try {
+          if (dirty) localStorage.setItem(DRAFT, JSON.stringify(picked));
+          else localStorage.removeItem(DRAFT);
+        } catch {}
+        setStatus(`${summary()}${dirty ? " · 저장 안 됨" : " · 저장됨"}`);
+      }
+
+      function paint(chip, key) {
+        const weight = picked[key] ?? 0;
+        chip.classList.toggle("like", weight > 0);
+        chip.classList.toggle("dislike", weight < 0);
+        chip.setAttribute(
+          "aria-pressed",
+          weight > 0 ? "true" : weight < 0 ? "mixed" : "false",
+        );
+      }
+
+      function render(catalog) {
+        const groups = $("#groups");
+        groups.replaceChildren();
+        const byGroup = new Map();
+        for (const entry of catalog) {
+          const group = groupOf(entry.key);
+          if (!byGroup.has(group)) byGroup.set(group, []);
+          byGroup.get(group).push(entry);
+        }
+        for (const [group, entries] of byGroup) {
+          const chips = el("div", { className: "chips" });
+          entries.forEach((entry, index) => {
+            const label =
+              group === "topic" ? `#${valueOf(entry.key)}` : valueOf(entry.key);
+            const chip = el("button", { type: "button", className: "chip" }, [
+              el("span", { className: "name" }, label),
+              el("span", { className: "count" }, String(entry.count)),
+            ]);
+            chip.dataset.key = entry.key;
+            chip.dataset.search =
+              `${label} ${entry.examples.join(" ")}`.toLowerCase();
+            if (index >= COLLAPSED) chip.dataset.extra = "1";
+            const show = () => {
+              $("#examples").replaceChildren(
+                el("b", {}, label),
+                ` · 스타 ${entry.count}개 · 예: ${entry.examples.join(", ")}`,
+              );
+            };
+            chip.addEventListener("mouseenter", show);
+            chip.addEventListener("focus", show);
+            chip.addEventListener("click", () => {
+              const weight = picked[entry.key] ?? 0;
+              const next = weight === 0 ? 1 : weight > 0 ? -1 : 0;
+              if (next === 0) delete picked[entry.key];
+              else picked[entry.key] = next;
+              paint(chip, entry.key);
+              show();
+              changed();
+            });
+            paint(chip, entry.key);
+            chips.append(chip);
+          });
+          const section = el("section", {}, [
+            el("h2", {}, [
+              group === "topic" ? "GitHub topic" : group,
+              el("small", {}, `${entries.length}개`),
+            ]),
+            el("p", {}, GROUP_HELP[group] ?? ""),
+            chips,
+          ]);
+          if (entries.length > COLLAPSED) {
+            const more = el(
+              "button",
+              { type: "button", className: "more" },
+              `${entries.length - COLLAPSED}개 더 보기`,
+            );
+            more.addEventListener("click", () => {
+              section.dataset.open = section.dataset.open ? "" : "1";
+              more.textContent = section.dataset.open
+                ? "접기"
+                : `${entries.length - COLLAPSED}개 더 보기`;
+              applyFilter();
+            });
+            section.append(more);
+          }
+          groups.append(section);
+        }
+        applyFilter();
+      }
+
+      function applyFilter() {
+        const query = $("#filter").value.trim().toLowerCase();
+        for (const section of document.querySelectorAll("section")) {
+          let visible = 0;
+          for (const chip of section.querySelectorAll(".chip")) {
+            const matches = query
+              ? chip.dataset.search.includes(query)
+              : !chip.dataset.extra ||
+                section.dataset.open ||
+                picked[chip.dataset.key];
+            chip.classList.toggle("hidden", !matches);
+            if (matches) visible += 1;
+          }
+          section.style.display = visible ? "" : "none";
+          const more = section.querySelector(".more");
+          if (more) more.style.display = query ? "none" : "";
+        }
+      }
+
+      async function call(path, body) {
+        const response = await fetch(`${path}?t=${encodeURIComponent(token)}`, {
+          method: body === undefined ? "GET" : "POST",
+          headers: { "content-type": "application/json" },
+          ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        });
+        const json = await response.json().catch(() => ({}));
+        if (response.status === 401)
+          throw new Error(
+            "링크가 만료됐습니다. 최근 스타 알림 DM에서 다시 열어 주세요.",
+          );
+        if (!response.ok) throw new Error(json.error ?? response.statusText);
+        return json;
+      }
+
+      async function load() {
+        const data = await call("/stars/data");
+        saved = JSON.stringify(data.picked ?? {});
+        picked = { ...(data.picked ?? {}) };
+        try {
+          const draft = localStorage.getItem(DRAFT);
+          if (draft && draft !== saved) picked = JSON.parse(draft);
+        } catch {}
+        document.title = `스타 관심사 · ${data.stars}개`;
+        render(data.catalog);
+        changed();
+        if (JSON.stringify(picked) !== saved)
+          setStatus(`${summary()} · 저장 안 한 선택을 되살렸습니다`);
+      }
+
+      $("#filter").addEventListener("input", applyFilter);
+      $("#clear").addEventListener("click", () => {
+        if (!confirm("고른 것을 전부 지울까요? 저장해야 반영됩니다.")) return;
+        picked = {};
+        for (const chip of document.querySelectorAll(".chip[data-key]"))
+          paint(chip, chip.dataset.key);
+        applyFilter();
+        changed();
+      });
+      $("#save").addEventListener("click", async () => {
+        setStatus("저장 중…");
+        try {
+          const result = await call("/stars/interests", { facets: picked });
+          saved = JSON.stringify(picked);
+          changed();
+          setStatus(
+            `${summary()} · 저장됨 ${new Date(result.at).toLocaleTimeString()} · 내일 아침 DM부터 반영됩니다`,
+          );
+        } catch (error) {
+          setStatus(`저장 실패: ${error.message}`, true);
+        }
+      });
+      window.addEventListener("beforeunload", (event) => {
+        if (JSON.stringify(picked) !== saved) event.preventDefault();
+      });
+      load().catch((error) => setStatus(error.message, true));
+    </script>
+  </body>
+</html>

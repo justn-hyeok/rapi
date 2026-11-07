@@ -487,6 +487,16 @@ export function createDiscordInteractionServer(
     problemCards?: {
       button: (identity: DiscordIdentity, customId: string) => Promise<unknown>;
     };
+    starVotes?: {
+      prefix: string;
+      button: (identity: DiscordIdentity, customId: string) => Promise<unknown>;
+    };
+    /** The owner's star interest page, under /stars. Answers null for other paths. */
+    pages?: (
+      method: string,
+      url: URL,
+      body: () => Promise<Buffer>,
+    ) => Promise<{ status: number; type: string; body: string } | null>;
   },
 ) {
   return createServer(async (request, response) => {
@@ -507,6 +517,27 @@ export function createDiscordInteractionServer(
           ...(ready && typeof ready === "object" ? ready : {}),
           revision: runtimeRevision,
         });
+      }
+      if (integrations?.pages) {
+        const page = await integrations.pages(
+          request.method ?? "GET",
+          new URL(request.url ?? "/", "http://rapi.local"),
+          () => readBody(request),
+        );
+        if (page) {
+          response.writeHead(page.status, {
+            "content-type": `${page.type}; charset=utf-8`,
+            "cache-control": "no-store",
+            "referrer-policy": "no-referrer",
+            "x-frame-options": "DENY",
+            ...(page.type === "text/html" && {
+              "content-security-policy":
+                "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'",
+            }),
+          });
+          response.end(page.body);
+          return;
+        }
       }
       if (request.method !== "POST")
         return json(response, 404, { error: "not found" });
@@ -647,6 +678,16 @@ export function createDiscordInteractionServer(
           response,
           200,
           await integrations.problemCards.button(identity, customId),
+        );
+      if (
+        interaction.type === 3 &&
+        integrations?.starVotes &&
+        customId.startsWith(integrations.starVotes.prefix)
+      )
+        return json(
+          response,
+          200,
+          await integrations.starVotes.button(identity, customId),
         );
       // Sending can take longer than Discord waits, so this is answered first.
       if (

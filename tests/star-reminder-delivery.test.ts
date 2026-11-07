@@ -288,8 +288,11 @@ test("the real adapter opens a DM and posts there with mentions off", async (t: 
   await new DiscordDeliveryAdapter("token").send(
     { channel: "discord_dm", recipientId: "42" },
     starReminderPayload([
-      star,
-      { ...star, fullName: "a/two", url: "https://github.com/a/two" },
+      { repo: star, reason: "" },
+      {
+        repo: { ...star, fullName: "a/two", url: "https://github.com/a/two" },
+        reason: "",
+      },
     ]),
   );
   assert.deepEqual(
@@ -316,6 +319,20 @@ test("the real adapter opens a DM and posts there with mentions off", async (t: 
     [
       [5, "https://github.com/a/one"],
       [5, "https://github.com/a/two"],
+    ],
+  );
+  // A thumb up and down for each, on a row of their own.
+  assert.deepEqual(
+    (
+      message.components[1]!.components as unknown as Array<{
+        custom_id: string;
+      }>
+    ).map((button) => button.custom_id),
+    [
+      "star_vote:1:a/one",
+      "star_vote:-1:a/one",
+      "star_vote:1:a/two",
+      "star_vote:-1:a/two",
     ],
   );
 });

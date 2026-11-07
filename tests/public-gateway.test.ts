@@ -30,6 +30,11 @@ test("public gateway denies private routes, forwards signed interactions and fai
     async readiness() {
       return { ready };
     },
+    async pages(_method, url) {
+      return url.pathname.startsWith("/stars")
+        ? { status: 200, type: "text/plain", body: "star page" }
+        : null;
+    },
   });
   bot.listen(0, "127.0.0.1");
   await once(bot, "listening");
@@ -63,6 +68,24 @@ test("public gateway denies private routes, forwards signed interactions and fai
       assert.equal((await fetch(base + path, { method: "POST" })).status, 404);
     }
     assert.equal((await fetch(base + "/interactions")).status, 404);
+    // The star page's three paths pass; anything else under /stars does not.
+    assert.equal((await fetch(base + "/stars?t=x")).status, 200);
+    assert.equal((await fetch(base + "/stars/data?t=x")).status, 200);
+    assert.equal(
+      (
+        await fetch(base + "/stars/interests?t=x", {
+          method: "POST",
+          body: "{}",
+        })
+      ).status,
+      200,
+    );
+    assert.equal((await fetch(base + "/stars/other")).status, 404);
+    assert.equal(
+      (await fetch(base + "/stars", { method: "POST" })).status,
+      404,
+    );
+    assert.equal((await fetch(base + "/stars/interests")).status, 404);
     assert.equal(
       (await fetch(base + "/interactions", { method: "POST", body: "{}" }))
         .status,
