@@ -426,8 +426,20 @@ DISCORD_SUPERADMIN_USER_IDS=소유자_ID
 무엇을 고르는가:
 
 - 스타를 누른 지 30일이 넘었고 최근 180일 안에 보낸 적이 없는 저장소만 고른다. 보관된 저장소와 스타를 지운 저장소는 뺀다.
-- 보낸 지 가장 오래된 순서(안 보낸 것 먼저, 그다음 오래된 스타)로 20개를 추리고, 그 안에서 무작위로 1개나 2개를 고른다. 고를 것이 없으면 보내지 않는다.
-- 하루 한 메시지에 카드와 저장소 링크 버튼을 함께 담는다. 할인 카드의 "한 메시지에 한 건"은 여기에 적용하지 않는다.
+- 관심사를 골라 두었으면 두 개를 보낸다.
+  - 잊은 스타 하나: 관심사와 가장 잘 맞는 다섯 개 중 하나다. 분야·topic이 가장 크게 반영되고(2배), 언어·형태·규모·활동·나이·만든 쪽·라이선스는 1배다. 별로로 고른 것이 있으면 점수가 내려간다. 분야·topic·언어·형태 중 하나는 맞아야 하며, 규모나 라이선스만 맞는 것은 고르지 않는다.
+  - 새 저장소 하나: 관심으로 고른 topic과 분야(분야마다 정해 둔 GitHub topic)를 최대 세 번 검색한다. 검색에는 관심 언어와 관심 규모(없으면 별 50–5만)를 넣고, 최근 90일 안에 바뀐 것만 찾는다. 내 스타, 전에 보낸 것, 👍/👎를 누른 것은 빼고 가장 잘 맞는 하나를 고른다. 검색이 실패하면 잊은 스타만 보낸다.
+- 관심사가 없거나 맞는 것이 하나도 없으면 전처럼 고른다. 보낸 지 가장 오래된 순서(안 보낸 것 먼저, 그다음 오래된 스타)로 20개를 추리고, 그 안에서 무작위로 1개나 2개를 고른다. 고를 것이 없으면 보내지 않는다.
+- 하루 한 메시지에 카드와 저장소 링크 버튼을 함께 담는다. 할인 카드의 "한 메시지에 한 건"은 여기에 적용하지 않는다. 관심사로 고른 카드에는 어느 관심사와 맞았는지 한 줄이 붙는다.
+- 고르기와 검색은 하루 한 번만 한다. 보내기가 실패해 다시 보낼 때는 같은 것을 보낸다(재시작하면 다시 고른다).
+
+관심사 페이지와 👍/👎:
+
+- 메시지 아래에 저장소마다 👍/👎 버튼과 "관심사 고르기" 링크 버튼이 붙는다. 링크는 `RAPI_PUBLIC_BASE_URL`과 `WEBHOOK_ENCRYPTION_KEY`가 둘 다 있을 때만 붙는다.
+- 링크(`/stars?t=…`)는 `WEBHOOK_ENCRYPTION_KEY`에서 만든 키로 소유자 ID와 만료 시각을 서명한 것이고, 7일 동안 열린다. 만료되면 다음 날 DM의 새 링크를 쓴다. 공개 게이트웨이는 `GET /stars`, `GET /stars/data`, `POST /stars/interests`만 봇으로 넘기고, 셋 다 서명을 확인한다.
+- 페이지는 저장된 스타에서 분야(67개 분류), 언어, 형태, 규모, 활동, 나이, 만든 쪽, 만든 곳(스타 두 개 이상인 계정), 라이선스, GitHub topic(스타 두 개 이상에 달린 것)을 뽑아 보여 준다. 누를 때마다 관심 → 별로 → 무관으로 바뀌고, 저장하면 `star_interests`에 남는다.
+- 👍/👎는 소유자가 누른 것만 센다. 그 저장소의 관심사 항목마다 ±0.25씩 더하고(합쳐서 -1에서 1 사이), 👎한 저장소는 다시 보내지 않는다. 같은 저장소를 다시 누르면 앞의 것을 바꾼다(`star_votes`).
+- topic, 최근 수정일, 만든 날, 만든 쪽, 라이선스는 다음 날 스타를 읽을 때 채워진다. 그 전에는 분야·언어·규모로만 고른다.
 
 중복을 막는 방식:
 
@@ -451,7 +463,15 @@ docker exec rapi-postgres-1 psql -U rapi -d rapi -c "DELETE FROM star_reminder_d
 sudo systemctl restart rapi-bot
 ```
 
-되돌리면(`packages/db/rollbacks/0007_star_reminders.sql`) 저장한 스타와 보낸 기록이 지워진다.
+관심사와 👍/👎를 볼 때:
+
+```sh
+docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT owner_id, jsonb_object_keys(facets) AS facet FROM star_interests"
+docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT full_name, vote, voted_at FROM star_votes ORDER BY voted_at DESC LIMIT 20"
+docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT full_name, suggested_at FROM star_suggestions ORDER BY suggested_at DESC LIMIT 20"
+```
+
+되돌리면(`packages/db/rollbacks/0007_star_reminders.sql`) 저장한 스타와 보낸 기록이 지워진다. `0019_star_interests.sql`을 되돌리면 관심사, 👍/👎, 보낸 새 저장소 기록과 스타의 topic 등 추가 정보가 지워지고, 고르기는 예전 방식으로 돌아간다.
 
 ## 서버별 기능 (0.0.9)
 

@@ -13,7 +13,14 @@ function respond(response, status, body) {
 
 const server = createServer((incoming, outgoing) => {
   const path = incoming.url?.split("?")[0] ?? "";
-  if (incoming.method !== "POST" || path !== "/interactions") {
+  // Discord's interactions, and the owner's star interest page, which checks
+  // its own signed link.
+  const allowed =
+    (incoming.method === "POST" &&
+      (path === "/interactions" || path === "/stars/interests")) ||
+    (incoming.method === "GET" &&
+      (path === "/stars" || path === "/stars/data"));
+  if (!allowed) {
     incoming.resume();
     respond(outgoing, 404, { error: "not_found" });
     return;

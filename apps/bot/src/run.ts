@@ -9,6 +9,7 @@ import {
   createModelClient,
   readLatestRapiRelease,
   readOwnStars,
+  searchRepos,
   superadminDmNotifier,
 } from "@rapi/adapters";
 import {
@@ -30,6 +31,9 @@ import {
   receiveGuildRequest,
   receiveReport,
   remindStars,
+  STAR_VOTE_PREFIX,
+  starInterestUrl,
+  starVoteButton,
   sendDiscountCards,
   sendGuildRequestCards,
   sendProblemCards,
@@ -54,6 +58,7 @@ import {
   PostgresStore,
 } from "@rapi/db";
 import { readFile } from "node:fs/promises";
+import { starPages } from "./star-page.js";
 import {
   clearGuildCommands,
   createDiscordInteractionServer,
@@ -383,6 +388,16 @@ async function sendCards(): Promise<void> {
 // Stars show the owner's taste, so they go to one person's DM and nowhere else.
 const starOwnerId = config.DISCORD_SUPERADMIN_USER_IDS?.[0];
 const starLogin = config.STAR_REMINDER_GITHUB_USER;
+// The interest page needs a public address and a key to sign its link with.
+const starPage =
+  starOwnerId && config.RAPI_PUBLIC_BASE_URL && config.WEBHOOK_ENCRYPTION_KEY
+    ? {
+        store,
+        ownerId: starOwnerId,
+        secret: config.WEBHOOK_ENCRYPTION_KEY,
+        baseUrl: config.RAPI_PUBLIC_BASE_URL,
+      }
+    : undefined;
 const starReminder =
   starLogin && starOwnerId
     ? {
@@ -390,6 +405,11 @@ const starReminder =
         delivery: discord,
         ownerId: starOwnerId,
         readStars: () => readOwnStars(starLogin, config.GITHUB_READ_TOKEN),
+        searchRepos: (queries: string[]) =>
+          searchRepos(queries, config.GITHUB_READ_TOKEN),
+        ...(starPage && {
+          interestUrl: (now: Date) => starInterestUrl(starPage, now),
+        }),
         reads: {},
       }
     : undefined;
@@ -434,6 +454,16 @@ const server = createDiscordInteractionServer(
       button: (identity, customId) =>
         problemCardButton(discountApproval, identity, customId),
     },
+    ...(starPage && {
+      starVotes: {
+        prefix: STAR_VOTE_PREFIX,
+        button: (
+          identity: Parameters<typeof starVoteButton>[1],
+          customId: string,
+        ) => starVoteButton(starPage, identity, customId),
+      },
+      pages: starPages(starPage),
+    }),
     component: async (identity, customId) => {
       if (!identity.guildId)
         throw new Error("서버에서만 사용할 수 있는 버튼입니다.");
