@@ -7,8 +7,8 @@ import {
 } from "@rapi/core";
 
 describe("guild feature rules", () => {
-  it("has only the read-only basics on without a row", () => {
-    assert.deepEqual([...enabledGuildFeatures([])], ["status"]);
+  it("has only the read-only basics and each person's own stars on without a row", () => {
+    assert.deepEqual([...enabledGuildFeatures([])], ["status", "stars"]);
   });
 
   it("lets a saved setting win and ignores names it does not know", () => {
@@ -20,7 +20,7 @@ describe("guild feature rules", () => {
           { feature: "gone", enabled: true },
         ]),
       ],
-      ["report"],
+      ["report", "stars"],
     );
   });
 
