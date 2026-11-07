@@ -168,7 +168,12 @@ test("connecting goes through GitHub, which says whose account it is", async () 
     codes: { good: "octocat" },
   });
   const me = { userId: "100", guildId: "g" };
-  const reply = await starCommand(service, me, { action: "연결" }, morning);
+  const reply = await starCommand(
+    service,
+    me,
+    { action: "깃허브-연결" },
+    morning,
+  );
   assert.match(reply, /공개 정보만 읽는 권한/);
   const state = new URL(/https:\/\/\S+/.exec(reply)![0]).searchParams.get(
     "state",
@@ -194,7 +199,7 @@ test("connecting goes through GitHub, which says whose account it is", async () 
     {
       ok: false,
       message:
-        "연결 링크가 만료됐습니다. Discord에서 /스타 연결을 다시 해 주세요.",
+        "연결 링크가 만료됐습니다. Discord에서 /스타 깃허브-연결을 다시 해 주세요.",
     },
   );
   assert.equal(
@@ -259,7 +264,7 @@ test("without an OAuth app nobody can connect", async () => {
     await starCommand(
       service,
       { userId: "100", guildId: "g" },
-      { action: "연결" },
+      { action: "깃허브-연결" },
     ),
     /설정되지 않았습니다/,
   );

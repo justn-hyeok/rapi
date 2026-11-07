@@ -45,7 +45,10 @@ export function githubConnectPages(service: StarService) {
       return {
         status: 500,
         type: "text/html",
-        body: page(false, "잠시 뒤 Discord에서 /스타 연결을 다시 해 주세요."),
+        body: page(
+          false,
+          "잠시 뒤 Discord에서 /스타 깃허브-연결을 다시 해 주세요.",
+        ),
       };
     }
   };

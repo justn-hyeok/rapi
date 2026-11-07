@@ -409,7 +409,7 @@ docker exec rapi-postgres-1 psql -U rapi -d rapi -c "UPDATE problem_reports SET 
 
 누구나 쓸 수 있다(0.0.11 스타 4차부터). 각자 GitHub OAuth로 자기 계정을 연결하고, 그 사람이 준 토큰으로만 그 사람의 스타를 읽는다. 운영자 토큰으로 남의 스타를 읽지 않는다:
 
-- 승인된 서버에서 `/스타 연결`. 15분짜리 GitHub 승인 링크를 준다. 권한(scope)은 하나도 요청하지 않아서 공개 정보만 읽을 수 있고, 비공개 저장소나 쓰기 권한은 없다. 링크의 `state`에 그 사람의 Discord ID와 만료 시각이 서명돼 있어 다른 사람 것으로 바꿀 수 없다.
+- 승인된 서버에서 `/스타 깃허브-연결`. 15분짜리 GitHub 승인 링크를 준다. 권한(scope)은 하나도 요청하지 않아서 공개 정보만 읽을 수 있고, 비공개 저장소나 쓰기 권한은 없다. 링크의 `state`에 그 사람의 Discord ID와 만료 시각이 서명돼 있어 다른 사람 것으로 바꿀 수 없다.
 - 승인하면 GitHub가 `https://<공개주소>/github/callback`으로 돌려보낸다. 봇은 `state`를 확인하고, 코드를 토큰으로 바꾸고, `/user`로 그 토큰이 누구 것인지 본다. 그래서 남의 GitHub 아이디로 연결할 수 없다. 토큰은 `WEBHOOK_ENCRYPTION_KEY`로 암호화해(AES-256-GCM) `star_subscribers.github_token`에 둔다. 그다음 연결했다는 첫 DM을 보낸다. DM이 막혀 있으면(Discord 403) 바로 멈춤으로 두고, 돌아온 페이지에서 DM을 허용한 뒤 다시 연결하라고 알린다.
 - 매일 읽기, 디깅, 취향 이웃, 검색 모두 그 사람의 토큰으로 한다. 사용 한도도 사람마다 따로다(시간당 5000번). GitHub가 401을 주면 그 사람이 권한을 거둔 것이므로 멈춤으로 둔다("GitHub 연결이 끊김"). 토큰이 없는 사람은 운영자 토큰으로 대신 읽지 않고 멈춘다("GitHub 연결이 필요함").
 - `/스타 관심사`: 7일짜리 관심사 페이지 링크. `/스타 보기`: 연결 상태와 멈춘 이유. `/스타 끄기`: GitHub 쪽 권한을 회수하고(`DELETE /applications/{client_id}/grant`), 그 사람의 토큰, 스타, 관심사, 👍/👎, 보낸 기록, 취향 이웃을 모두 지운다. 회수에 실패하면 GitHub 설정에서 직접 지우라고 알린다.
@@ -429,7 +429,7 @@ GITHUB_OAUTH_CLIENT_ID=...
 GITHUB_OAUTH_CLIENT_SECRET=...
 ```
 
-둘은 함께 있어야 하고 `RAPI_PUBLIC_BASE_URL`과 `WEBHOOK_ENCRYPTION_KEY`도 필요하다. 없으면 `/스타 연결`은 아직 설정되지 않았다고만 답하고, 운영자 본인의 알림은 그대로 간다. 공개 게이트웨이(`ops/gateway/run.mjs`)는 `GET /github/callback`도 통과시킨다. 이 파일은 배포에 포함되지 않으므로 VM에 복사하고 `rapi-public-gateway`를 다시 시작한다.
+둘은 함께 있어야 하고 `RAPI_PUBLIC_BASE_URL`과 `WEBHOOK_ENCRYPTION_KEY`도 필요하다. 없으면 `/스타 깃허브-연결`은 아직 설정되지 않았다고만 답하고, 운영자 본인의 알림은 그대로 간다. 공개 게이트웨이(`ops/gateway/run.mjs`)는 `GET /github/callback`도 통과시킨다. 이 파일은 배포에 포함되지 않으므로 VM에 복사하고 `rapi-public-gateway`를 다시 시작한다.
 
 운영자 설정:
 
@@ -438,7 +438,7 @@ STAR_REMINDER_GITHUB_USER=GitHub_로그인
 DISCORD_SUPERADMIN_USER_IDS=소유자_ID
 ```
 
-둘 다 있으면 시작할 때 소유자(`DISCORD_SUPERADMIN_USER_IDS`의 첫 번째 ID)를 이 로그인으로 연결해 둔다. 소유자만 OAuth 없이 배포의 `GITHUB_READ_TOKEN`으로 읽는다. 소유자가 `/스타 연결`로 GitHub를 연결했으면 그쪽(본인 토큰)이 이긴다. 0021 이전에 쌓인 스타와 기록은 시작할 때 소유자에게 넘긴다. 둘 다 없어도 다른 사람은 `/스타`로 쓸 수 있다. 로그인 형식이 틀리면 다른 설정처럼 봇이 시작하지 않는다.
+둘 다 있으면 시작할 때 소유자(`DISCORD_SUPERADMIN_USER_IDS`의 첫 번째 ID)를 이 로그인으로 연결해 둔다. 소유자만 OAuth 없이 배포의 `GITHUB_READ_TOKEN`으로 읽는다. 소유자가 `/스타 깃허브-연결`로 GitHub를 연결했으면 그쪽(본인 토큰)이 이긴다. 0021 이전에 쌓인 스타와 기록은 시작할 때 소유자에게 넘긴다. 둘 다 없어도 다른 사람은 `/스타`로 쓸 수 있다. 로그인 형식이 틀리면 다른 설정처럼 봇이 시작하지 않는다.
 
 `GITHUB_READ_TOKEN`은 있으면 쓰고 없어도 된다. 스타는 공개 API로 읽는다.
 
