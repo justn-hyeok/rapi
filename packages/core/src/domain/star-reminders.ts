@@ -2,6 +2,13 @@ import { templateCard } from "./card-template.js";
 import { clip, type DiscordCard } from "./discord-card.js";
 import { kstDateKey } from "./curation.js";
 import { cardLink, escapeMarkdown, plainLine } from "./discount-cards.js";
+import {
+  aboutLiked,
+  interestFit,
+  interestReason,
+  type Interests,
+  type RepoFacts,
+} from "./star-interests.js";
 
 /** One of the owner's stars, as GitHub reports it today. */
 export interface GitHubStar {
@@ -12,9 +19,18 @@ export interface GitHubStar {
   stars: number;
   archived: boolean;
   starredAt: string;
+  // What the interest page sorts by. Rows stored before it have none.
+  topics?: readonly string[];
+  pushedAt?: string | null;
+  createdAt?: string | null;
+  ownerType?: string | null;
+  license?: string | null;
 }
 
-export interface StoredStar extends Omit<GitHubStar, "starredAt"> {
+export interface StoredStar
+  extends Omit<GitHubStar, "starredAt" | "pushedAt" | "createdAt"> {
+  pushedAt?: Date | string | null;
+  createdAt?: Date | string | null;
   starredAt: Date;
   lastRemindedAt: Date | null;
 }
@@ -64,11 +80,82 @@ export function pickForgottenStars(
   return picked;
 }
 
+/** A repository for today and which of the owner's interests it fits. */
+export interface StarPick<T extends RepoFacts = StoredStar> {
+  repo: T;
+  reason: string;
+}
+
+// The best few are shuffled, so the same star does not win every morning.
+const INTEREST_WINDOW = 5;
+
+/**
+ * The forgotten star that fits the owner's interests best, or none when no
+ * star is about anything they like. Ties go to the one waited longest.
+ */
+export function pickInterestingStar(
+  stars: readonly StoredStar[],
+  interests: Interests,
+  now: Date,
+  random: () => number = Math.random,
+): StarPick | null {
+  const ranked = stars
+    .filter((star) => isForgottenStar(star, now))
+    .map((star) => ({ star, ...interestFit(star, interests, now) }))
+    .filter((entry) => entry.score > 0 && aboutLiked(entry.liked))
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        (a.star.lastRemindedAt?.getTime() ?? 0) -
+          (b.star.lastRemindedAt?.getTime() ?? 0),
+    )
+    .slice(0, INTEREST_WINDOW);
+  if (ranked.length === 0) return null;
+  const chosen = ranked[Math.floor(random() * ranked.length)]!;
+  return { repo: chosen.star, reason: interestReason(chosen.liked) };
+}
+
+/** The best new repository from a search, skipping any the owner has seen. */
+export function pickFoundRepo<T extends RepoFacts>(
+  found: readonly T[],
+  seen: ReadonlySet<string>,
+  interests: Interests,
+  now: Date,
+): StarPick<T> | null {
+  const best = found
+    .filter((repo) => !seen.has(repo.fullName.toLowerCase()))
+    .map((repo) => ({ repo, ...interestFit(repo, interests, now) }))
+    .filter((entry) => entry.score > 0 && aboutLiked(entry.liked))
+    .sort((a, b) => b.score - a.score || b.repo.stars - a.repo.stars)[0];
+  return best ? { repo: best.repo, reason: interestReason(best.liked) } : null;
+}
+
+/** A repository a search found, which the owner never starred. */
+export function foundRepoCard(
+  repo: RepoFacts & { url: string },
+  reason: string,
+): DiscordCard {
+  return templateCard(
+    "starFound",
+    {
+      저장소: escapeMarkdown(plainLine(repo.fullName)),
+      설명: escapeMarkdown(
+        clip(plainLine(repo.description), STAR_DESCRIPTION_MAX_CHARS),
+      ),
+      언어: repo.language ? escapeMarkdown(plainLine(repo.language)) : "",
+      별: repo.stars.toLocaleString("en-US"),
+      이유: escapeMarkdown(clip(plainLine(reason), 160)),
+    },
+    { url: cardLink(repo.url) },
+  );
+}
+
 /** The repository's own words are a stranger's, so they show as plain text. */
-export function starCard(star: StoredStar): DiscordCard {
+export function starCard(star: StoredStar, reason = ""): DiscordCard {
   return templateCard(
     "star",
     {
+      이유: escapeMarkdown(clip(plainLine(reason), 160)),
       저장소: escapeMarkdown(plainLine(star.fullName)),
       설명: escapeMarkdown(
         clip(plainLine(star.description), STAR_DESCRIPTION_MAX_CHARS),
@@ -83,7 +170,7 @@ export function starCard(star: StoredStar): DiscordCard {
 
 /** A link button to the repository. Discord shows a label as plain text. */
 export function starButton(
-  star: StoredStar,
+  star: Pick<RepoFacts, "fullName"> & { url: string },
 ): { type: 2; style: 5; label: string; url: string } | null {
   const url = cardLink(star.url);
   return url
