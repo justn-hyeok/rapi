@@ -26,6 +26,7 @@ export const slashCommands = [
   "status",
   "server_config",
   "report",
+  "stars",
   "features",
   "guilds",
   "notification_channels",
@@ -40,6 +41,7 @@ const commandFeatures: Record<
   status: "status",
   server_config: "server_config",
   report: "report",
+  stars: "stars",
   features: undefined,
   guilds: undefined,
   notification_channels: undefined,
@@ -58,7 +60,7 @@ export interface DiscordCommandResult {
 export function requiredCommandAccess(
   command: DiscordCommand["name"],
 ): DiscordAccessLevel {
-  if (command === "report") return "user";
+  if (command === "report" || command === "stars") return "user";
   return command === "server_config" ||
     command === "features" ||
     command === "guilds"
@@ -119,6 +121,11 @@ export class DiscordCommandService {
       report?: (
         identity: DiscordIdentity,
         options: ReportOptions,
+      ) => Promise<string>;
+      // Each person's own star reminders.
+      stars?: (
+        identity: DiscordIdentity,
+        options: Record<string, unknown>,
       ) => Promise<string>;
       /** Guilds the bot answers in. */
       guildAllowlist?: () => Promise<readonly string[]>;
@@ -217,12 +224,17 @@ export class DiscordCommandService {
     const feature = commandFeatures[command.name];
     if (identity.guildId && feature)
       await this.assertGuildFeature(identity.guildId, feature);
-    // Anyone in an allowed server may report; the channel gate still applies.
+    // Anyone in an allowed server may report or get star reminders; the channel
+    // gate still applies.
+    const anyMember = command.name === "report" || command.name === "stars";
     if (command.name === "report" && !identity.guildId)
       throw new Error("제보는 서버에서만 보낼 수 있습니다.");
+    // The DM needs a server shared with the bot, which a server command proves.
+    if (command.name === "stars" && !identity.guildId)
+      throw new Error("스타 알림은 라피가 있는 서버에서 연결해 주세요.");
     const access = resolveDiscordAccess(
       identity,
-      command.name === "report"
+      anyMember
         ? { ...this.allowlists, guildMembersAreUsers: true }
         : this.allowlists,
     );
@@ -289,6 +301,13 @@ export class DiscordCommandService {
           };
         }
         throw new Error("지원하지 않는 서버 구성 동작입니다.");
+      }
+      case "stars": {
+        if (!this.operations?.stars)
+          throw new Error("스타 알림이 설정되지 않았습니다.");
+        return {
+          messages: [await this.operations.stars(identity, command.options)],
+        };
       }
       case "report": {
         if (!this.operations?.report)
