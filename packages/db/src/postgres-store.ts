@@ -1150,7 +1150,7 @@ export class PostgresStore {
       ),
       this.pool.query<{ fullName: string; vote: number; facets: string[] }>(
         `SELECT full_name AS "fullName", vote, facets FROM star_votes
-         WHERE owner_id = $1`,
+         WHERE owner_id = $1 ORDER BY voted_at, full_name`,
         [ownerId],
       ),
     ]);

@@ -2,20 +2,25 @@ import { DiscordServerError, UncertainDeliveryError } from "@rapi/adapters";
 import {
   clip,
   combinedInterests,
+  digSeeds,
   discordEmbed,
   foundRepoCard,
   interestQueries,
   kstDateKey,
   kstReached,
   pickForgottenStars,
+  pickDug,
   pickFoundRepo,
   pickInterestingStar,
   plainLine,
+  rankDug,
   starButton,
   starCard,
   type DeliveryAdapter,
   type DeliveryPayload,
+  type DigTrail,
   type GitHubStar,
+  type Interests,
   type StoredStar,
 } from "@rapi/core";
 import type { PostgresStore } from "@rapi/db";
@@ -34,7 +39,7 @@ type StarStore = Pick<
   Partial<
     Pick<
       PostgresStore,
-      "starInterests" | "seenStarRepos" | "saveStarSuggestion"
+      "starInterests" | "seenStarRepos" | "saveStarSuggestion" | "starRepo"
     >
   >;
 
@@ -46,9 +51,22 @@ const CUSTOM_ID_MAX_CHARS = 100;
 export interface ReminderPick {
   repo: StoredStar;
   reason: string;
-  // Found by a search, not one of the owner's stars.
+  // Found by a dig or a search, not one of the owner's stars.
   found?: boolean;
+  // How a dig reached it.
+  trail?: string;
 }
+
+/** The ways to new repositories: digging from seeds, then a plain search. */
+interface Finders {
+  dig?: ((seeds: string[]) => Promise<DigTrail[]>) | undefined;
+  search?: ((queries: string[]) => Promise<GitHubStar[]>) | undefined;
+  // The owner's GitHub login, whose own repositories are no find.
+  self?: string | undefined;
+}
+
+// Liked repositories the dig may start from, latest first.
+const LIKED_SEEDS = 10;
 
 const isoOrNull = (value: Date | string | null | undefined) =>
   value ? new Date(value).toISOString() : null;
@@ -99,9 +117,9 @@ export function starReminderPayload(
     html: "",
     itemIds: [],
     discord: {
-      embeds: picks.map(({ repo, reason, found }) =>
+      embeds: picks.map(({ repo, reason, found, trail }) =>
         discordEmbed(
-          found ? foundRepoCard(repo, reason) : starCard(repo, reason),
+          found ? foundRepoCard(repo, reason, trail) : starCard(repo, reason),
         ),
       ),
       components: rows.map((components) => ({ type: 1, components })),
@@ -110,9 +128,92 @@ export function starReminderPayload(
 }
 
 /**
- * The day's repositories. With interests: the forgotten star that fits them best
- * and one new repository a search found for them. Without, or when nothing fits:
- * one or two forgotten stars, as before. A thumbed-down repository never returns.
+ * A repository the owner has never seen: dug from their liked, fitting or
+ * recent stars first, and only when that finds nothing, a search for their
+ * interests. Null when neither finds one.
+ */
+async function findNew(
+  store: StarStore,
+  stars: StoredStar[],
+  saved: {
+    interests: Interests;
+    votes: ReadonlyArray<{ fullName: string; vote: number }>;
+  },
+  now: Date,
+  random: (() => number) | undefined,
+  finders: Finders,
+  failures: string[],
+): Promise<ReminderPick | null> {
+  if (!store.seenStarRepos) return null;
+  const { interests, votes } = saved;
+  const asPick = (repo: GitHubStar, reason: string, trail?: string) => ({
+    repo: {
+      ...repo,
+      starredAt: new Date(repo.starredAt),
+      lastRemindedAt: null,
+    },
+    reason,
+    found: true,
+    ...(trail && { trail }),
+  });
+  let seen: Set<string>;
+  try {
+    seen = await store.seenStarRepos();
+  } catch (error) {
+    failures.push(failureText("seen", error));
+    return null;
+  }
+  for (const vote of votes) seen.add(vote.fullName.toLowerCase());
+  if (finders.dig)
+    try {
+      const liked = store.starRepo
+        ? (
+            await Promise.all(
+              votes
+                .filter((vote) => vote.vote > 0)
+                .slice(-LIKED_SEEDS)
+                .map((vote) => store.starRepo!(vote.fullName)),
+            )
+          ).filter((repo): repo is GitHubStar => repo !== null)
+        : [];
+      const seeds = digSeeds({ stars, liked, interests, now, random });
+      if (seeds.length) {
+        const dug = pickDug(
+          rankDug({
+            trails: await finders.dig(seeds),
+            ownStars: stars,
+            seen,
+            self: finders.self,
+            interests,
+            now,
+          }),
+          random,
+        );
+        if (dug) return asPick(dug.repo, dug.reason, dug.trail);
+      }
+    } catch (error) {
+      failures.push(failureText("dig", error));
+    }
+  if (finders.search && Object.values(interests).some((weight) => weight > 0))
+    try {
+      const found = pickFoundRepo(
+        await finders.search(interestQueries(interests, now)),
+        seen,
+        interests,
+        now,
+      );
+      if (found) return asPick(found.repo, found.reason);
+    } catch (error) {
+      failures.push(failureText("search", error));
+    }
+  return null;
+}
+
+/**
+ * The day's repositories: one forgotten star, the one that fits the owner's
+ * interests best when they have some, and one new repository a dig or a search
+ * found. Without a new one, one or two forgotten stars, as before. A
+ * thumbed-down repository never returns.
  */
 async function choose(
   store: StarStore,
@@ -120,65 +221,45 @@ async function choose(
   stars: StoredStar[],
   now: Date,
   random: (() => number) | undefined,
-  search: ((queries: string[]) => Promise<GitHubStar[]>) | undefined,
+  finders: Finders,
   failures: string[],
 ): Promise<ReminderPick[]> {
-  const fallback = () =>
-    pickForgottenStars(stars, now, random).map((repo) => ({
-      repo,
-      reason: "",
-    }));
-  if (!store.starInterests) return fallback();
-  let saved: Awaited<ReturnType<NonNullable<StarStore["starInterests"]>>>;
-  try {
-    saved = await store.starInterests(ownerId);
-  } catch (error) {
-    failures.push(failureText("interests", error));
-    return fallback();
-  }
-  const interests = combinedInterests(saved.picked, saved.votes);
-  if (!Object.values(interests).some((weight) => weight > 0)) return fallback();
-  const voted = new Set(saved.votes.map((vote) => vote.fullName.toLowerCase()));
+  let interests: Interests = {};
+  let votes: Array<{ fullName: string; vote: number; facets: string[] }> = [];
+  if (store.starInterests)
+    try {
+      const saved = await store.starInterests(ownerId);
+      interests = combinedInterests(saved.picked, saved.votes);
+      votes = saved.votes;
+    } catch (error) {
+      failures.push(failureText("interests", error));
+    }
   const disliked = new Set(
-    saved.votes
+    votes
       .filter((vote) => vote.vote < 0)
       .map((vote) => vote.fullName.toLowerCase()),
   );
-  const picks: ReminderPick[] = [];
-  const star = pickInterestingStar(
-    stars.filter(
-      (candidate) => !disliked.has(candidate.fullName.toLowerCase()),
-    ),
-    interests,
+  const kept = stars.filter(
+    (star) => !disliked.has(star.fullName.toLowerCase()),
+  );
+  const found = await findNew(
+    store,
+    kept,
+    { interests, votes },
     now,
     random,
+    finders,
+    failures,
   );
-  if (star) picks.push(star);
-  if (search && store.seenStarRepos) {
-    try {
-      const seen = await store.seenStarRepos();
-      for (const name of voted) seen.add(name);
-      const found = pickFoundRepo(
-        await search(interestQueries(interests, now)),
-        seen,
-        interests,
-        now,
-      );
-      if (found)
-        picks.push({
-          repo: {
-            ...found.repo,
-            starredAt: new Date(found.repo.starredAt),
-            lastRemindedAt: null,
-          },
-          reason: found.reason,
-          found: true,
-        });
-    } catch (error) {
-      failures.push(failureText("search", error));
-    }
-  }
-  return picks.length ? picks : fallback();
+  const fitting = Object.values(interests).some((weight) => weight > 0)
+    ? pickInterestingStar(kept, interests, now, random)
+    : null;
+  const forgotten = fitting
+    ? [fitting]
+    : pickForgottenStars(kept, now, random)
+        .slice(0, found ? 1 : 2)
+        .map((repo) => ({ repo, reason: "" }));
+  return [...forgotten, ...(found ? [found] : [])];
 }
 
 /**
@@ -193,8 +274,12 @@ export async function remindStars(input: {
   delivery: Pick<DeliveryAdapter, "send">;
   ownerId: string;
   readStars: () => Promise<{ stars: GitHubStar[]; complete: boolean }>;
+  // Follows seed repositories out to the people and projects around them.
+  digTrails?: (seeds: string[]) => Promise<DigTrail[]>;
   // A GitHub search for new repositories that fit the owner's interests.
   searchRepos?: (queries: string[]) => Promise<GitHubStar[]>;
+  // The owner's GitHub login, whose own repositories are never suggested.
+  githubLogin?: string;
   // The signed link to the interest page, made fresh for each message.
   interestUrl?: (now: Date) => string;
   // The list is read once a day, even when the read fails or the send is tried again.
@@ -230,7 +315,11 @@ export async function remindStars(input: {
           await store.currentStars(),
           now,
           input.random,
-          input.searchRepos,
+          {
+            dig: input.digTrails,
+            search: input.searchRepos,
+            self: input.githubLogin,
+          },
           failures,
         ),
       };
