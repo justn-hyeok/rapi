@@ -247,9 +247,7 @@
         topic: "저장소에 달린 GitHub topic. 스타 두 개 이상에 있는 것만.",
       };
       const COLLAPSED = 24;
-      const query = new URLSearchParams(location.search);
-      const token = query.get("t") ?? "";
-      const owner = query.get("u") ?? "";
+      const token = new URLSearchParams(location.search).get("t") ?? "";
       const DRAFT = "rapi-star-interests-draft";
       let picked = {};
       let saved = "{}";
@@ -386,8 +384,7 @@
       }
 
       async function call(path, body) {
-        const address = `${path}?u=${encodeURIComponent(owner)}&t=${encodeURIComponent(token)}`;
-        const response = await fetch(address, {
+        const response = await fetch(`${path}?t=${encodeURIComponent(token)}`, {
           method: body === undefined ? "GET" : "POST",
           headers: { "content-type": "application/json" },
           ...(body === undefined ? {} : { body: JSON.stringify(body) }),
