@@ -67,7 +67,6 @@ export const discordCommandAliases = {
   상태: "status",
   서버구성: "server_config",
   제보: "report",
-  스타: "stars",
   기능: "features",
   서버: "guilds",
   "ai-할인-알림": "notification_channels",
@@ -179,35 +178,6 @@ export const slashCommandDefinitions = [
       {
         ...stringOption("메모", "소유자에게 전할 짧은 메모", false),
         max_length: REPORT_MEMO_MAX_CHARS,
-      },
-    ],
-  },
-  {
-    name: "스타",
-    description: "내 GitHub 스타를 매일 아침 DM으로 다시 꺼내 줍니다",
-    type: 1,
-    options: [
-      {
-        type: 1,
-        name: "연결",
-        description: "GitHub 아이디를 연결하고 DM을 받기 시작합니다",
-        options: [
-          {
-            ...stringOption("깃허브", "GitHub 아이디 (예: octocat)"),
-            max_length: 39,
-          },
-        ],
-      },
-      {
-        type: 1,
-        name: "관심사",
-        description: "관심사를 고르는 페이지 링크를 받습니다",
-      },
-      { type: 1, name: "보기", description: "연결 상태를 봅니다" },
-      {
-        type: 1,
-        name: "끄기",
-        description: "DM을 끄고 저장한 기록을 모두 지웁니다",
       },
     ],
   },
@@ -833,7 +803,6 @@ export function createDiscordInteractionServer(
         기능: "feature",
         서버: "target",
         채널: "channel",
-        깃허브: "login",
       };
       for (const [discordName, internalName] of Object.entries(aliases)) {
         if (options[discordName] !== undefined) {

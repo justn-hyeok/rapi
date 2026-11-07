@@ -1,12 +1,10 @@
 /**
- * What can be switched per server. A server takes discount cards by choosing a
- * channel with its alert command, so those are not on this list. Star reminders
- * go to each person's DM; switching them off here only hides /스타 in that server.
+ * What can be switched per server. Star reminders go to the owner's DM, and a server
+ * takes discount cards by choosing a channel with its alert command, so neither is on this list.
  */
 export const GUILD_FEATURES = [
   { key: "status", label: "상태", uses: "/상태, /수집원", on: true },
   { key: "report", label: "제보", uses: "/제보", on: false },
-  { key: "stars", label: "스타 알림", uses: "/스타", on: true },
   {
     key: "server_config",
     label: "서버 구성",
