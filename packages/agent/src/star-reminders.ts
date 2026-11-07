@@ -26,12 +26,12 @@ import {
   type KeptNeighbor,
   type StoredStar,
 } from "@rapi/core";
-import type { StarOwnerStore } from "@rapi/db";
+import type { PostgresStore } from "@rapi/db";
 
 const REMINDER_KST_HOUR = 9;
 
-export type StarStore = Pick<
-  StarOwnerStore,
+type StarStore = Pick<
+  PostgresStore,
   | "saveStars"
   | "currentStars"
   | "starReminderClaimed"
@@ -41,7 +41,7 @@ export type StarStore = Pick<
 > &
   Partial<
     Pick<
-      StarOwnerStore,
+      PostgresStore,
       | "starInterests"
       | "seenStarRepos"
       | "saveStarSuggestion"
@@ -208,7 +208,9 @@ async function findNew(
             )
           ).filter((repo): repo is GitHubStar => repo !== null)
         : [];
-      const history = store.starDigHistory ? await store.starDigHistory() : [];
+      const history = store.starDigHistory
+        ? await store.starDigHistory(ownerId)
+        : [];
       const resting = restingFromHistory(history, now);
       const disliked = new Set<string>();
       for (const vote of votes)
@@ -317,7 +319,7 @@ async function choose(
   }> = [];
   if (store.starInterests)
     try {
-      const saved = await store.starInterests();
+      const saved = await store.starInterests(ownerId);
       interests = combinedInterests(saved.picked, saved.votes);
       votes = saved.votes;
     } catch (error) {
@@ -374,8 +376,6 @@ export async function remindStars(input: {
   searchRepos?: (queries: string[]) => Promise<GitHubStar[]>;
   // The owner's GitHub login, whose own repositories are never suggested.
   githubLogin?: string;
-  // Told when Discord refuses the DM outright, so the owner can be paused.
-  onUndeliverable?: (reason: string) => Promise<void>;
   // The signed link to the interest page, made fresh for each message.
   interestUrl?: (now: Date) => string;
   // The list is read once a day, even when the read fails or the send is tried again.
@@ -452,22 +452,11 @@ export async function remindStars(input: {
     const sent = await delivery.send(
       { channel: "discord_dm", recipientId: ownerId },
       starReminderPayload(picks, input.interestUrl?.(now)),
-      `star-reminder:${ownerId}:${day}`,
+      `star-reminder:${day}`,
     );
     messageId = sent.providerId;
   } catch (error) {
     failures.push(failureText("send", error));
-    // Discord answers 403 to a DM that person does not take.
-    if (
-      input.onUndeliverable &&
-      error instanceof Error &&
-      /\b403\b/.test(error.message)
-    )
-      await input
-        .onUndeliverable("DM을 받을 수 없음")
-        .catch((pauseError: unknown) =>
-          failures.push(failureText("pause", pauseError)),
-        );
     // It may have reached the owner, and one more day without stars costs nothing.
     if (
       !(error instanceof UncertainDeliveryError) &&

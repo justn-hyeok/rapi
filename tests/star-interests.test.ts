@@ -7,7 +7,6 @@ import {
   starVoteButton,
   validStarToken,
   type StarInterestPage,
-  type StarInterestSite,
 } from "@rapi/agent";
 import {
   combinedInterests,
@@ -184,24 +183,9 @@ const page = (
   baseUrl: "https://rapi.example/",
 });
 
-// Everyone's pages over one store per person; only "42" is connected.
-const siteOf = (
-  stores: Record<string, Partial<StarInterestPage["store"]>>,
-  defaultOwnerId?: string,
-): StarInterestSite => ({
-  store: {
-    starsOf: (owner) => (stores[owner] ?? {}) as StarInterestPage["store"],
-    starSubscriber: async (userId) => (userId === "42" ? { userId } : null),
-  },
-  secret: "deployment-secret",
-  baseUrl: "https://rapi.example/",
-  defaultOwnerId,
-});
-
 test("the link is signed for the owner and expires after a week", () => {
   const url = new URL(starInterestUrl(page(), now));
   assert.equal(url.origin + url.pathname, "https://rapi.example/stars");
-  assert.equal(url.searchParams.get("u"), "42");
   const token = url.searchParams.get("t");
   assert.equal(validStarToken(page(), token, now), true);
   assert.equal(
@@ -237,62 +221,41 @@ test("saved choices keep only well-formed keys and weights", () => {
 
 test("the page answers only with a valid token, and saves what it was sent", async () => {
   let saved: unknown;
-  const site = siteOf(
-    {
-      "42": {
-        currentStars: async () => [tui],
-        starInterests: async () => ({
-          picked: { "언어:Rust": 1 },
-          votes: [],
-        }),
-        saveStarInterests: async (facets) => {
-          saved = facets;
-        },
-      },
+  const site = page({
+    currentStars: async () => [tui],
+    starInterests: async () => ({ picked: { "언어:Rust": 1 }, votes: [] }),
+    saveStarInterests: async (_owner, facets) => {
+      saved = facets;
     },
-    "42",
-  );
+  });
   const handle = starPages(site);
-  const link = new URL(starInterestUrl(page(), new Date()));
-  const token = link.searchParams.get("t")!;
+  const token = new URL(starInterestUrl(site, new Date())).searchParams.get(
+    "t",
+  )!;
   const at = (path: string) => new URL(`http://x${path}`);
   const none = async () => Buffer.from("");
   assert.equal(await handle("GET", at("/interactions"), none), null);
   assert.equal((await handle("GET", at("/stars?t=bad"), none))?.status, 401);
   assert.equal((await handle("GET", at("/stars/data"), none))?.status, 401);
-  // A token is one person's: it opens nobody else's page.
-  assert.equal(
-    (await handle("GET", at(`/stars?u=43000&t=${token}`), none))?.status,
-    401,
-  );
-  assert.equal(
-    (await handle("GET", at(`/stars?u=x&t=${token}`), none))?.status,
-    401,
-  );
-  // A link from before links named their owner opens the configured owner's page.
-  assert.equal(
-    (await handle("GET", at(`/stars?t=${token}`), none))?.status,
-    200,
-  );
-  const html = await handle("GET", at(`/stars?u=42&t=${token}`), none);
+  const html = await handle("GET", at(`/stars?t=${token}`), none);
   assert.equal(html?.type, "text/html");
   assert.match(html!.body, /스타 관심사/);
   const data = JSON.parse(
-    (await handle("GET", at(`/stars/data?u=42&t=${token}`), none))!.body,
+    (await handle("GET", at(`/stars/data?t=${token}`), none))!.body,
   ) as { stars: number; picked: unknown; catalog: Array<{ key: string }> };
   assert.equal(data.stars, 1);
   assert.deepEqual(data.picked, { "언어:Rust": 1 });
   assert.ok(data.catalog.some((entry) => entry.key === "분야:터미널·TUI"));
   const post = await handle(
     "POST",
-    at(`/stars/interests?u=42&t=${token}`),
+    at(`/stars/interests?t=${token}`),
     async () => Buffer.from(JSON.stringify({ facets: { "topic:tui": 1 } })),
   );
   assert.equal(post?.status, 200);
   assert.deepEqual(saved, { "topic:tui": 1 });
   assert.equal(
     (
-      await handle("POST", at(`/stars/interests?u=42&t=${token}`), async () =>
+      await handle("POST", at(`/stars/interests?t=${token}`), async () =>
         Buffer.from("not json"),
       )
     )?.status,
@@ -300,17 +263,15 @@ test("the page answers only with a valid token, and saves what it was sent", asy
   );
 });
 
-test("a vote counts only from someone connected, for them, with the repository's facets", async () => {
+test("a vote counts only from the owner and stores the repository's facets", async () => {
   const votes: unknown[] = [];
-  const site = siteOf({
-    "42": {
-      starRepo: async (name) =>
-        name === "a/ratatui-thing"
-          ? { ...tui, starredAt: tui.starredAt.toISOString(), pushedAt: null }
-          : null,
-      saveStarVote: async (...args) => {
-        votes.push(args);
-      },
+  const site = page({
+    starRepo: async (name) =>
+      name === "a/ratatui-thing"
+        ? { ...tui, starredAt: tui.starredAt.toISOString(), pushedAt: null }
+        : null,
+    saveStarVote: async (...args) => {
+      votes.push(args);
     },
   });
   const content = (reply: unknown) =>
@@ -319,7 +280,7 @@ test("a vote counts only from someone connected, for them, with the repository's
     content(
       await starVoteButton(
         site,
-        { userId: "70000" },
+        { userId: "7" },
         "star_vote:1:a/ratatui-thing",
         now,
       ),
@@ -338,8 +299,13 @@ test("a vote counts only from someone connected, for them, with the repository's
     /다시 보내지 않고/,
   );
   assert.equal(votes.length, 1);
-  const [name, vote, facets] = votes[0] as [string, number, string[]];
-  assert.deepEqual([name, vote], ["a/ratatui-thing", -1]);
+  const [owner, name, vote, facets] = votes[0] as [
+    string,
+    string,
+    number,
+    string[],
+  ];
+  assert.deepEqual([owner, name, vote], ["42", "a/ratatui-thing", -1]);
   assert.ok(facets.includes("분야:터미널·TUI"));
   assert.match(
     content(

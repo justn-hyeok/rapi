@@ -1,11 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import {
-  interestPageOf,
   saveStarInterestChoices,
   starInterestData,
   validStarToken,
-  type StarInterestSite,
+  type StarInterestPage,
 } from "@rapi/agent";
 
 const PAGE = fileURLToPath(new URL("./star-page.html", import.meta.url));
@@ -18,11 +17,11 @@ const json = (status: number, body: unknown) => ({
 });
 
 /**
- * Each person's interest page: GET /stars, GET /stars/data and POST
- * /stars/interests, for the person in ?u= and only with their valid token in
- * ?t=. Other paths are not this page's, so it answers null.
+ * The owner's interest page: GET /stars, GET /stars/data and POST
+ * /stars/interests, each only with a valid token in ?t=. Other paths are not
+ * this page's, so it answers null.
  */
-export function starPages(site: StarInterestSite) {
+export function starPages(page: StarInterestPage) {
   return async (
     method: string,
     url: URL,
@@ -31,13 +30,12 @@ export function starPages(site: StarInterestSite) {
     if (url.pathname !== "/stars" && !url.pathname.startsWith("/stars/"))
       return null;
     const now = new Date();
-    const page = interestPageOf(site, url.searchParams.get("u"));
-    if (!page || !validStarToken(page, url.searchParams.get("t"), now))
+    if (!validStarToken(page, url.searchParams.get("t"), now))
       return url.pathname === "/stars"
         ? {
             status: 401,
             type: "text/html",
-            body: "<!doctype html><meta charset=utf-8><title>라피</title><p>링크가 만료됐습니다. 최근 스타 알림 DM의 '관심사 고르기'를 누르거나 /스타 관심사로 새 링크를 받아 주세요.</p>",
+            body: "<!doctype html><meta charset=utf-8><title>라피</title><p>링크가 만료됐습니다. 최근 스타 알림 DM의 '관심사 고르기'를 눌러 주세요.</p>",
           }
         : json(401, { error: "expired" });
     try {
