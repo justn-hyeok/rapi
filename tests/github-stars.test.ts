@@ -205,6 +205,11 @@ test("reads own stars with the date header and stops at the last page", async ()
     stars: 5,
     archived: false,
     starredAt: recent,
+    topics: [],
+    pushedAt: null,
+    createdAt: null,
+    ownerType: null,
+    license: null,
   });
   assert.equal(stars[1]!.archived, true);
 });

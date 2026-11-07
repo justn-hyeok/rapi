@@ -76,4 +76,67 @@ describe("star reminders", () => {
       await store.close();
     }
   });
+  it("keeps interests, votes and suggestions, and finds a shown repository again", async () => {
+    const store = new PostgresStore(databaseUrl);
+    try {
+      await store.resetForTests();
+      await store.saveStars(
+        [
+          star("a/one", {
+            topics: ["tui", "rust"],
+            pushedAt: "2026-11-01T00:00:00.000Z",
+            createdAt: "2023-01-01T00:00:00.000Z",
+            ownerType: "Organization",
+            license: "MIT",
+          }),
+          star("a/two"),
+        ],
+        true,
+      );
+      const one = (await store.currentStars()).find(
+        (row) => row.fullName === "a/one",
+      )!;
+      assert.deepEqual(one.topics, ["tui", "rust"]);
+      assert.equal(one.ownerType, "Organization");
+      assert.equal(one.license, "MIT");
+      assert.ok(one.pushedAt instanceof Date);
+      const two = (await store.currentStars()).find(
+        (row) => row.fullName === "a/two",
+      )!;
+      assert.deepEqual(two.topics, []);
+
+      assert.deepEqual(await store.starInterests("42"), {
+        picked: {},
+        votes: [],
+      });
+      await store.saveStarInterests("42", { "언어:Rust": 1 });
+      await store.saveStarInterests("42", { "topic:tui": 1, "분야:게임": -1 });
+      await store.saveStarVote("42", "a/one", 1, ["topic:tui"]);
+      await store.saveStarVote("42", "a/one", -1, ["topic:tui"]);
+      assert.deepEqual(await store.starInterests("42"), {
+        picked: { "topic:tui": 1, "분야:게임": -1 },
+        votes: [{ fullName: "a/one", vote: -1, facets: ["topic:tui"] }],
+      });
+
+      await store.saveStarSuggestion(
+        star("New/Found", { topics: ["mcp"], license: null }),
+      );
+      await store.saveStarSuggestion(star("New/Found", { stars: 999 }));
+      const found = await store.starRepo("New/Found");
+      assert.equal(found?.stars, 5);
+      assert.deepEqual(found!.topics, ["mcp"]);
+      assert.deepEqual((await store.starRepo("a/one"))?.topics, [
+        "tui",
+        "rust",
+      ]);
+      assert.equal(await store.starRepo("no/such"), null);
+      assert.deepEqual([...(await store.seenStarRepos())].sort(), [
+        "a/one",
+        "a/two",
+        "new/found",
+      ]);
+    } finally {
+      await store.close();
+    }
+  });
 });
