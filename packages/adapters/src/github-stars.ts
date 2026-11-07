@@ -648,3 +648,24 @@ export async function followNeighbors(
     }),
   );
 }
+
+/** Whether a GitHub account by this login exists. Anything but a yes or a 404 throws. */
+export async function githubUserExists(
+  login: string,
+  token?: string,
+  options: SourceHttpOptions = {},
+): Promise<boolean> {
+  if (!LOGIN.test(login)) return false;
+  try {
+    await readSource(
+      `https://api.github.com/users/${login}`,
+      githubHeaders(token, "application/vnd.github+json"),
+      { maxBodyBytes: 100_000, ...options },
+    );
+    return true;
+  } catch (error) {
+    if (error instanceof Error && error.message === "Source returned 404")
+      return false;
+    throw error;
+  }
+}
