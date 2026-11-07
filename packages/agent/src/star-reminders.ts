@@ -1,6 +1,7 @@
 import { DiscordServerError, UncertainDeliveryError } from "@rapi/adapters";
 import {
   clip,
+  closeNeighbors,
   combinedInterests,
   digSeeds,
   discordEmbed,
@@ -14,6 +15,7 @@ import {
   pickInterestingStar,
   plainLine,
   rankDug,
+  restingFromHistory,
   starButton,
   starCard,
   type DeliveryAdapter,
@@ -21,6 +23,7 @@ import {
   type DigTrail,
   type GitHubStar,
   type Interests,
+  type KeptNeighbor,
   type StoredStar,
 } from "@rapi/core";
 import type { PostgresStore } from "@rapi/db";
@@ -39,7 +42,14 @@ type StarStore = Pick<
   Partial<
     Pick<
       PostgresStore,
-      "starInterests" | "seenStarRepos" | "saveStarSuggestion" | "starRepo"
+      | "starInterests"
+      | "seenStarRepos"
+      | "saveStarSuggestion"
+      | "starRepo"
+      | "starDigHistory"
+      | "saveStarNeighbors"
+      | "starNeighbors"
+      | "markStarNeighborsFollowed"
     >
   >;
 
@@ -53,13 +63,18 @@ export interface ReminderPick {
   reason: string;
   // Found by a dig or a search, not one of the owner's stars.
   found?: boolean;
-  // How a dig reached it.
+  // How a dig reached it, in words and as the way and seed it mostly came by.
   trail?: string;
+  dig?: { kind: string; seed: string };
 }
 
 /** The ways to new repositories: digging from seeds, then a plain search. */
 interface Finders {
   dig?: ((seeds: string[]) => Promise<DigTrail[]>) | undefined;
+  // The stars of neighbors kept from earlier digs.
+  follow?:
+    | ((logins: string[]) => Promise<Array<Omit<KeptNeighbor, "shared">>>)
+    | undefined;
   search?: ((queries: string[]) => Promise<GitHubStar[]>) | undefined;
   // The owner's GitHub login, whose own repositories are no find.
   self?: string | undefined;
@@ -67,6 +82,11 @@ interface Finders {
 
 // Liked repositories the dig may start from, latest first.
 const LIKED_SEEDS = 10;
+// Kept neighbors followed a day.
+const FOLLOWED_NEIGHBORS = 3;
+const DAY_MS = 86_400_000;
+// A thumbed-down repository's maker rests this long.
+const DISLIKED_OWNER_REST_DAYS = 30;
 
 const isoOrNull = (value: Date | string | null | undefined) =>
   value ? new Date(value).toISOString() : null;
@@ -137,8 +157,13 @@ async function findNew(
   stars: StoredStar[],
   saved: {
     interests: Interests;
-    votes: ReadonlyArray<{ fullName: string; vote: number }>;
+    votes: ReadonlyArray<{
+      fullName: string;
+      vote: number;
+      votedAt?: Date | string;
+    }>;
   },
+  ownerId: string,
   now: Date,
   random: (() => number) | undefined,
   finders: Finders,
@@ -146,7 +171,11 @@ async function findNew(
 ): Promise<ReminderPick | null> {
   if (!store.seenStarRepos) return null;
   const { interests, votes } = saved;
-  const asPick = (repo: GitHubStar, reason: string, trail?: string) => ({
+  const asPick = (
+    repo: GitHubStar,
+    reason: string,
+    dug?: { trail: string; kind: string; seed: string },
+  ): ReminderPick => ({
     repo: {
       ...repo,
       starredAt: new Date(repo.starredAt),
@@ -154,7 +183,10 @@ async function findNew(
     },
     reason,
     found: true,
-    ...(trail && { trail }),
+    ...(dug && {
+      trail: dug.trail,
+      dig: { kind: dug.kind, seed: dug.seed },
+    }),
   });
   let seen: Set<string>;
   try {
@@ -176,21 +208,75 @@ async function findNew(
             )
           ).filter((repo): repo is GitHubStar => repo !== null)
         : [];
-      const seeds = digSeeds({ stars, liked, interests, now, random });
-      if (seeds.length) {
-        const dug = pickDug(
-          rankDug({
-            trails: await finders.dig(seeds),
-            ownStars: stars,
-            seen,
-            self: finders.self,
-            interests,
-            now,
-          }),
-          random,
+      const history = store.starDigHistory
+        ? await store.starDigHistory(ownerId)
+        : [];
+      const resting = restingFromHistory(history, now);
+      const disliked = new Set<string>();
+      for (const vote of votes)
+        if (vote.vote < 0) {
+          disliked.add(vote.fullName.toLowerCase());
+          if (
+            vote.votedAt &&
+            now.getTime() - new Date(vote.votedAt).getTime() <
+              DISLIKED_OWNER_REST_DAYS * DAY_MS
+          )
+            resting.owners.add(vote.fullName.split("/")[0]!.toLowerCase());
+        }
+      const seeds = digSeeds({
+        stars,
+        liked,
+        interests,
+        now,
+        random,
+        resting: resting.seeds,
+      });
+      // A kept neighbor who led to a thumbed-down find lately rests too.
+      const keptRows =
+        finders.follow && store.starNeighbors
+          ? (await store.starNeighbors(FOLLOWED_NEIGHBORS * 3))
+              .filter(
+                (row) => !resting.seeds.has(`@${row.login.toLowerCase()}`),
+              )
+              .slice(0, FOLLOWED_NEIGHBORS)
+          : [];
+      const [trails, followed] = await Promise.all([
+        seeds.length ? finders.dig(seeds) : Promise.resolve([]),
+        keptRows.length && finders.follow
+          ? finders.follow(keptRows.map((row) => row.login))
+          : Promise.resolve([]),
+      ]);
+      const kept = followed.map((neighbor) => ({
+        ...neighbor,
+        shared:
+          keptRows.find((row) => row.login === neighbor.login)?.shared ?? 0,
+      }));
+      // What a dig learns about people is kept even on a day it finds nothing.
+      await store
+        .saveStarNeighbors?.(closeNeighbors(trails, stars))
+        .catch((error: unknown) =>
+          failures.push(failureText("neighbors", error)),
         );
-        if (dug) return asPick(dug.repo, dug.reason, dug.trail);
-      }
+      await store
+        .markStarNeighborsFollowed?.(kept.map((neighbor) => neighbor.login))
+        .catch((error: unknown) =>
+          failures.push(failureText("followed", error)),
+        );
+      const dug = pickDug(
+        rankDug({
+          trails,
+          kept,
+          ownStars: stars,
+          seen,
+          disliked,
+          restingOwners: resting.owners,
+          self: finders.self,
+          interests,
+          now,
+        }),
+        { random, history },
+      );
+      if (dug) return asPick(dug.repo, dug.reason, dug);
     } catch (error) {
       failures.push(failureText("dig", error));
     }
@@ -225,7 +311,12 @@ async function choose(
   failures: string[],
 ): Promise<ReminderPick[]> {
   let interests: Interests = {};
-  let votes: Array<{ fullName: string; vote: number; facets: string[] }> = [];
+  let votes: Array<{
+    fullName: string;
+    vote: number;
+    facets: string[];
+    votedAt?: Date | string;
+  }> = [];
   if (store.starInterests)
     try {
       const saved = await store.starInterests(ownerId);
@@ -246,6 +337,7 @@ async function choose(
     store,
     kept,
     { interests, votes },
+    ownerId,
     now,
     random,
     finders,
@@ -276,6 +368,10 @@ export async function remindStars(input: {
   readStars: () => Promise<{ stars: GitHubStar[]; complete: boolean }>;
   // Follows seed repositories out to the people and projects around them.
   digTrails?: (seeds: string[]) => Promise<DigTrail[]>;
+  // Reads the stars of neighbors kept from earlier digs.
+  followNeighbors?: (
+    logins: string[],
+  ) => Promise<Array<Omit<KeptNeighbor, "shared">>>;
   // A GitHub search for new repositories that fit the owner's interests.
   searchRepos?: (queries: string[]) => Promise<GitHubStar[]>;
   // The owner's GitHub login, whose own repositories are never suggested.
@@ -317,6 +413,7 @@ export async function remindStars(input: {
           input.random,
           {
             dig: input.digTrails,
+            follow: input.followNeighbors,
             search: input.searchRepos,
             self: input.githubLogin,
           },
@@ -335,12 +432,15 @@ export async function remindStars(input: {
     for (const pick of picks)
       if (pick.found && store.saveStarSuggestion)
         await store
-          .saveStarSuggestion({
-            ...pick.repo,
-            starredAt: pick.repo.starredAt.toISOString(),
-            pushedAt: isoOrNull(pick.repo.pushedAt),
-            createdAt: isoOrNull(pick.repo.createdAt),
-          })
+          .saveStarSuggestion(
+            {
+              ...pick.repo,
+              starredAt: pick.repo.starredAt.toISOString(),
+              pushedAt: isoOrNull(pick.repo.pushedAt),
+              createdAt: isoOrNull(pick.repo.createdAt),
+            },
+            pick.dig,
+          )
           .catch((error: unknown) =>
             failures.push(failureText("suggestion", error)),
           );
