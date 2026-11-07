@@ -130,10 +130,11 @@ export function pickFoundRepo<T extends RepoFacts>(
   return best ? { repo: best.repo, reason: interestReason(best.liked) } : null;
 }
 
-/** A repository a search found, which the owner never starred. */
+/** A repository a dig or a search found, which the owner never starred. */
 export function foundRepoCard(
   repo: RepoFacts & { url: string },
   reason: string,
+  trail = "",
 ): DiscordCard {
   return templateCard(
     "starFound",
@@ -145,6 +146,7 @@ export function foundRepoCard(
       언어: repo.language ? escapeMarkdown(plainLine(repo.language)) : "",
       별: repo.stars.toLocaleString("en-US"),
       이유: escapeMarkdown(clip(plainLine(reason), 160)),
+      경로: escapeMarkdown(clip(plainLine(trail), 200)),
     },
     { url: cardLink(repo.url) },
   );

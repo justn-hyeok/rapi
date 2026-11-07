@@ -7,6 +7,7 @@ export * from "./domain/candidate-verification.js";
 export * from "./domain/discount-cards.js";
 export * from "./domain/star-reminders.js";
 export * from "./domain/star-interests.js";
+export * from "./domain/star-digging.js";
 export * from "./domain/access.js";
 export * from "./domain/guilds.js";
 export * from "./domain/guild-channels.js";
