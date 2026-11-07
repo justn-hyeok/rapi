@@ -22,7 +22,13 @@ export interface CardTemplates {
   colors: Record<string, string>;
   routeLabels: Record<string, string>;
   cards: Record<
-    "discount" | "review" | "problem" | "guildRequest" | "star" | "rapiUpdate",
+    | "discount"
+    | "review"
+    | "problem"
+    | "guildRequest"
+    | "star"
+    | "starFound"
+    | "rapiUpdate",
     CardTemplate
   >;
   texts: Record<string, string>;

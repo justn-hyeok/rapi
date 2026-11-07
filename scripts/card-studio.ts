@@ -5,6 +5,7 @@ import { cardPayloadFor } from "@rapi/agent";
 import {
   DEFAULT_CARD_TEMPLATES,
   discordEmbed,
+  foundRepoCard,
   guildRequestCard,
   problemCard,
   releaseSummary,
@@ -184,22 +185,57 @@ const SAMPLES: Sample[] = [
   },
   {
     name: "스타 알림",
-    note: "잊고 있던 GitHub 스타",
-    keys: ["저장소", "설명", "언어", "별", "누른날"],
+    note: "관심사와 맞는 잊은 스타와, 새로 찾은 저장소",
+    keys: ["저장소", "설명", "언어", "별", "누른날", "이유"],
     message: () => ({
       embeds: [
         discordEmbed(
-          starCard({
-            fullName: "jiegec/kb",
-            url: "https://github.com/jiegec/kb",
-            description: "Knowledge base of jiegec",
-            language: "Python",
-            stars: 1234,
-            archived: false,
-            starredAt: new Date("2026-03-14T03:00:00Z"),
-            lastRemindedAt: null,
-          }),
+          starCard(
+            {
+              fullName: "ratatui/ratatui",
+              url: "https://github.com/ratatui/ratatui",
+              description:
+                "A Rust crate for cooking up terminal user interfaces",
+              language: "Rust",
+              stars: 12345,
+              archived: false,
+              starredAt: new Date("2026-03-14T03:00:00Z"),
+              lastRemindedAt: null,
+            },
+            "터미널·TUI · Rust · #tui",
+          ),
         ),
+        discordEmbed(
+          foundRepoCard(
+            {
+              fullName: "someone/tui-kit",
+              url: "https://github.com/someone/tui-kit",
+              description: "Widgets for terminal apps",
+              language: "Rust",
+              stars: 2100,
+            },
+            "터미널·TUI · Rust",
+          ),
+        ),
+      ],
+      buttons: [
+        {
+          style: 5,
+          label: "ratatui/ratatui",
+          url: "https://github.com/ratatui/ratatui",
+        },
+        {
+          style: 5,
+          label: "someone/tui-kit",
+          url: "https://github.com/someone/tui-kit",
+        },
+        { style: 3, label: "👍 ratatui" },
+        { style: 2, label: "👎 ratatui" },
+        {
+          style: 5,
+          label: "관심사 고르기",
+          url: "https://rapi.justn.me/stars",
+        },
       ],
     }),
   },
