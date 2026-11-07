@@ -95,8 +95,25 @@ export const environmentSchema = z
       .string()
       .regex(/^[a-z\d](?:[a-z\d-]{0,37}[a-z\d])?$/i)
       .optional(),
+    // The GitHub OAuth app people connect their own account through for star reminders.
+    GITHUB_OAUTH_CLIENT_ID: z
+      .string()
+      .regex(/^[A-Za-z0-9._-]{8,64}$/)
+      .optional(),
+    GITHUB_OAUTH_CLIENT_SECRET: z.string().min(20).max(200).optional(),
   })
   .superRefine((value, context) => {
+    if (
+      Boolean(value.GITHUB_OAUTH_CLIENT_ID) !==
+        Boolean(value.GITHUB_OAUTH_CLIENT_SECRET) ||
+      (value.GITHUB_OAUTH_CLIENT_ID && !value.RAPI_PUBLIC_BASE_URL)
+    )
+      context.addIssue({
+        code: "custom",
+        path: ["GITHUB_OAUTH_CLIENT_ID"],
+        message:
+          "GITHUB_OAUTH_CLIENT_ID and GITHUB_OAUTH_CLIENT_SECRET go together, with RAPI_PUBLIC_BASE_URL for the callback",
+      });
     if (value.MODEL_API_BASE_URL) {
       // The key travels in a header: plain HTTP is only acceptable on loopback.
       const url = new URL(value.MODEL_API_BASE_URL);
