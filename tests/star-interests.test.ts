@@ -390,7 +390,7 @@ test("with interests the DM brings the best forgotten star and one new repositor
     description: string;
   }>;
   assert.equal(embeds[0]!.author?.name, "잊고 있던 스타");
-  assert.equal(embeds[1]!.author?.name, "관심사로 찾은 새 저장소");
+  assert.equal(embeds[1]!.author?.name, "새로 찾은 저장소");
   assert.match(embeds[0]!.description, /관심사.*터미널·TUI/);
   const rows = payload.discord!.components as Array<{
     components: Array<{ label: string; url?: string }>;
