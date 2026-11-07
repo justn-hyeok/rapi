@@ -405,20 +405,46 @@ docker exec rapi-postgres-1 psql -U rapi -d rapi -c "UPDATE problem_reports SET 
 
 ## 스타 리마인드 (0.0.8)
 
-잊고 있던 GitHub 스타를 하루 한두 개 소유자 DM으로 보낸다. 새 릴리즈 알림이 아니다. 스타는 취향이 드러나므로 채널에는 보내지 않는다.
+잊고 있던 GitHub 스타와 새로 파낸 저장소를 매일 아침 그 사람의 DM으로 보낸다. 새 릴리즈 알림이 아니다. 스타는 취향이 드러나므로 채널에는 보내지 않는다.
+
+누구나 쓸 수 있다(0.0.11 스타 4차부터). 각자 GitHub OAuth로 자기 계정을 연결하고, 그 사람이 준 토큰으로만 그 사람의 스타를 읽는다. 운영자 토큰으로 남의 스타를 읽지 않는다:
+
+- 승인된 서버에서 `/스타 연결`. 15분짜리 GitHub 승인 링크를 준다. 권한(scope)은 하나도 요청하지 않아서 공개 정보만 읽을 수 있고, 비공개 저장소나 쓰기 권한은 없다. 링크의 `state`에 그 사람의 Discord ID와 만료 시각이 서명돼 있어 다른 사람 것으로 바꿀 수 없다.
+- 승인하면 GitHub가 `https://<공개주소>/github/callback`으로 돌려보낸다. 봇은 `state`를 확인하고, 코드를 토큰으로 바꾸고, `/user`로 그 토큰이 누구 것인지 본다. 그래서 남의 GitHub 아이디로 연결할 수 없다. 토큰은 `WEBHOOK_ENCRYPTION_KEY`로 암호화해(AES-256-GCM) `star_subscribers.github_token`에 둔다. 그다음 연결했다는 첫 DM을 보낸다. DM이 막혀 있으면(Discord 403) 바로 멈춤으로 두고, 돌아온 페이지에서 DM을 허용한 뒤 다시 연결하라고 알린다.
+- 매일 읽기, 디깅, 취향 이웃, 검색 모두 그 사람의 토큰으로 한다. 사용 한도도 사람마다 따로다(시간당 5000번). GitHub가 401을 주면 그 사람이 권한을 거둔 것이므로 멈춤으로 둔다("GitHub 연결이 끊김"). 토큰이 없는 사람은 운영자 토큰으로 대신 읽지 않고 멈춘다("GitHub 연결이 필요함").
+- `/스타 관심사`: 7일짜리 관심사 페이지 링크. `/스타 보기`: 연결 상태와 멈춘 이유. `/스타 끄기`: GitHub 쪽 권한을 회수하고(`DELETE /applications/{client_id}/grant`), 그 사람의 토큰, 스타, 관심사, 👍/👎, 보낸 기록, 취향 이웃을 모두 지운다. 회수에 실패하면 GitHub 설정에서 직접 지우라고 알린다.
+- 다른 GitHub 계정으로 다시 연결하면 그 사람의 스타와 취향 이웃만 지우고, 관심사, 👍/👎, 보낸 기록은 남긴다(같은 날 두 번 가지 않고, 본 것도 다시 안 나온다).
+- 서버 안에서만 연결할 수 있다. 봇이 DM을 보내려면 같은 서버에 있어야 하기 때문이다. 서버마다 `/기능`으로 끌 수 있지만 기본은 켜짐이다. 끄면 그 서버에서 `/스타`만 안 되고, 이미 연결한 사람의 DM은 계속 간다.
+- 최대 500명. 10분마다 도는 한 번에 네 명까지 디깅하고(한 명에 20초, 요청 100번쯤), 나머지는 다음 차례로 넘긴다. 그래서 사람이 많으면 09:00 이후 차례로 간다.
+- 사람마다 행이 따로 있다(`owner_id`): `github_stars`, `star_reminder_days`, `star_suggestions`, `star_neighbors`, `star_interests`, `star_votes`. 받는 사람 목록은 `star_subscribers`.
+
+GitHub OAuth 앱 등록(운영자가 한 번):
+
+1. GitHub → Settings → Developer settings → OAuth Apps → New OAuth App.
+2. Homepage URL은 `RAPI_PUBLIC_BASE_URL`, Authorization callback URL은 그 뒤에 `/github/callback`을 붙인 것(예: `https://rapi.justn.me/github/callback`).
+3. Client ID와, Generate a new client secret으로 만든 비밀값을 VM의 `.env`에 넣고 봇을 다시 시작한다. 비밀값은 채팅이나 Git에 남기지 않는다.
+
+```sh
+GITHUB_OAUTH_CLIENT_ID=...
+GITHUB_OAUTH_CLIENT_SECRET=...
+```
+
+둘은 함께 있어야 하고 `RAPI_PUBLIC_BASE_URL`과 `WEBHOOK_ENCRYPTION_KEY`도 필요하다. 없으면 `/스타 연결`은 아직 설정되지 않았다고만 답하고, 운영자 본인의 알림은 그대로 간다. 공개 게이트웨이(`ops/gateway/run.mjs`)는 `GET /github/callback`도 통과시킨다. 이 파일은 배포에 포함되지 않으므로 VM에 복사하고 `rapi-public-gateway`를 다시 시작한다.
+
+운영자 설정:
 
 ```sh
 STAR_REMINDER_GITHUB_USER=GitHub_로그인
 DISCORD_SUPERADMIN_USER_IDS=소유자_ID
 ```
 
-받는 사람은 `DISCORD_SUPERADMIN_USER_IDS`의 첫 번째 ID다. 둘 중 하나라도 없으면 아무것도 읽거나 보내지 않고 봇은 그대로 뜬다. 로그인만 있고 받을 사람이 없으면 시작할 때 서버 로그에 한 줄 남긴다. 로그인 형식이 틀리면 다른 설정처럼 봇이 시작하지 않는다. `.env`를 바꾸면 봇을 다시 시작해야 한다. 소유자가 봇과 같은 서버에 있고 그 서버 멤버의 DM을 허용해야 받을 수 있다.
+둘 다 있으면 시작할 때 소유자(`DISCORD_SUPERADMIN_USER_IDS`의 첫 번째 ID)를 이 로그인으로 연결해 둔다. 소유자만 OAuth 없이 배포의 `GITHUB_READ_TOKEN`으로 읽는다. 소유자가 `/스타 연결`로 GitHub를 연결했으면 그쪽(본인 토큰)이 이긴다. 0021 이전에 쌓인 스타와 기록은 시작할 때 소유자에게 넘긴다. 둘 다 없어도 다른 사람은 `/스타`로 쓸 수 있다. 로그인 형식이 틀리면 다른 설정처럼 봇이 시작하지 않는다.
 
 `GITHUB_READ_TOKEN`은 있으면 쓰고 없어도 된다. 스타는 공개 API로 읽는다.
 
 언제 도는가:
 
-- 봇이 시작할 때와 그 뒤 10분마다 확인한다. 한국 시간 09:00이 지났고 오늘 보낸 기록이 없을 때만 일한다. 그래서 09:00에서 10분 안에 오고, 09:00 넘어서 재시작하면 바로 온다.
+- 봇이 시작할 때와 그 뒤 10분마다 확인한다. 연결한 사람마다, 한국 시간 09:00이 지났고 그 사람에게 오늘 보낸 기록이 없을 때만 일한다. 멈춘 사람은 건너뛴다. 그래서 09:00에서 10분 안에 오고, 09:00 넘어서 재시작하면 바로 온다.
 - 그때 스타 목록을 하루 한 번 읽고 보낸다. 오래된 스타부터 100개씩 최대 10쪽(요청 10번, 1000개)까지 읽는다. 재시작하면 아직 못 보낸 날에 한해 한 번 더 읽을 수 있다.
 - 다 읽었을 때만 목록에서 사라진 스타를 지운 것으로 표시한다(`unstarred_at`). 1000개를 넘으면 표시하지 않고, 넘는 최신 스타는 저장하지 않는다. 다시 스타를 누르면 기록을 이어 간다.
 - 읽기에 실패하면 저장된 목록은 그대로 두고 그 목록으로 보낸다. 빈 답도 실패로 친다. 저장된 것이 없으면 다음 날이나 재시작 때 다시 읽는다. 실패는 `/ready`의 `stars` 항목과 서버 로그에 남고, 준비 상태에는 영향을 주지 않는다. 항목은 다음 확인에서 지워지므로 지난 실패는 서버 로그에서 본다.
@@ -456,7 +482,7 @@ DISCORD_SUPERADMIN_USER_IDS=소유자_ID
 중복을 막는 방식:
 
 - 보내기 전에 `star_reminder_days`에 그날 행을 만들고 `last_reminded_at`과 `reminded_count`를 올린다. 그래서 하루에 다시 시작해도 더 보내지 않는다.
-- Discord가 거절하면(403, 429 등) 행과 표시를 되돌리고 10분 뒤 다시 보낸다.
+- Discord가 거절하면(403, 429 등) 행과 표시를 되돌리고 10분 뒤 다시 보낸다. 403은 그 사람이 DM을 막은 것이라 멈춤으로 두고(`star_subscribers.paused_at`), 다시 연결할 때까지 보내지 않는다.
 - Discord 응답을 받지 못했거나 5xx를 받으면 갔는지 알 수 없으므로 되돌리지 않는다. 그날 것은 빠질 수 있지만 두 번 가지는 않는다. 보내는 도중 봇이 죽어도 같다. `message_id`가 없는 행이 그 경우다.
 
 설명과 저장소 이름은 낯선 사람이 쓴 글이라 멘션을 끄고 마크다운과 링크를 글자로만 보이게 한다. 설명은 300자로 잘라 저장한다.
@@ -464,8 +490,9 @@ DISCORD_SUPERADMIN_USER_IDS=소유자_ID
 결과를 볼 때:
 
 ```sh
-docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT day, claimed_at, message_id, repos FROM star_reminder_days ORDER BY day DESC LIMIT 10"
-docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT count(*), count(unstarred_at) AS unstarred, count(last_reminded_at) AS reminded, max(last_reminded_at) FROM github_stars"
+docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT user_id, github_login, subscribed_at, paused_at, paused_reason FROM star_subscribers ORDER BY subscribed_at"
+docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT owner_id, day, claimed_at, message_id, repos FROM star_reminder_days ORDER BY day DESC, owner_id LIMIT 20"
+docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT owner_id, count(*), count(unstarred_at) AS unstarred, count(last_reminded_at) AS reminded, max(last_reminded_at) FROM github_stars GROUP BY owner_id"
 ```
 
 오늘 것을 다시 받아 볼 때(09:00 이후에만 나간다). 이미 보낸 스타는 표시가 남아 있어 다른 스타가 온다.
@@ -484,7 +511,7 @@ docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT full_name, trail_kin
 docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT login, shared, found_from, followed_at FROM star_neighbors ORDER BY shared DESC LIMIT 20"
 ```
 
-되돌리면(`packages/db/rollbacks/0007_star_reminders.sql`) 저장한 스타와 보낸 기록이 지워진다. `0019_star_interests.sql`을 되돌리면 관심사, 👍/👎, 보낸 새 저장소 기록과 스타의 topic 등 추가 정보가 지워지고, 고르기는 예전 방식으로 돌아간다. `0020_star_digging.sql`을 되돌리면 취향 이웃과, 보낸 것이 어느 길로 왔는지가 지워진다. 디깅은 그날 만난 사람만으로 돌고, 👍/👎는 길을 고르는 데 쓰이지 않는다.
+되돌리면(`packages/db/rollbacks/0007_star_reminders.sql`) 저장한 스타와 보낸 기록이 지워진다. `0019_star_interests.sql`을 되돌리면 관심사, 👍/👎, 보낸 새 저장소 기록과 스타의 topic 등 추가 정보가 지워지고, 고르기는 예전 방식으로 돌아간다. `0021_star_owners.sql`을 되돌리면 맨 처음 연결된 사람(소유자) 것만 남기고 다른 사람의 스타와 기록, 받는 사람 목록이 지워진다. 0021을 되돌린 채로는 이 기능의 코드가 돌지 않으므로 앞 릴리즈로 함께 되돌린다. `0020_star_digging.sql`을 되돌리면 취향 이웃과, 보낸 것이 어느 길로 왔는지가 지워진다. 디깅은 그날 만난 사람만으로 돌고, 👍/👎는 길을 고르는 데 쓰이지 않는다.
 
 ## 서버별 기능 (0.0.9)
 
@@ -494,10 +521,11 @@ docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT login, shared, found
 | --- | --- | --- | --- |
 | 상태 | `status` | `/상태`, `/수집원`. 읽기만 하고 운영자만 쓸 수 있다 | 켜짐 |
 | 제보 | `report` | `/제보` | 꺼짐 |
+| 스타 알림 | `stars` | `/스타`. 각자의 DM으로 간다 | 켜짐 |
 | 서버 구성 | `server_config` | `/서버구성`, 적용 버튼, 인증 버튼 | 꺼짐 |
 | 소식 카드 | `curation` | AI 블로그, 무료 토큰 채널로 나가는 카드 | 꺼짐 |
 
-할인 카드, 승인 버튼, 스타 리마인드는 소유자 채널과 DM으로 가므로 이 목록에 없다. `COMMUNITY_GUILD_ID` 서버에는 소식 카드가 스위치와 상관없이 나간다.
+할인 카드와 승인 버튼은 소유자 채널과 DM으로 가므로 이 목록에 없다. `COMMUNITY_GUILD_ID` 서버에는 소식 카드가 스위치와 상관없이 나간다.
 
 바꾸는 방법은 해당 서버에서 쓰는 `/기능` 하나다.
 
