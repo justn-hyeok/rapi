@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { GitHubStar } from "@rapi/domain";
-import { PostgresConnectionStore, PostgresStore } from "@rapi/adapters";
+import { PostgresDatabase, postgresStores } from "@rapi/adapters";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl || new URL(databaseUrl).pathname !== "/rapi_test")
@@ -22,8 +22,9 @@ const names = (rows: Array<{ fullName: string }>) =>
 
 describe("star reminders", () => {
   it("keeps stars on a partial list and drops the removed on a whole one", async () => {
-    const store = new PostgresStore(databaseUrl);
-    const mine = store.starsOf("42");
+    const store = new PostgresDatabase(databaseUrl);
+    const stores = postgresStores(store);
+    const mine = stores.stars.starsOf("42");
     try {
       await store.resetForTests();
       await mine.saveStars([star("a/one"), star("a/two")], true);
@@ -43,8 +44,9 @@ describe("star reminders", () => {
   });
 
   it("claims a day once, marks the stars, and a release restores them", async () => {
-    const store = new PostgresStore(databaseUrl);
-    const mine = store.starsOf("42");
+    const store = new PostgresDatabase(databaseUrl);
+    const stores = postgresStores(store);
+    const mine = stores.stars.starsOf("42");
     try {
       await store.resetForTests();
       await mine.saveStars([star("a/one")], true);
@@ -79,8 +81,9 @@ describe("star reminders", () => {
     }
   });
   it("keeps interests, votes and suggestions, and finds a shown repository again", async () => {
-    const store = new PostgresStore(databaseUrl);
-    const mine = store.starsOf("42");
+    const store = new PostgresDatabase(databaseUrl);
+    const stores = postgresStores(store);
+    const mine = stores.stars.starsOf("42");
     try {
       await store.resetForTests();
       await mine.saveStars(
@@ -146,8 +149,9 @@ describe("star reminders", () => {
   });
 
   it("remembers how each find came, the thumbs on it, and the neighbors to follow", async () => {
-    const store = new PostgresStore(databaseUrl);
-    const mine = store.starsOf("42");
+    const store = new PostgresDatabase(databaseUrl);
+    const stores = postgresStores(store);
+    const mine = stores.stars.starsOf("42");
     try {
       await store.resetForTests();
       await mine.saveStarSuggestion(star("dug/one"), {
@@ -156,7 +160,7 @@ describe("star reminders", () => {
       });
       await mine.saveStarSuggestion(star("searched/two"));
       await mine.saveStarVote("dug/one", -1, []);
-      await store.starsOf("7").saveStarVote("searched/two", 1, []);
+      await stores.stars.starsOf("7").saveStarVote("searched/two", 1, []);
       const history = await mine.starDigHistory();
       assert.deepEqual(
         history.map(({ fullName, kind, seed, vote }) => ({
@@ -200,7 +204,8 @@ describe("star reminders", () => {
   });
 
   it("keeps each person's stars apart and lets them connect, pause and leave", async () => {
-    const store = new PostgresStore(databaseUrl);
+    const store = new PostgresDatabase(databaseUrl);
+    const stores = postgresStores(store);
     try {
       await store.resetForTests();
       // Rows from before stars had owners.
@@ -211,17 +216,17 @@ describe("star reminders", () => {
       await store.pool.query(
         "INSERT INTO star_reminder_days (day, repos) VALUES ('2026-11-01', '{}')",
       );
-      assert.equal(await store.adoptOwnerlessStars("1"), 2);
-      assert.equal(await store.adoptOwnerlessStars("1"), 0);
-      assert.deepEqual(names(await store.starsOf("1").currentStars()), [
+      assert.equal(await stores.stars.adoptOwnerlessStars("1"), 2);
+      assert.equal(await stores.stars.adoptOwnerlessStars("1"), 0);
+      assert.deepEqual(names(await stores.stars.starsOf("1").currentStars()), [
         "old/star",
       ]);
 
-      const ann = store.starsOf("2");
+      const ann = stores.stars.starsOf("2");
       await ann.saveStars([star("a/one"), star("old/star")], true);
-      await store.starsOf("1").saveStars([star("b/two")], false);
+      await stores.stars.starsOf("1").saveStars([star("b/two")], false);
       // A whole list for one person leaves the other's stars alone.
-      assert.deepEqual(names(await store.starsOf("1").currentStars()), [
+      assert.deepEqual(names(await stores.stars.starsOf("1").currentStars()), [
         "b/two",
         "old/star",
       ]);
@@ -229,16 +234,18 @@ describe("star reminders", () => {
       assert.equal(await ann.claimStarReminder("2026-11-01", []), true);
       assert.equal(await ann.starReminderClaimed("2026-11-01"), true);
       await ann.saveStarSuggestion(star("x/dug"));
-      assert.equal(await store.starsOf("1").starRepo("x/dug"), null);
+      assert.equal(await stores.stars.starsOf("1").starRepo("x/dug"), null);
       assert.ok((await ann.seenStarRepos()).has("x/dug"));
-      assert.ok(!(await store.starsOf("1").seenStarRepos()).has("x/dug"));
+      assert.ok(
+        !(await stores.stars.starsOf("1").seenStarRepos()).has("x/dug"),
+      );
 
-      await store.addStarSubscriber("1", "owner");
-      await store.saveStarSubscriber("2", "ann");
-      await store.saveStarSubscriber("1", "owner-new");
-      await store.addStarSubscriber("1", "owner");
+      await stores.stars.addStarSubscriber("1", "owner");
+      await stores.stars.saveStarSubscriber("2", "ann");
+      await stores.stars.saveStarSubscriber("1", "owner-new");
+      await stores.stars.addStarSubscriber("1", "owner");
       assert.deepEqual(
-        (await store.starSubscribers()).map((row) => [
+        (await stores.stars.starSubscribers()).map((row) => [
           row.userId,
           row.githubLogin,
         ]),
@@ -248,35 +255,39 @@ describe("star reminders", () => {
         ],
       );
       // A new login drops the stars read for the old one, not what was shown.
-      assert.deepEqual(await store.starsOf("1").currentStars(), []);
+      assert.deepEqual(await stores.stars.starsOf("1").currentStars(), []);
       assert.equal(
-        await store.starsOf("1").starReminderClaimed("2026-11-01"),
+        await stores.stars.starsOf("1").starReminderClaimed("2026-11-01"),
         true,
       );
 
-      await store.pauseStarSubscriber("2", "DM을 받을 수 없음");
+      await stores.stars.pauseStarSubscriber("2", "DM을 받을 수 없음");
       assert.equal(
-        (await store.starSubscriber("2"))?.pausedReason,
+        (await stores.stars.starSubscriber("2"))?.pausedReason,
         "DM을 받을 수 없음",
       );
-      await store.saveStarSubscriber("2", "ann");
-      assert.equal((await store.starSubscriber("2"))?.pausedAt, null);
+      await stores.stars.saveStarSubscriber("2", "ann");
+      assert.equal((await stores.stars.starSubscriber("2"))?.pausedAt, null);
 
       await ann.saveStarInterests({ "언어:Rust": 1 });
-      assert.equal(await store.removeStarSubscriber("2"), true);
-      assert.equal(await store.removeStarSubscriber("2"), false);
-      assert.equal(await store.starSubscriber("2"), null);
+      assert.equal(await stores.stars.removeStarSubscriber("2"), true);
+      assert.equal(await stores.stars.removeStarSubscriber("2"), false);
+      assert.equal(await stores.stars.starSubscriber("2"), null);
       assert.deepEqual(await ann.currentStars(), []);
       assert.deepEqual((await ann.starInterests()).picked, {});
       assert.equal(await ann.starReminderClaimed("2026-11-01"), false);
-      assert.deepEqual(names(await store.starsOf("1").currentStars()), []);
+      assert.deepEqual(
+        names(await stores.stars.starsOf("1").currentStars()),
+        [],
+      );
     } finally {
       await store.close();
     }
   });
   it("keeps one connection per person and service, sealed, apart from the features", async () => {
-    const store = new PostgresStore(databaseUrl);
-    const connections = new PostgresConnectionStore(store);
+    const store = new PostgresDatabase(databaseUrl);
+    const stores = postgresStores(store);
+    const connections = stores.connections;
     try {
       await store.resetForTests();
       const github = {
@@ -303,13 +314,13 @@ describe("star reminders", () => {
       );
       assert.equal(await connections.connection("3", "github"), null);
       // Turning star reminders off leaves the connection; cutting it leaves the reminders.
-      await store.saveStarSubscriber("2", "ann-renamed");
-      await store.removeStarSubscriber("2");
+      await stores.stars.saveStarSubscriber("2", "ann-renamed");
+      await stores.stars.removeStarSubscriber("2");
       assert.ok(await connections.connection("2", "github"));
-      await store.saveStarSubscriber("2", "ann-renamed");
+      await stores.stars.saveStarSubscriber("2", "ann-renamed");
       assert.equal(await connections.removeConnection("2", "github"), true);
       assert.equal(await connections.removeConnection("2", "github"), false);
-      assert.ok(await store.starSubscriber("2"));
+      assert.ok(await stores.stars.starSubscriber("2"));
     } finally {
       await store.close();
     }

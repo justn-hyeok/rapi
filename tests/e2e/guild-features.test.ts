@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { PostgresStore } from "@rapi/adapters";
+import { PostgresDatabase, postgresStores } from "@rapi/adapters";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl || new URL(databaseUrl).pathname !== "/rapi_test")
@@ -8,21 +8,22 @@ if (!databaseUrl || new URL(databaseUrl).pathname !== "/rapi_test")
 
 describe("guild features", () => {
   it("keeps one setting per guild and feature, and the last one wins", async () => {
-    const store = new PostgresStore(databaseUrl);
+    const store = new PostgresDatabase(databaseUrl);
+    const stores = postgresStores(store);
     try {
       await store.resetForTests();
-      assert.deepEqual(await store.guildFeatureSettings("g1"), []);
-      await store.setGuildFeature("g1", "report", true, "owner");
-      await store.setGuildFeature("g1", "report", false, "owner");
-      await store.setGuildFeature("g2", "report", true, "owner");
-      assert.deepEqual(await store.guildFeatureSettings("g1"), [
+      assert.deepEqual(await stores.guilds.guildFeatureSettings("g1"), []);
+      await stores.guilds.setGuildFeature("g1", "report", true, "owner");
+      await stores.guilds.setGuildFeature("g1", "report", false, "owner");
+      await stores.guilds.setGuildFeature("g2", "report", true, "owner");
+      assert.deepEqual(await stores.guilds.guildFeatureSettings("g1"), [
         { feature: "report", enabled: false },
       ]);
-      assert.deepEqual(await store.guildFeatureSettings("g2"), [
+      assert.deepEqual(await stores.guilds.guildFeatureSettings("g2"), [
         { feature: "report", enabled: true },
       ]);
       await assert.rejects(
-        store.setGuildFeature("g1", "unknown", true, "owner"),
+        stores.guilds.setGuildFeature("g1", "unknown", true, "owner"),
       );
     } finally {
       await store.close();

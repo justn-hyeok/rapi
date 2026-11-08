@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { DiscordLayoutManager } from "@rapi/application";
-import type { PostgresStore } from "@rapi/adapters";
 
 function setup(existing: string | null) {
   const calls: Array<{ route: string; method: string; body: string }> = [];
@@ -18,7 +17,7 @@ function setup(existing: string | null) {
     }) {
       saved.push(input);
     },
-  } as unknown as PostgresStore;
+  } as never;
   const manager = new DiscordLayoutManager(store, {
     readLayout: async () => "",
     rest: {
