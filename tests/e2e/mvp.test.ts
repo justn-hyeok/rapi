@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { WebSourceGateway } from "@rapi/adapters";
-import { RapiAgent } from "@rapi/application";
+import { SourceCollection } from "@rapi/application";
 import { PostgresDatabase, postgresStores } from "@rapi/adapters";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -12,7 +12,7 @@ describe("rapi MVP", () => {
   it("retains original malformed source payloads before normalization fails", async () => {
     const store = new PostgresDatabase(databaseUrl);
     const stores = postgresStores(store);
-    const agent = new RapiAgent(stores.sources, new WebSourceGateway());
+    const agent = new SourceCollection(stores.sources, new WebSourceGateway());
     try {
       await store.resetForTests();
       const source = await agent.createSource(

@@ -2,10 +2,7 @@ import assert from "node:assert/strict";
 import { generateKeyPairSync, sign } from "node:crypto";
 import { once } from "node:events";
 import { test, type TestContext } from "node:test";
-import type {
-  DiscordCommandService,
-  DiscountPublishResult,
-} from "@rapi/application";
+import type { DiscordCommands, DiscountPublishResult } from "@rapi/application";
 import { createDiscordInteractionServer } from "../apps/bot/src/discord-http.js";
 
 const PUBLISH = "discount_publish:row";
@@ -27,7 +24,7 @@ async function setup(
     deadline?: string;
   }> = [];
   const server = createDiscordInteractionServer(
-    {} as unknown as DiscordCommandService,
+    {} as unknown as DiscordCommands,
     key,
     {
       discountCards: {
@@ -253,7 +250,7 @@ test("/제보 is answered privately with its options, and with mentions off", as
       seen.push(identity, command.options);
       return { messages: ["제보를 받았습니다."] };
     },
-  } as unknown as DiscordCommandService;
+  } as unknown as DiscordCommands;
   const server = createDiscordInteractionServer(
     service,
     (keys.publicKey.export({ type: "spki", format: "der" }) as Buffer)

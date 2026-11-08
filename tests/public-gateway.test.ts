@@ -5,7 +5,7 @@ import { once } from "node:events";
 import { generateKeyPairSync, sign } from "node:crypto";
 import { test } from "node:test";
 import { createDiscordInteractionServer } from "../apps/bot/src/discord-http.js";
-import { DiscordCommandService, type RapiAgent } from "@rapi/application";
+import { DiscordCommands, type SourceCollection } from "@rapi/application";
 async function freePort(): Promise<number> {
   const server = createServer();
   server.listen(0, "127.0.0.1");
@@ -22,7 +22,7 @@ test("public gateway denies private routes, forwards signed interactions and fai
     .export({ format: "der", type: "spki" })
     .subarray(-32)
     .toString("hex");
-  const service = new DiscordCommandService({} as RapiAgent, {
+  const service = new DiscordCommands({} as SourceCollection, {
     userIds: [],
   });
   let ready = true;

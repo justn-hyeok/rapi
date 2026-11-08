@@ -41,7 +41,7 @@ export function redactUrlTokens(body: string): string {
   );
 }
 
-export class RapiAgent {
+export class SourceCollection {
   constructor(
     readonly store: SourceStore,
     private readonly sources: SourceGateway,

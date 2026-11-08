@@ -7,7 +7,7 @@ import {
   githubOAuthGateway,
   secretBox,
   superadminDmNotifier,
-  discordLayoutPorts,
+  discordLayoutDependencies,
   loadDiscountSources,
   discountCandidateJobs,
   servicePageGateway,
@@ -16,9 +16,9 @@ import {
 } from "@rapi/adapters";
 import {
   DEFAULT_SUMMARY_MODEL,
-  DiscordCommandService,
+  DiscordCommands,
   DiscordLayoutManager,
-  RapiAgent,
+  SourceCollection,
   collectDiscountCandidates,
   changeGuild,
   announceRapiUpdate,
@@ -84,7 +84,10 @@ const db = new PostgresDatabase(config.DATABASE_URL, {
 const stores = postgresStores(db);
 const discord = new DiscordHttpGateway(config.DISCORD_BOT_TOKEN);
 const layout = new DiscordLayoutManager(stores.discordLayout, {
-  ...discordLayoutPorts(config.DISCORD_BOT_TOKEN, config.DISCORD_LAYOUT_FILE),
+  ...discordLayoutDependencies(
+    config.DISCORD_BOT_TOKEN,
+    config.DISCORD_LAYOUT_FILE,
+  ),
 });
 // Null unless MODEL_API_BASE_URL and MODEL_API_KEY are set; callers fall back to the CLI.
 const modelClient = createModelClient(
@@ -103,7 +106,7 @@ const summarizer =
       : new CodexModelGateway(
           process.env.SUMMARY_MODEL || DEFAULT_SUMMARY_MODEL,
         );
-const agent = new RapiAgent(
+const agent = new SourceCollection(
   stores.sources,
   new WebSourceGateway({ githubToken: config.GITHUB_READ_TOKEN }),
 );
@@ -202,7 +205,7 @@ const guildRequests = {
   // Sends the card now unless a run is already going; the timer catches that one.
   onOpened: () => void runLoop("cards", sendCards),
 };
-const commands = new DiscordCommandService(agent, allowlists, {
+const commands = new DiscordCommands(agent, allowlists, {
   guildAllowlist: () => guildGate.allowed(),
   guildFeatures,
   notificationChannels: channels,

@@ -1,4 +1,4 @@
-import { discordLayoutPorts } from "@rapi/adapters";
+import { discordLayoutDependencies } from "@rapi/adapters";
 import { DiscordLayoutManager } from "@rapi/application";
 import { loadEnvironment } from "@rapi/config";
 import { PostgresDatabase, PostgresDiscordLayoutStore } from "@rapi/adapters";
@@ -16,7 +16,10 @@ const db = new PostgresDatabase(config.DATABASE_URL, {
 });
 try {
   await new DiscordLayoutManager(new PostgresDiscordLayoutStore(db), {
-    ...discordLayoutPorts(config.DISCORD_BOT_TOKEN, config.DISCORD_LAYOUT_FILE),
+    ...discordLayoutDependencies(
+      config.DISCORD_BOT_TOKEN,
+      config.DISCORD_LAYOUT_FILE,
+    ),
   }).ensureHelpMessage(guildId);
   console.log("도움말을 게시했습니다.");
 } finally {

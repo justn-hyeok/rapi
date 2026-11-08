@@ -3,7 +3,7 @@ import { once } from "node:events";
 import { createServer } from "node:http";
 import { test } from "node:test";
 import { WebSourceGateway } from "@rapi/adapters";
-import { RapiAgent } from "@rapi/application";
+import { SourceCollection } from "@rapi/application";
 
 // In-memory store with the same uniqueness rules as the raw_events indexes:
 // (source_id, external_event_id) and, without an id, (source_id, payload hash).
@@ -100,7 +100,7 @@ test("polling an unchanged feed twice stores its items once and no per-poll snap
         policy: { html: { linkPattern: "^/news/[a-z]+$" } },
       },
     ]);
-    const agent = new RapiAgent(store, new WebSourceGateway());
+    const agent = new SourceCollection(store, new WebSourceGateway());
     for (let poll = 0; poll < 2; poll += 1)
       await agent.collectConfiguredSources();
     assert.deepEqual(failures, []);
@@ -128,7 +128,7 @@ test("a response that fails to parse is still kept for diagnosis", async () => {
         locator: `http://127.0.0.1:${address.port}/feed`,
       },
     ]);
-    const agent = new RapiAgent(store, new WebSourceGateway());
+    const agent = new SourceCollection(store, new WebSourceGateway());
     await agent.collectConfiguredSources();
     assert.equal(failures.length, 1);
     assert.equal(rawEvents.size, 1);

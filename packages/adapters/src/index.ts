@@ -1,6 +1,6 @@
 export * from "./crypto/secret-box.js";
 export * from "./discord/http-gateway.js";
-export * from "./discord/layout-ports.js";
+export * from "./discord/layout-dependencies.js";
 export * from "./discord/managed-webhooks.js";
 export * from "./discount-routes/commit-logs.js";
 export * from "./discount-routes/jobs.js";

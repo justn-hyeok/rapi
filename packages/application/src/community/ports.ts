@@ -1,3 +1,5 @@
+import type { DiscordLayoutStore } from "../discord/ports.js";
+import type { GuildStore } from "../guilds/ports.js";
 export interface CommunityStore {
   communityGuildPostSent(guildId: string, key: string): Promise<boolean>;
   recordCommunityGuildPost(input: {
@@ -58,3 +60,8 @@ export interface CommunityStore {
     { id: string; url: string; title: string; body: string; source: string }[]
   >;
 }
+
+/** The feeds post to every allowed server that has their channel. */
+export type CommunityFeedStore = CommunityStore &
+  Pick<GuildStore, "allowedDiscordGuilds"> &
+  Pick<DiscordLayoutStore, "managedDiscordResourceId">;

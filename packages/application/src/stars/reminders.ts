@@ -3,7 +3,7 @@ import {
   DiscordServerError,
   UncertainDeliveryError,
 } from "../discord/ports.js";
-import { type StarStore } from "./ports.js";
+import { type ReminderStore } from "./ports.js";
 import {
   clip,
   closeNeighbors,
@@ -32,29 +32,6 @@ import {
 } from "@rapi/domain";
 
 const REMINDER_KST_HOUR = 9;
-
-export type ReminderStore = Pick<
-  StarStore,
-  | "saveStars"
-  | "currentStars"
-  | "starReminderClaimed"
-  | "claimStarReminder"
-  | "releaseStarReminder"
-  | "saveStarReminderMessage"
-> &
-  Partial<
-    Pick<
-      StarStore,
-      | "starInterests"
-      | "seenStarRepos"
-      | "saveStarSuggestion"
-      | "starRepo"
-      | "starDigHistory"
-      | "saveStarNeighbors"
-      | "starNeighbors"
-      | "markStarNeighborsFollowed"
-    >
-  >;
 
 export const STAR_VOTE_PREFIX = "star_vote:";
 // Discord's limit on a custom_id.

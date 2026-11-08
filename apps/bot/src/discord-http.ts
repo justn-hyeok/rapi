@@ -12,7 +12,7 @@ import {
   DISCOUNT_DISCARD_PREFIX,
   DISCOUNT_MODAL_PREFIX,
   DISCOUNT_PUBLISH_PREFIX,
-  DiscordCommandService,
+  DiscordCommands,
   PROBLEM_CLEAR_PREFIX,
   PROBLEM_RED_PREFIX,
   type DiscordCommand,
@@ -508,7 +508,7 @@ async function deliverDiscountResult(
 }
 
 export function createDiscordInteractionServer(
-  service: DiscordCommandService,
+  service: DiscordCommands,
   publicKey: string,
   integrations?: {
     readiness?: () => Promise<unknown>;

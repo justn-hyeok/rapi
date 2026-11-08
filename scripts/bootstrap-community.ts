@@ -1,6 +1,6 @@
 import { readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { discordLayoutPorts } from "@rapi/adapters";
+import { discordLayoutDependencies } from "@rapi/adapters";
 import { DiscordLayoutManager } from "@rapi/application";
 import { loadEnvironment } from "@rapi/config";
 import {
@@ -47,7 +47,10 @@ const db = new PostgresDatabase(config.DATABASE_URL, {
 });
 const layoutStore = new PostgresDiscordLayoutStore(db);
 const layout = new DiscordLayoutManager(layoutStore, {
-  ...discordLayoutPorts(config.DISCORD_BOT_TOKEN, config.DISCORD_LAYOUT_FILE),
+  ...discordLayoutDependencies(
+    config.DISCORD_BOT_TOKEN,
+    config.DISCORD_LAYOUT_FILE,
+  ),
 });
 try {
   for (const feed of officialFeeds)

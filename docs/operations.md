@@ -425,7 +425,7 @@ GITHUB_OAUTH_CLIENT_SECRET=...
 
 둘은 함께 있어야 하고 `RAPI_PUBLIC_BASE_URL`과 `WEBHOOK_ENCRYPTION_KEY`도 필요하다. 없으면 `/연결 추가`는 아직 설정되지 않았다고만 답하고, 운영자 본인의 스타 알림은 그대로 간다. 공개 게이트웨이(`ops/gateway/run.mjs`)는 `GET /connect/<서비스>/callback`을 통과시킨다. 이 파일은 배포에 포함되지 않으므로 VM에 복사하고 `rapi-public-gateway`를 다시 시작한다.
 
-새 서비스를 붙일 때는 `CONNECTION_PROVIDERS`(core)에 이름을 넣고, 그 서비스의 OAuth를 `OAuthGateway` 포트로 구현해(adapters) `apps/bot/src/run.ts`의 `connections.providers`에 꽂는다. 명령, 콜백 주소, 게이트웨이, 저장, 회수는 손대지 않아도 된다.
+새 서비스를 붙일 때는 `CONNECTION_PROVIDERS`(application)에 이름을 넣고, 그 서비스의 OAuth를 `OAuthGateway` 포트로 구현해(adapters) `apps/bot/src/run.ts`의 `connections.providers`에 꽂는다. 명령, 콜백 주소, 게이트웨이, 저장, 회수는 손대지 않아도 된다.
 
 ## 스타 리마인드 (0.0.8)
 
