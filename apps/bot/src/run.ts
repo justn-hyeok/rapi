@@ -18,6 +18,7 @@ import {
   digTrails,
   followNeighbors,
   superadminDmNotifier,
+  sourceParsers,
 } from "@rapi/adapters";
 import {
   DEFAULT_SUMMARY_MODEL,
@@ -103,7 +104,7 @@ const summarizer =
           `api:${config.MODEL_FOR_SUMMARY ?? config.MODEL_DEFAULT}`,
         )
       : new CodexSummarizer(process.env.SUMMARY_MODEL || DEFAULT_SUMMARY_MODEL);
-const agent = new RapiAgent(store);
+const agent = new RapiAgent(store, sourceParsers);
 const homeGuildId = resolveHomeGuildId(
   config.DISCORD_HOME_GUILD_ID,
   config.COMMUNITY_GUILD_ID,

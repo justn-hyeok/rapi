@@ -23,7 +23,6 @@ const pending = new Set<string>([
   "packages/agent/src/discord-layout-manager.ts -> node:fs/promises",
   "packages/agent/src/discount-candidates.ts -> @rapi/adapters",
   "packages/agent/src/discount-candidates.ts -> node:fs/promises",
-  "packages/agent/src/rapi-agent.ts -> @rapi/adapters",
 ]);
 
 function sources(directory: string): string[] {

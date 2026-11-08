@@ -1,25 +1,25 @@
 import { randomUUID } from "node:crypto";
 export { DEFAULT_CODEX_MODEL as DEFAULT_SUMMARY_MODEL } from "@rapi/contracts";
-import type { Visibility, SourceStore } from "@rapi/core";
+import type {
+  ExternalItem,
+  FeedReader,
+  GitHubEventReader,
+  HtmlReader,
+  SourceParsers,
+  SourcePayload,
+  SourceStore,
+  StarRecommender,
+  Visibility,
+} from "@rapi/core";
 import {
   canonicalizeUrl,
   parseHtmlSourcePolicy,
+  plainText,
   checksumPayload,
   classify,
   contentFingerprint,
   summarize,
 } from "@rapi/core";
-import {
-  FeedSourceAdapter,
-  HtmlSourceAdapter,
-  GitHubSourceAdapter,
-  GitHubStarRecommender,
-  plainText,
-  parseFeed,
-  parseGitHubEvent,
-  type ExternalItem,
-  type SourcePayload,
-} from "@rapi/adapters";
 
 // A feed URL that embeds a credential (e.g. GitHub's private dashboard feed)
 // is stored as `env:NAME` so the secret stays in the service environment and
@@ -46,7 +46,10 @@ export function redactUrlTokens(body: string): string {
 }
 
 export class RapiAgent {
-  constructor(readonly store: SourceStore) {}
+  constructor(
+    readonly store: SourceStore,
+    private readonly parse: SourceParsers,
+  ) {}
 
   createSource(
     kind: "github" | "rss" | "html" | "webhook" | "aside" | "github_stars",
@@ -102,7 +105,7 @@ export class RapiAgent {
       collectedAt,
     );
     let inserted = 0;
-    for (const item of parseFeed(xml)) {
+    for (const item of this.parse.feed(xml)) {
       const result = await this.ingestExternalItem(sourceId, item, collectedAt);
       if (result.inserted) inserted += 1;
     }
@@ -124,7 +127,7 @@ export class RapiAgent {
     for (const payload of payloads) {
       const result = await this.ingestExternalItem(
         sourceId,
-        parseGitHubEvent(payload),
+        this.parse.githubEvent(payload),
         collectedAt,
       );
       if (result.inserted) inserted += 1;
@@ -151,10 +154,10 @@ export class RapiAgent {
   }
 
   async collectConfiguredSources(
-    feed: FeedSourceAdapter,
-    github: GitHubSourceAdapter,
-    stars?: GitHubStarRecommender,
-    html: HtmlSourceAdapter = new HtmlSourceAdapter(),
+    feed: FeedReader,
+    github: GitHubEventReader,
+    stars: StarRecommender | undefined,
+    html: HtmlReader,
   ): Promise<void> {
     const sources = await this.store.collectableSources();
     await this.collectIndependently(

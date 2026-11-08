@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { test } from "node:test";
 import { once } from "node:events";
-import { FeedSourceAdapter, type SourcePayload } from "@rapi/adapters";
+import { FeedSourceAdapter } from "@rapi/adapters";
+import type { SourcePayload } from "@rapi/core";
 
 test("source deadlines cover both headers and body, and preserve malformed raw responses", async () => {
   const xml =

@@ -10,7 +10,7 @@ if (!databaseUrl || new URL(databaseUrl).pathname !== "/rapi_test")
 describe("rapi MVP", () => {
   it("retains original malformed source payloads before normalization fails", async () => {
     const store = new PostgresStore(databaseUrl);
-    const agent = new RapiAgent(store);
+    const agent = new RapiAgent(store, sourceParsers);
     try {
       await store.resetForTests();
       const source = await agent.createSource(

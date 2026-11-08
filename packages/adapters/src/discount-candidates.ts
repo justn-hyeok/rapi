@@ -14,9 +14,9 @@ import {
   HtmlSourceAdapter,
   parseServicePage,
   readSource,
-  type ExternalItem,
   type SourceHttpOptions,
 } from "./sources.js";
+import type { ExternalItem } from "@rapi/core";
 
 export interface CandidateResult {
   candidates: DiscountCandidate[];
