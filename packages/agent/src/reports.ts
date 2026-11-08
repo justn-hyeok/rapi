@@ -7,14 +7,14 @@ import {
   type DiscordIdentity,
   isPublicUrl,
 } from "@rapi/core";
-import type { PostgresStore } from "@rapi/db";
 import { messageBody } from "./community-feeds.js";
 import { isReviewChannel, PROBLEM_RED_PREFIX } from "./discount-candidates.js";
+import type { ReportStore } from "@rapi/core";
 
 export const REPORTS_PER_HOUR = 5;
 
 export interface ReportIntake {
-  store: Pick<PostgresStore, "saveReport">;
+  store: Pick<ReportStore, "saveReport">;
   reviewChannelId: () => Promise<string | undefined>;
 }
 
@@ -96,7 +96,7 @@ export async function receiveReport(
 }
 
 export interface ProblemReview {
-  store: Pick<PostgresStore, "decideProblemReport">;
+  store: Pick<ReportStore, "decideProblemReport">;
   ownerIds: readonly string[];
   reviewChannelIds: () => Promise<readonly string[]>;
 }

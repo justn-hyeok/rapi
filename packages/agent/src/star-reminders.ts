@@ -27,7 +27,7 @@ import {
   DiscordServerError,
   UncertainDeliveryError,
 } from "@rapi/core";
-import type { StarOwnerStore } from "@rapi/db";
+import type { StarOwnerStore } from "@rapi/core";
 
 const REMINDER_KST_HOUR = 9;
 

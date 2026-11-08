@@ -1,12 +1,12 @@
 import type { Pool, PoolClient } from "pg";
-import type { GitHubStar, StoredStar } from "@rapi/core";
+import type { GitHubStar, StarOwnerStore, StoredStar } from "@rapi/core";
 
 /**
  * One person's GitHub stars and everything learned from them: what they picked
  * on the interest page, their thumbs, what they were shown, the neighbors kept
  * for them and the days they got a DM. Every query is bound to them.
  */
-export class StarOwnerStore {
+export class PostgresStarOwnerStore implements StarOwnerStore {
   constructor(
     private readonly pool: Pool,
     private readonly transaction: <T>(

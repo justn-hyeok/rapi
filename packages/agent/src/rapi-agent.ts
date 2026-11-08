@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 export { DEFAULT_CODEX_MODEL as DEFAULT_SUMMARY_MODEL } from "@rapi/contracts";
-import type { Visibility } from "@rapi/core";
+import type { Visibility, SourceStore } from "@rapi/core";
 import {
   canonicalizeUrl,
   parseHtmlSourcePolicy,
@@ -20,8 +20,6 @@ import {
   type ExternalItem,
   type SourcePayload,
 } from "@rapi/adapters";
-import { PostgresStore } from "@rapi/db";
-import type { PoolClient } from "pg";
 
 // A feed URL that embeds a credential (e.g. GitHub's private dashboard feed)
 // is stored as `env:NAME` so the secret stays in the service environment and
@@ -48,7 +46,7 @@ export function redactUrlTokens(body: string): string {
 }
 
 export class RapiAgent {
-  constructor(readonly store: PostgresStore) {}
+  constructor(readonly store: SourceStore) {}
 
   createSource(
     kind: "github" | "rss" | "html" | "webhook" | "aside" | "github_stars",
@@ -63,7 +61,6 @@ export class RapiAgent {
     sourceId: string,
     item: ExternalItem,
     collectedAt = new Date(),
-    transactionClient?: PoolClient,
   ): Promise<{ itemId: string; inserted: boolean }> {
     const payload = { ...item };
     const raw = await this.store.insertRawEvent(
@@ -72,12 +69,8 @@ export class RapiAgent {
       checksumPayload(payload),
       payload,
       collectedAt,
-      transactionClient,
     );
-    const visibility = await this.store.sourceVisibility(
-      sourceId,
-      transactionClient,
-    );
+    const visibility = await this.store.sourceVisibility(sourceId);
     const normalized = {
       id: randomUUID(),
       rawEventId: raw.id,
@@ -94,11 +87,7 @@ export class RapiAgent {
       metadata: item.metadata,
       categories: classify(item.title, item.body),
     };
-    const saved = await this.store.saveItem(
-      normalized,
-      summarize(normalized),
-      transactionClient,
-    );
+    const saved = await this.store.saveItem(normalized, summarize(normalized));
     return { itemId: saved.id, inserted: raw.inserted && saved.inserted };
   }
 

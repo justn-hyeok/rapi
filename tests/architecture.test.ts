@@ -19,25 +19,11 @@ const rules: Record<string, RegExp> = {
 // the test fails when an entry here is no longer needed, so the list only shrinks.
 const pending = new Set<string>([
   "packages/agent/src/community-feeds.ts -> @rapi/adapters",
-  "packages/agent/src/community-feeds.ts -> @rapi/db",
   "packages/agent/src/community-feeds.ts -> node:fs/promises",
-  "packages/agent/src/discord-layout-manager.ts -> @rapi/db",
   "packages/agent/src/discord-layout-manager.ts -> node:fs/promises",
-  "packages/agent/src/discount-approval.ts -> @rapi/db",
   "packages/agent/src/discount-candidates.ts -> @rapi/adapters",
-  "packages/agent/src/discount-candidates.ts -> @rapi/db",
   "packages/agent/src/discount-candidates.ts -> node:fs/promises",
-  "packages/agent/src/guild-features.ts -> @rapi/db",
-  "packages/agent/src/guild-requests.ts -> @rapi/db",
-  "packages/agent/src/notification-channels.ts -> @rapi/db",
   "packages/agent/src/rapi-agent.ts -> @rapi/adapters",
-  "packages/agent/src/rapi-agent.ts -> @rapi/db",
-  "packages/agent/src/rapi-agent.ts -> pg",
-  "packages/agent/src/rapi-updates.ts -> @rapi/db",
-  "packages/agent/src/reports.ts -> @rapi/db",
-  "packages/agent/src/star-interests.ts -> @rapi/db",
-  "packages/agent/src/star-reminders.ts -> @rapi/db",
-  "packages/agent/src/star-subscriptions.ts -> @rapi/db",
 ]);
 
 function sources(directory: string): string[] {

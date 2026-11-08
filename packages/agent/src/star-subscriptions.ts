@@ -7,13 +7,13 @@ import {
   type DiscordIdentity,
   type GitHubStar,
 } from "@rapi/core";
-import type { PostgresStore } from "@rapi/db";
 import {
   interestPageOf,
   starInterestUrl,
   type StarInterestSite,
 } from "./star-interests.js";
 import { remindStars, type ReminderPick } from "./star-reminders.js";
+import type { StarSubscriberStore } from "@rapi/core";
 
 const REMINDER_KST_HOUR = 9;
 // A dig takes about twenty seconds and a hundred GitHub requests, so a run of
@@ -63,7 +63,7 @@ export interface StarOAuth {
 /** Star reminders for everyone who connected their GitHub account. */
 export interface StarService {
   store: Pick<
-    PostgresStore,
+    StarSubscriberStore,
     | "starsOf"
     | "starSubscribers"
     | "starSubscriber"

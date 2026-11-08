@@ -1,5 +1,4 @@
 import { readFile } from "node:fs/promises";
-import type { PostgresStore } from "@rapi/db";
 import {
   parseDiscordLayout,
   planDiscordLayout,
@@ -10,6 +9,7 @@ import {
   type ManagedDiscordResource,
 } from "./discord-layout.js";
 import { helpMessageBody } from "./discord-help.js";
+import type { DiscordLayoutStore } from "@rapi/core";
 
 export interface DiscordRest {
   request<T>(route: string, init?: RequestInit): Promise<T>;
@@ -115,7 +115,7 @@ export class DiscordLayoutManager {
   readonly rest: DiscordRest;
 
   constructor(
-    readonly store: PostgresStore,
+    readonly store: DiscordLayoutStore,
     readonly options: {
       botToken: string;
       layoutFile: string;

@@ -17,8 +17,12 @@ import {
   type CitationCandidate,
   type FeedGuildTarget,
 } from "@rapi/core";
-import type { PostgresStore } from "@rapi/db";
 import type { GuildFeatureSwitch } from "./guild-features.js";
+import type {
+  GuildStore,
+  CommunityStore,
+  DiscordLayoutStore,
+} from "@rapi/core";
 
 type Feed = "ai-blogs" | "free-tokens";
 type Embed = Record<string, unknown>;
@@ -177,13 +181,17 @@ export interface CommunityFeedOptions {
   getText?: (url: string, accept?: string) => Promise<string>;
 }
 
+export type CommunityFeedStore = CommunityStore &
+  Pick<GuildStore, "allowedDiscordGuilds"> &
+  Pick<DiscordLayoutStore, "managedDiscordResourceId">;
+
 /** The curation channels: AI blogs and free tokens. */
 export class CommunityFeeds {
   private readonly getText: (url: string, accept?: string) => Promise<string>;
   private readonly getJson: (url: string, accept?: string) => Promise<unknown>;
 
   constructor(
-    private readonly store: PostgresStore,
+    private readonly store: CommunityFeedStore,
     private readonly summarizer: ItemSummarizer | undefined,
     private readonly options: CommunityFeedOptions,
   ) {
@@ -683,7 +691,7 @@ export class CommunityFeeds {
 
 /** Allowed guilds with cards switched on, from the env list and the database. */
 export async function feedGuildTargets(input: {
-  store: Pick<PostgresStore, "allowedDiscordGuilds">;
+  store: Pick<GuildStore, "allowedDiscordGuilds">;
   /** Guilds from DISCORD_ALLOWED_GUILD_IDS; approved guilds are read from the database. */
   extraGuildIds?: readonly string[];
   guildFeatures: Pick<GuildFeatureSwitch, "enabled">;
@@ -706,7 +714,7 @@ export async function feedGuildTargets(input: {
 
 /** Builds the feeds from config/curation in a release root, posting as the bot. */
 export async function createCommunityFeeds(input: {
-  store: PostgresStore;
+  store: CommunityFeedStore;
   summarizer: ItemSummarizer | undefined;
   guildId: string;
   extraGuildIds?: readonly string[];

@@ -4,8 +4,8 @@ import {
   templateCard,
   type DeliveryAdapter,
 } from "@rapi/core";
-import type { PostgresStore } from "@rapi/db";
 import { messageBody } from "./community-feeds.js";
+import type { RapiUpdateStore } from "@rapi/core";
 
 export interface RapiRelease {
   tag: string;
@@ -22,7 +22,7 @@ const failureText = (id: string, error: unknown) =>
  * outage in one server cannot repeat the notice in the others.
  */
 export async function announceRapiUpdate(input: {
-  store: Pick<PostgresStore, "rapiUpdateNoticed" | "claimRapiUpdate">;
+  store: Pick<RapiUpdateStore, "rapiUpdateNoticed" | "claimRapiUpdate">;
   delivery: Pick<DeliveryAdapter, "send">;
   channelIds: () => Promise<readonly string[]>;
   latestRelease: () => Promise<RapiRelease>;

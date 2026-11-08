@@ -12,7 +12,6 @@ import {
   type DiscordIdentity,
   type GuildRequestForCard,
 } from "@rapi/core";
-import type { PostgresStore } from "@rapi/db";
 import { messageBody } from "./community-feeds.js";
 import type { DiscountPublishResult } from "./discount-approval.js";
 import {
@@ -20,13 +19,14 @@ import {
   isReviewChannel,
   sendClaimedCards,
 } from "./discount-candidates.js";
+import type { DiscountCandidateStore, GuildStore } from "@rapi/core";
 
 export const GUILD_APPROVE_PREFIX = "guild_approve:";
 export const GUILD_BLOCK_PREFIX = "guild_block:";
 
 export interface GuildRequests {
   store: Pick<
-    PostgresStore,
+    GuildStore,
     | "openGuildRequest"
     | "decideGuildRequest"
     | "setGuildStatus"
@@ -235,14 +235,14 @@ function guildCardPayload(request: GuildRequestForCard): DeliveryPayload {
  * server, so many of them cannot flood the owner. The rest wait for a later run.
  */
 export async function sendGuildRequestCards(input: {
-  store: Pick<
-    PostgresStore,
-    | "cardsInLastHour"
-    | "guildRequestsForCards"
-    | "claimGuildCard"
-    | "releaseGuildCard"
-    | "saveGuildCardMessage"
-  >;
+  store: Pick<DiscountCandidateStore, "cardsInLastHour"> &
+    Pick<
+      GuildStore,
+      | "guildRequestsForCards"
+      | "claimGuildCard"
+      | "releaseGuildCard"
+      | "saveGuildCardMessage"
+    >;
   delivery: Pick<DeliveryAdapter, "send">;
   channelId: string;
   guildName: (guildId: string) => Promise<string | null>;

@@ -46,8 +46,8 @@ import {
   DiscordRateLimitError,
   UncertainDeliveryError,
 } from "@rapi/core";
-import type { PostgresStore } from "@rapi/db";
 import { messageBody } from "./community-feeds.js";
+import type { SourceStore, DiscountCandidateStore } from "@rapi/core";
 
 export interface DiscountSources {
   changelogs: ChangelogSource[];
@@ -74,14 +74,13 @@ export async function loadDiscountSources(
 }
 
 type CandidateStore = Pick<
-  PostgresStore,
-  | "knownCandidateKeys"
-  | "createSource"
-  | "sourceCursor"
-  | "saveCursor"
-  | "recordSourceFailure"
-  | "saveDiscountCandidate"
->;
+  DiscountCandidateStore,
+  "knownCandidateKeys" | "saveDiscountCandidate"
+> &
+  Pick<
+    SourceStore,
+    "createSource" | "sourceCursor" | "saveCursor" | "recordSourceFailure"
+  >;
 
 const NO_TOKEN = "GITHUB_READ_TOKEN이 없어 건너뜀";
 const CHINESE = /\p{Script=Han}/u;
@@ -307,7 +306,7 @@ export async function collectDiscountCandidates(input: {
 }
 
 type VerificationStore = Pick<
-  PostgresStore,
+  DiscountCandidateStore,
   | "unverifiedDiscountCandidates"
   | "saveCandidateVerification"
   | "saveDiscountCandidate"
@@ -378,7 +377,7 @@ export async function verifyDiscountCandidates(
 }
 
 type CardStore = Pick<
-  PostgresStore,
+  DiscountCandidateStore,
   | "cardsInLastHour"
   | "newServiceCardsInLastDay"
   | "unvettedCardsInLastDay"
@@ -595,7 +594,7 @@ export async function sendDiscountCards(input: {
 }
 
 type ProblemCardStore = Pick<
-  PostgresStore,
+  DiscountCandidateStore,
   | "cardsInLastHour"
   | "problemReportsForCards"
   | "claimProblemCard"
