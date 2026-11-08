@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { type CandidateJob, type ServicePages } from "@rapi/application";
+import { type CandidateJob, type ServicePageGateway } from "@rapi/application";
 import type { DiscountCandidateKind, KnownOperator } from "@rapi/domain";
 import { type CommitLogSource, CommitLogRoute } from "./commit-logs.js";
 import { curlFetch } from "./curl-fetch.js";
@@ -156,9 +156,9 @@ export function discountCandidateJobs(input: {
 }
 
 /** Reads a service's own pages, refusing addresses that are not public. */
-export function servicePages(
+export function servicePageGateway(
   http: SourceHttpOptions & { resolve?: ResolveHostname } = {},
-): ServicePages {
+): ServicePageGateway {
   return {
     read: (domain) => readServicePage(domain, http),
     offer: (domain, page) => siteOffer(domain, page, http),

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { test } from "node:test";
 import { once } from "node:events";
-import { FeedSourceAdapter } from "@rapi/adapters";
+import { FeedSource } from "@rapi/adapters";
 import { type SourcePayload } from "@rapi/application";
 
 test("source deadlines cover both headers and body, and preserve malformed raw responses", async () => {
@@ -26,7 +26,7 @@ test("source deadlines cover both headers and body, and preserve malformed raw r
   const address = server.address();
   assert.ok(address && typeof address === "object");
   const base = `http://127.0.0.1:${address.port}`;
-  const adapter = new FeedSourceAdapter({ timeoutMs: 150, maxBodyBytes: 500 });
+  const adapter = new FeedSource({ timeoutMs: 150, maxBodyBytes: 500 });
   try {
     const results = await Promise.allSettled([
       adapter.fetch(`${base}/headers`),

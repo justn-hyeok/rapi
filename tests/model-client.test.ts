@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  ApiSummarizer,
+  ApiModelGateway,
   MeteredModelClient,
   ModelApiError,
   ModelBudgetExceededError,
@@ -451,7 +451,7 @@ test("factory returns null when unconfigured, a client when configured", () => {
 
 test("api summarizer maps a JSON reply to summaries", async () => {
   const seen: string[] = [];
-  const summarizer = new ApiSummarizer({
+  const summarizer = new ApiModelGateway({
     async complete(req) {
       seen.push(req.feature);
       return {

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   type CurationChannel,
-  type ItemSummarizer,
+  type ModelGateway,
   type SummaryInput,
 } from "@rapi/application";
 import { plainText } from "@rapi/domain";
@@ -260,7 +260,7 @@ function runCodex(binary: string): Runner {
     });
 }
 
-export class CodexSummarizer implements ItemSummarizer {
+export class CodexModelGateway implements ModelGateway {
   readonly policy: string;
   private readonly run: Runner;
 
@@ -387,7 +387,7 @@ export class CodexSummarizer implements ItemSummarizer {
 }
 
 /** Summaries through the metered API client (SUMMARIZER_BACKEND=api). */
-export class ApiSummarizer implements ItemSummarizer {
+export class ApiModelGateway implements ModelGateway {
   readonly policy: string;
 
   constructor(

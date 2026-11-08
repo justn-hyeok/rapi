@@ -1,5 +1,5 @@
 import type { Pool, PoolClient } from "pg";
-import { type StarOwnerStore } from "@rapi/application";
+import { type StarStore } from "@rapi/application";
 import type { GitHubStar, StoredStar } from "@rapi/domain";
 
 /**
@@ -7,7 +7,7 @@ import type { GitHubStar, StoredStar } from "@rapi/domain";
  * on the interest page, their thumbs, what they were shown, the neighbors kept
  * for them and the days they got a DM. Every query is bound to them.
  */
-export class PostgresStarOwnerStore implements StarOwnerStore {
+export class PostgresStarStore implements StarStore {
   constructor(
     private readonly pool: Pool,
     private readonly transaction: <T>(

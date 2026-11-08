@@ -1,7 +1,7 @@
 import {
-  type DeliveryAdapter,
+  type DiscordGateway,
   DiscordServerError,
-  type StarOwnerStore,
+  type StarStore,
   UncertainDeliveryError,
 } from "./ports/index.js";
 import {
@@ -33,8 +33,8 @@ import {
 
 const REMINDER_KST_HOUR = 9;
 
-export type StarStore = Pick<
-  StarOwnerStore,
+export type ReminderStore = Pick<
+  StarStore,
   | "saveStars"
   | "currentStars"
   | "starReminderClaimed"
@@ -44,7 +44,7 @@ export type StarStore = Pick<
 > &
   Partial<
     Pick<
-      StarOwnerStore,
+      StarStore,
       | "starInterests"
       | "seenStarRepos"
       | "saveStarSuggestion"
@@ -156,7 +156,7 @@ export function starReminderPayload(
  * interests. Null when neither finds one.
  */
 async function findNew(
-  store: StarStore,
+  store: ReminderStore,
   stars: StoredStar[],
   saved: {
     interests: Interests;
@@ -303,7 +303,7 @@ async function findNew(
  * thumbed-down repository never returns.
  */
 async function choose(
-  store: StarStore,
+  store: ReminderStore,
   ownerId: string,
   stars: StoredStar[],
   now: Date,
@@ -363,8 +363,8 @@ async function choose(
  * tried again on a later run. Returns the failures.
  */
 export async function remindStars(input: {
-  store: StarStore;
-  delivery: Pick<DeliveryAdapter, "send">;
+  store: ReminderStore;
+  delivery: Pick<DiscordGateway, "send">;
   ownerId: string;
   readStars: () => Promise<{ stars: GitHubStar[]; complete: boolean }>;
   // Follows seed repositories out to the people and projects around them.

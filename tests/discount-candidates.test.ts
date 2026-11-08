@@ -17,7 +17,7 @@ import {
   loadDiscountSources,
   type DiscountSources,
   discountCandidateJobs,
-  servicePages,
+  servicePageGateway,
 } from "@rapi/adapters";
 import {
   collectDiscountCandidates,
@@ -567,7 +567,7 @@ test("one candidate failing to read or save leaves the others checked", async ()
   const failures = await verifyDiscountCandidates({
     store: store as never,
     operators: [],
-    pages: servicePages({
+    pages: servicePageGateway({
       resolve,
       fetch: (async (url: string) => {
         requested.push(url);
@@ -610,7 +610,7 @@ test("a new service whose page offers something becomes a deal of its own", asyn
     operators: [
       { domain: "openai.com", name: "OpenAI", service: "official", tags: [] },
     ],
-    pages: servicePages({
+    pages: servicePageGateway({
       resolve,
       fetch: (async (url: string) => {
         if (url === "https://code0.io/")
@@ -668,7 +668,7 @@ test("the store failing to list is reported, not thrown", async () => {
         },
       } as never,
       operators: [],
-      pages: servicePages(),
+      pages: servicePageGateway(),
     }),
     ["verification: db down"],
   );
@@ -685,7 +685,7 @@ test("the short timer asks only for reports, and few at a time", async () => {
       saveCandidateVerification: async () => {},
     } as never,
     operators: [],
-    pages: servicePages(),
+    pages: servicePageGateway(),
   });
   assert.deepEqual(failures, []);
   assert.deepEqual(asked, [[20, "report"]]);

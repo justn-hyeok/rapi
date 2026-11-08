@@ -9,7 +9,7 @@ export interface StarSubscriber {
   pausedReason: string | null;
 }
 
-export interface StarOwnerStore {
+export interface StarStore {
   saveStars(stars: readonly GitHubStar[], complete: boolean): Promise<void>;
   currentStars(): Promise<StoredStar[]>;
   starInterests(): Promise<{
@@ -58,7 +58,7 @@ export interface StarOwnerStore {
 }
 
 export interface StarSubscriberStore {
-  starsOf(ownerId: string): StarOwnerStore;
+  starsOf(ownerId: string): StarStore;
   starSubscribers(): Promise<StarSubscriber[]>;
   starSubscriber(userId: string): Promise<StarSubscriber | null>;
   saveStarSubscriber(userId: string, githubLogin: string): Promise<void>;

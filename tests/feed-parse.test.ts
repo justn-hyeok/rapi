@@ -1,10 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import {
-  closeTruncatedFeed,
-  FeedSourceAdapter,
-  parseFeed,
-} from "@rapi/adapters";
+import { closeTruncatedFeed, FeedSource, parseFeed } from "@rapi/adapters";
 
 test("accepts an HTML DOCTYPE inside item CDATA content", () => {
   const xml = `<?xml version="1.0"?><rss><channel><item><guid>1</guid><link>https://example.invalid/1</link><title>Release</title><content:encoded><![CDATA[<!DOCTYPE html><p>Body</p>]]></content:encoded></item></channel></rss>`;
@@ -21,7 +17,7 @@ test("reads the start of a feed longer than the byte limit", async () => {
     `<entry><id>${id}</id><title>Post ${id}</title><link href="https://x.test/${id}"/><summary>s</summary></entry>`;
   const atom = `<feed>${[1, 2, 3, 4].map(entry).join("")}</feed>`;
   const seen: string[] = [];
-  const adapter = new FeedSourceAdapter({
+  const adapter = new FeedSource({
     maxBodyBytes: entry(1).length * 2 + 20,
     truncate: true,
     fetch: async (url) => {

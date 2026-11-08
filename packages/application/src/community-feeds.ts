@@ -16,7 +16,7 @@ import {
   type CurationChannel,
   type DiscordLayoutStore,
   type GuildStore,
-  type ItemSummarizer,
+  type ModelGateway,
   type SummaryInput,
 } from "./ports/index.js";
 
@@ -189,7 +189,7 @@ export class CommunityFeeds {
 
   constructor(
     private readonly store: CommunityFeedStore,
-    private readonly summarizer: ItemSummarizer | undefined,
+    private readonly summarizer: ModelGateway | undefined,
     private readonly options: CommunityFeedOptions,
   ) {
     this.getText = options.getText;

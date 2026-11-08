@@ -1,9 +1,9 @@
 import {
   type CandidateJob,
-  type DeliveryAdapter,
+  type DiscordGateway,
   DiscordRateLimitError,
   type DiscountCandidateStore,
-  type ServicePages,
+  type ServicePageGateway,
   type SourceStore,
   UncertainDeliveryError,
 } from "./ports/index.js";
@@ -165,7 +165,7 @@ export async function verifyDiscountCandidates(
   input: {
     store: VerificationStore;
     operators: readonly KnownOperator[];
-    pages: ServicePages;
+    pages: ServicePageGateway;
     translate?: (texts: string[]) => Promise<string[]>;
   },
   only: { limit: number; route?: DiscountCandidateRoute } = {
@@ -319,7 +319,7 @@ const failureText = (id: string, error: unknown) =>
 export const verifyReports = (input: {
   store: VerificationStore;
   operators: readonly KnownOperator[];
-  pages: ServicePages;
+  pages: ServicePageGateway;
 }): Promise<string[]> =>
   verifyDiscountCandidates(input, {
     limit: REPORT_VERIFICATIONS_PER_RUN,
@@ -335,7 +335,7 @@ export const verifyReports = (input: {
 export async function sendClaimedCards<Row extends { id: string }>(input: {
   rows: readonly Row[];
   budget: number;
-  delivery: Pick<DeliveryAdapter, "send">;
+  delivery: Pick<DiscordGateway, "send">;
   channelFor: (row: Row) => string;
   claim: (id: string) => Promise<boolean>;
   release: (id: string) => Promise<void>;
@@ -386,7 +386,7 @@ export async function sendClaimedCards<Row extends { id: string }>(input: {
 /** Verified candidates, as many as the hourly limit allows. */
 export async function sendDiscountCards(input: {
   store: CardStore;
-  delivery: Pick<DeliveryAdapter, "send">;
+  delivery: Pick<DiscordGateway, "send">;
   channels: CardChannels;
 }): Promise<string[]> {
   const { store, delivery, channels } = input;
@@ -478,7 +478,7 @@ function problemPayloadFor(report: ProblemReportForCard): DeliveryPayload {
  */
 export async function sendProblemCards(input: {
   store: ProblemCardStore;
-  delivery: Pick<DeliveryAdapter, "send">;
+  delivery: Pick<DiscordGateway, "send">;
   channelId: string;
 }): Promise<string[]> {
   const { store, delivery, channelId } = input;

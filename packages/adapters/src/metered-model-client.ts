@@ -1,4 +1,4 @@
-import { type DeliveryAdapter } from "@rapi/application";
+import { type DiscordGateway } from "@rapi/application";
 import {
   budgetMonth,
   evaluateBudget,
@@ -40,7 +40,7 @@ export interface ModelBudgetNotifier {
 }
 
 export function superadminDmNotifier(
-  delivery: DeliveryAdapter,
+  delivery: Pick<DiscordGateway, "send">,
   superadminIds: readonly string[],
 ): ModelBudgetNotifier {
   return {

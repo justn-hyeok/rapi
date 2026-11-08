@@ -1,5 +1,5 @@
 import {
-  type DeliveryAdapter,
+  type DiscordGateway,
   type StarSubscriberStore,
   type UserConnection,
 } from "./ports/index.js";
@@ -39,7 +39,7 @@ type Reads = {
 };
 
 /** What reads GitHub, each time with the token of the person it is for. */
-export interface StarGitHub {
+export interface GitHubGateway {
   readStars(
     login: string,
     token: string | undefined,
@@ -69,8 +69,8 @@ export interface StarService {
     | "pauseStarSubscriber"
     | "removeStarSubscriber"
   >;
-  delivery: Pick<DeliveryAdapter, "send">;
-  github: StarGitHub;
+  delivery: Pick<DiscordGateway, "send">;
+  github: GitHubGateway;
   // Whose GitHub to read with; without it only the owner gets reminders.
   connections?: ConnectionService | undefined;
   // The configured owner, read with the deployment's token when not connected.

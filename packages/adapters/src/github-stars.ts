@@ -7,7 +7,7 @@ import {
   type NeighborRole,
 } from "@rapi/domain";
 import { readSource, type SourceHttpOptions } from "./sources.js";
-import { type ExternalItem, type StarRecommender } from "@rapi/application";
+import { type ExternalItem } from "@rapi/application";
 
 export interface StarredRepository {
   fullName: string;
@@ -154,7 +154,7 @@ const repositories = (value: unknown) =>
     .map(toRepository)
     .filter((repo): repo is StarredRepository => repo !== null);
 
-export class GitHubStarRecommender implements StarRecommender {
+export class GitHubStarRecommender {
   private readonly getJson: JsonGetter;
 
   constructor(

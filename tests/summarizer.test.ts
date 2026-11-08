@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile, writeFile } from "node:fs/promises";
 import { test } from "node:test";
 import {
-  CodexSummarizer,
+  CodexModelGateway,
   parseSummaries,
   plainText,
   summaryPrompt,
@@ -52,7 +52,7 @@ test("keeps only known, unique, non-empty summaries and bounds length", () => {
 
 test("runs codex read-only with an output schema and parses its last message", async () => {
   let seen: string[] = [];
-  const summarizer = new CodexSummarizer(
+  const summarizer = new CodexModelGateway(
     "test-model",
     1000,
     async (args, input) => {

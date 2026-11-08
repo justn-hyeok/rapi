@@ -19,7 +19,7 @@ export interface CandidateJob {
 }
 
 /** A service's own pages, read to check a candidate. */
-export interface ServicePages {
+export interface ServicePageGateway {
   read(domain: string): Promise<ServicePage | null>;
   offer(
     domain: string,

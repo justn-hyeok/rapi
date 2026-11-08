@@ -11,8 +11,8 @@ import {
 } from "@rapi/domain";
 import { publicFetch, type ResolveHostname } from "./public-fetch.js";
 import {
-  FeedSourceAdapter,
-  HtmlSourceAdapter,
+  FeedSource,
+  HtmlSource,
   parseServicePage,
   readSource,
   type SourceHttpOptions,
@@ -54,8 +54,8 @@ const CHANGELOG_MAX_BYTES = 1_900_000;
 
 /** Official changelogs: records entries whose wording says discount. */
 export class ChangelogRoute {
-  private readonly feed: FeedSourceAdapter;
-  private readonly html: HtmlSourceAdapter;
+  private readonly feed: FeedSource;
+  private readonly html: HtmlSource;
 
   constructor(
     options: SourceHttpOptions = {},
@@ -66,8 +66,8 @@ export class ChangelogRoute {
       truncate: true,
       ...options,
     };
-    this.feed = new FeedSourceAdapter(limits);
-    this.html = new HtmlSourceAdapter(limits);
+    this.feed = new FeedSource(limits);
+    this.html = new HtmlSource(limits);
   }
 
   async collect(source: ChangelogSource): Promise<CandidateResult> {
@@ -596,13 +596,13 @@ function isRecent(item: ExternalItem, maxAgeDays: number, now: Date): boolean {
  * monitor noticing that a page changed, or confirming that it did not.
  */
 export class CreditFeedRoute {
-  private readonly feed: FeedSourceAdapter;
+  private readonly feed: FeedSource;
 
   constructor(
     options: SourceHttpOptions = {},
     private readonly now: () => Date = () => new Date(),
   ) {
-    this.feed = new FeedSourceAdapter(options);
+    this.feed = new FeedSource(options);
   }
 
   async collect(source: FeedOfferSource): Promise<CandidateResult> {
@@ -654,13 +654,13 @@ export function isCommunityOffer(title: string): boolean {
  * client, so it is read through curl, still saying it is rapi.
  */
 export class CommunityRoute {
-  private readonly feed: FeedSourceAdapter;
+  private readonly feed: FeedSource;
 
   constructor(
     options: SourceHttpOptions = {},
     private readonly now: () => Date = () => new Date(),
   ) {
-    this.feed = new FeedSourceAdapter(options);
+    this.feed = new FeedSource(options);
   }
 
   async collect(source: FeedOfferSource): Promise<CandidateResult> {

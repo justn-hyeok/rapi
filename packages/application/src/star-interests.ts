@@ -6,7 +6,7 @@ import {
   type Interests,
 } from "@rapi/domain";
 import { STAR_VOTE_PREFIX } from "./star-reminders.js";
-import { type StarOwnerStore } from "./ports/index.js";
+import { type StarStore } from "./ports/index.js";
 
 // A link in today's DM keeps working for a week, so an old message still opens it.
 const LINK_DAYS = 7;
@@ -15,7 +15,7 @@ const MAX_FACETS = 3000;
 const FACET_KEY = /^[^:\s][^:]{0,20}:.{1,100}$/u;
 
 type InterestStore = Pick<
-  StarOwnerStore,
+  StarStore,
   | "currentStars"
   | "starInterests"
   | "saveStarInterests"
