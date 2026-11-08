@@ -1,4 +1,5 @@
 import { createPublicKey, verify } from "node:crypto";
+import { runtimeRevision } from "@rapi/adapters";
 import {
   createServer,
   type IncomingMessage,
@@ -29,7 +30,6 @@ import {
   REVIEW_ALERT_COMMAND,
   REVIEW_ALERT_KINDS,
   REPORT_MEMO_MAX_CHARS,
-  runtimeRevision,
   type DiscordIdentity,
 } from "@rapi/core";
 import { redactChat } from "@rapi/contracts";

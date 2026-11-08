@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { describe, it } from "node:test";
+import { createLocalHealthServer } from "@rapi/adapters";
 import {
   assessBackupStatus,
-  createLocalHealthServer,
   decideHealthAlert,
   HealthTransitionTracker,
   summarizeReadiness,
