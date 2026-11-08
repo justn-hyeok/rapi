@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  isHazardous,
   CARD_COLOR,
   cardLink,
   discordEmbed,
@@ -417,4 +418,21 @@ test("a short post loses only the footer, in any of the feed's languages", () =>
     "3개의 게시물 - 참여자 3명 전체 주제 읽기",
   ])
     assert.equal(postSummary(`가입하면 $5 증정 ${footer}`), "가입하면 $5 증정");
+});
+
+test("gambling and shared account or certificate pools never become cards", () => {
+  for (const title of [
+    "piu酱: 邀请注册 +8，每日签到固定 1，有赌狗小游戏（轮盘、银行），还有 cat 证书池",
+    "piu酱: 초대 링크로 가입하면 +8; 도박꾼용 미니게임 ( 룰렛, 은행 ) 도 있고, cat 인증서 풀도 있음",
+    "Free Claude credits from a shared account pool",
+    "Bonus credits in our casino",
+  ])
+    assert.equal(
+      shouldCardCandidate(
+        offer({ route: "relay_list", title, evidence: title }),
+      ),
+      false,
+      title,
+    );
+  assert.equal(isHazardous(offer()), false);
 });

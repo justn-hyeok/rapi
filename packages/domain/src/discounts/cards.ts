@@ -4,6 +4,7 @@ import type {
   CandidateTermsNote,
 } from "./verification.js";
 import {
+  isHazardous,
   MONTH,
   PRICE_CUT,
   UNVETTED_ROUTES,
@@ -159,6 +160,7 @@ export function shouldCardCandidate(
 ): boolean {
   if (candidate.band !== "green" && candidate.band !== "yellow") return false;
   if (!cardLink(candidate.url)) return false;
+  if (isHazardous(candidate)) return false;
   if (candidate.kind === "new_service" || candidate.route === "report")
     return true;
   // The collector already judged its Chinese wording, which the rules below cannot read.

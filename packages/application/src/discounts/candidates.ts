@@ -12,6 +12,7 @@ import { type SourceStore } from "../sources/ports.js";
 import {
   discordEmbed,
   discountCard,
+  isHazardous,
   knownOperator,
   problemCard,
   reviewCard,
@@ -117,8 +118,9 @@ export async function collectDiscountCandidates(input: {
       const id = sourceId;
       const collected = await job.collect(() => store.sourceCursor(id));
       const { problem, cursor } = collected;
+      // Checked before and after translation, so neither language slips through.
       const translated = await inKorean(
-        collected.candidates,
+        collected.candidates.filter((candidate) => !isHazardous(candidate)),
         input.translate,
         input.translate && collected.candidates.length
           ? await store.knownCandidateKeys(
@@ -129,7 +131,8 @@ export async function collectDiscountCandidates(input: {
       if (translated.problem)
         failures.push(`${job.locator}: ${translated.problem}`);
       for (const candidate of translated.candidates)
-        await store.saveDiscountCandidate(candidate);
+        if (!isHazardous(candidate))
+          await store.saveDiscountCandidate(candidate);
       if (problem) throw new Error(problem);
       await store.saveCursor(
         sourceId,

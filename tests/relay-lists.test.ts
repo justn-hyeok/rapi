@@ -285,17 +285,10 @@ test("the shipped free lists skip what the OpenRouter route already watches", as
   );
 });
 
-test("the shipped lists are the four relay lists", async () => {
+test("ships no relay lists or relay sites: they pass on shared account pools", async () => {
   const sources = await loadDiscountSources(process.cwd());
-  assert.deepEqual(
-    sources.relayLists?.map(({ repository, format }) => [repository, format]),
-    [
-      ["boyan0928/ai-welfare-hub", "welfare-hub"],
-      ["liumowan/Free-API", "stations"],
-      ["kirito8/free-newapi", "table"],
-      ["yeziqaz/API-Public-Benefits-Sites", "table"],
-    ],
-  );
+  assert.deepEqual(sources.relayLists ?? [], []);
+  assert.deepEqual(sources.relaySites ?? [], []);
 });
 
 const FREE: RelayListSource = {

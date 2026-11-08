@@ -180,51 +180,9 @@
       "tags": []
     }
   ],
-  "relayLists": [
-    {
-      "repository": "boyan0928/ai-welfare-hub",
-      "path": "data/sites.json",
-      "format": "welfare-hub"
-    },
-    {
-      "repository": "liumowan/Free-API",
-      "path": "data/stations.json",
-      "format": "stations"
-    },
-    {
-      "repository": "kirito8/free-newapi",
-      "path": "README.md",
-      "format": "table"
-    },
-    {
-      "repository": "yeziqaz/API-Public-Benefits-Sites",
-      "path": "README.md",
-      "format": "table"
-    }
-  ],
   "promoClock": {
     "url": "https://promoclock.co/llms.txt"
   },
-  "relaySites": [
-    {
-      "name": "AgentRouter",
-      "url": "https://agentrouter.org"
-    },
-    {
-      "name": "维云",
-      "url": "https://vsllm.com"
-    },
-    {
-      "name": "DoCode",
-      "url": "https://docode.cc",
-      "pricing": false
-    },
-    {
-      "name": "幻城网安",
-      "url": "https://api.hcnsec.cn",
-      "pricing": false
-    }
-  ],
   "communities": [
     {
       "url": "https://linux.do/c/welfare/36.rss",
