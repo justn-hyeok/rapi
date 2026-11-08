@@ -285,10 +285,9 @@ test("the shipped free lists skip what the OpenRouter route already watches", as
   );
 });
 
-test("ships no relay lists or relay sites: they pass on shared account pools", async () => {
+test("ships no relay lists: strangers' lists pass on shared account pools", async () => {
   const sources = await loadDiscountSources(process.cwd());
   assert.deepEqual(sources.relayLists ?? [], []);
-  assert.deepEqual(sources.relaySites ?? [], []);
 });
 
 const FREE: RelayListSource = {

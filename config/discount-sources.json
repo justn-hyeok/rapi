@@ -183,6 +183,26 @@
   "promoClock": {
     "url": "https://promoclock.co/llms.txt"
   },
+  "relaySites": [
+    {
+      "name": "AgentRouter",
+      "url": "https://agentrouter.org"
+    },
+    {
+      "name": "维云",
+      "url": "https://vsllm.com"
+    },
+    {
+      "name": "DoCode",
+      "url": "https://docode.cc",
+      "pricing": false
+    },
+    {
+      "name": "幻城网安",
+      "url": "https://api.hcnsec.cn",
+      "pricing": false
+    }
+  ],
   "communities": [
     {
       "url": "https://linux.do/c/welfare/36.rss",
