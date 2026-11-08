@@ -8,8 +8,8 @@ import {
   type DeliveryAdapter,
   type DiscordIdentity,
   type PublicAlertKind,
-} from "@rapi/core";
-import type { GuildStore } from "@rapi/core";
+} from "@rapi/domain";
+import type { GuildStore } from "@rapi/domain";
 
 const SNOWFLAKE = /^\d{1,20}$/;
 

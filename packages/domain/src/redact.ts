@@ -1,5 +1,3 @@
-export * from "./models.js";
-
 export function redactChat(text: string): string {
   let safe = text;
   for (const [key, value] of Object.entries(process.env)) {

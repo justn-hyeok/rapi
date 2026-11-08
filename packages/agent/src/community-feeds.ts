@@ -9,7 +9,7 @@ import {
   selectFeedTargets,
   type CitationCandidate,
   type FeedGuildTarget,
-} from "@rapi/core";
+} from "@rapi/domain";
 import type { GuildFeatureSwitch } from "./guild-features.js";
 import type {
   CommunityStore,
@@ -18,7 +18,7 @@ import type {
   GuildStore,
   ItemSummarizer,
   SummaryInput,
-} from "@rapi/core";
+} from "@rapi/domain";
 
 type Feed = "ai-blogs" | "free-tokens";
 type Embed = Record<string, unknown>;

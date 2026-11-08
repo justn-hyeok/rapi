@@ -11,7 +11,7 @@ import {
   readConnectState,
   type ConnectionService,
 } from "@rapi/agent";
-import type { UserConnection } from "@rapi/core";
+import type { UserConnection } from "@rapi/domain";
 import { connectPages } from "../apps/bot/src/connect-page.js";
 
 const now = new Date("2026-11-08T00:30:00Z");

@@ -16,7 +16,7 @@ import {
   type ConnectionService,
   type StarService,
 } from "@rapi/agent";
-import type { GitHubStar, StoredStar, UserConnection } from "@rapi/core";
+import type { GitHubStar, StoredStar, UserConnection } from "@rapi/domain";
 
 const morning = new Date("2026-11-08T00:30:00Z");
 const star = (fullName: string): GitHubStar => ({

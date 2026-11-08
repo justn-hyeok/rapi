@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-export { DEFAULT_CODEX_MODEL as DEFAULT_SUMMARY_MODEL } from "@rapi/contracts";
+export { DEFAULT_CODEX_MODEL as DEFAULT_SUMMARY_MODEL } from "@rapi/domain";
 import type {
   ExternalItem,
   FeedReader,
@@ -10,7 +10,7 @@ import type {
   SourceStore,
   StarRecommender,
   Visibility,
-} from "@rapi/core";
+} from "@rapi/domain";
 import {
   canonicalizeUrl,
   parseHtmlSourcePolicy,
@@ -19,7 +19,7 @@ import {
   classify,
   contentFingerprint,
   summarize,
-} from "@rapi/core";
+} from "@rapi/domain";
 
 // A feed URL that embeds a credential (e.g. GitHub's private dashboard feed)
 // is stored as `env:NAME` so the secret stays in the service environment and

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { announceRapiUpdate } from "@rapi/agent";
-import { releaseSummary } from "@rapi/core";
+import { releaseSummary } from "@rapi/domain";
 
 const NOTES = `Channels moved into commands.
 

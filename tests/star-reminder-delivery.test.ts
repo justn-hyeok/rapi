@@ -5,10 +5,10 @@ import {
   DiscordServerError,
   PermanentDeliveryError,
   UncertainDeliveryError,
-} from "@rapi/core";
+} from "@rapi/domain";
 import { DiscordDeliveryAdapter } from "@rapi/adapters";
 import { remindStars, starReminderPayload } from "@rapi/agent";
-import type { DeliveryPayload, GitHubStar, StoredStar } from "@rapi/core";
+import type { DeliveryPayload, GitHubStar, StoredStar } from "@rapi/domain";
 
 // 09:30 in Seoul on 2026-11-05, and 08:59 the same morning.
 const MORNING = new Date("2026-11-05T00:30:00Z");

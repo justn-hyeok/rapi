@@ -16,14 +16,14 @@ import {
   type KnownOperator,
   DiscordRateLimitError,
   UncertainDeliveryError,
-} from "@rapi/core";
+} from "@rapi/domain";
 import { messageBody } from "./community-feeds.js";
 import type {
   CandidateJob,
   DiscountCandidateStore,
   ServicePages,
   SourceStore,
-} from "@rapi/core";
+} from "@rapi/domain";
 
 type CandidateStore = Pick<
   DiscountCandidateStore,

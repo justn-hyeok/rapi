@@ -7,11 +7,10 @@ const root = join(import.meta.dirname, "..");
 
 // What each layer may import, besides its own relative files. See docs/architecture.md.
 const rules: Record<string, RegExp> = {
-  "packages/contracts": /^(zod)$/,
-  "packages/core": /^(@rapi\/contracts|node:crypto)$/,
-  "packages/agent": /^(@rapi\/(core|contracts)|node:crypto|zod|yaml)$/,
-  "packages/db": /^(@rapi\/(core|contracts)|node:(crypto|fs\/promises)|pg)$/,
-  "packages/adapters": /^(@rapi\/(core|contracts)|node:.+|fast-xml-parser)$/,
+  "packages/domain": /^(zod|node:crypto)$/,
+  "packages/agent": /^(@rapi\/domain|node:crypto|zod|yaml)$/,
+  "packages/db": /^(@rapi\/domain|node:(crypto|fs\/promises)|pg)$/,
+  "packages/adapters": /^(@rapi\/domain|node:.+|fast-xml-parser)$/,
   "packages/config": /^(zod)$/,
 };
 

@@ -3,9 +3,9 @@ import {
   releaseSummary,
   templateCard,
   type DeliveryAdapter,
-} from "@rapi/core";
+} from "@rapi/domain";
 import { messageBody } from "./community-feeds.js";
-import type { RapiUpdateStore } from "@rapi/core";
+import type { RapiUpdateStore } from "@rapi/domain";
 
 export interface RapiRelease {
   tag: string;

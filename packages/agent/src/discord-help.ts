@@ -1,4 +1,4 @@
-import { CARD_COLOR, discordEmbed, type DiscordCard } from "@rapi/core";
+import { CARD_COLOR, discordEmbed, type DiscordCard } from "@rapi/domain";
 
 /** The pinned guide in #라피-도움말: what Rapi does and where to start. */
 export function helpCards(): DiscordCard[] {

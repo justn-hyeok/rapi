@@ -10,7 +10,7 @@ import {
   resolveDiscordAccess,
   resolveHomeGuildId,
   selectFeedTargets,
-} from "@rapi/core";
+} from "@rapi/domain";
 import {
   DiscordCommandService,
   CommunityFeeds,

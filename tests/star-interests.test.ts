@@ -19,7 +19,7 @@ import {
   repoFacets,
   type GitHubStar,
   type StoredStar,
-} from "@rapi/core";
+} from "@rapi/domain";
 import { starPages } from "../apps/bot/src/star-page.js";
 
 const now = new Date("2026-11-07T00:30:00Z");

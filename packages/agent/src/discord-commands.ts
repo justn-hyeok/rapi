@@ -15,7 +15,7 @@ import {
   type DiscordAllowlists,
   type DiscordIdentity,
   type GuildFeature,
-} from "@rapi/core";
+} from "@rapi/domain";
 import type { GuildFeatureSwitch } from "./guild-features.js";
 import type { NotificationChannels } from "./notification-channels.js";
 import { RapiAgent } from "./rapi-agent.js";

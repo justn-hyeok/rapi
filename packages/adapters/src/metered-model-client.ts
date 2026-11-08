@@ -5,7 +5,7 @@ import {
   type BudgetAlertLevel,
   type DeliveryAdapter,
   type DeliveryPayload,
-} from "@rapi/core";
+} from "@rapi/domain";
 import {
   ModelBudgetExceededError,
   PUBLIC_MODEL_FEATURES,

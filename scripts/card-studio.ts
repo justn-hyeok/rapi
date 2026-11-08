@@ -16,14 +16,14 @@ import {
   useCardTemplates,
   type CandidateForCard,
   type CardTemplates,
-} from "@rapi/core";
+} from "@rapi/domain";
 import { format } from "prettier";
 
 // A local page for editing how Rapi's Discord messages read. It renders the real
 // card functions with sample data and saves to the template file in the repo;
 // the bot reads that file once a change is committed and deployed.
 const TEMPLATE_FILE = fileURLToPath(
-  new URL("../packages/core/src/domain/card-templates.json", import.meta.url),
+  new URL("../packages/domain/src/domain/card-templates.json", import.meta.url),
 );
 const PAGE = fileURLToPath(new URL("./card-studio.html", import.meta.url));
 const PORT = Number(process.env.CARD_STUDIO_PORT ?? "4700");

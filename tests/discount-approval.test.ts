@@ -6,7 +6,7 @@ import {
   publishDiscountCard,
   type DiscountApproval,
 } from "@rapi/agent";
-import type { CandidateForDecision } from "@rapi/core";
+import type { CandidateForDecision } from "@rapi/domain";
 
 const ID = "11111111-1111-4111-8111-111111111111";
 const OWNER = { userId: "1", channelId: "100" };

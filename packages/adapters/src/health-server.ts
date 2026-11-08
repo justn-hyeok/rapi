@@ -1,5 +1,5 @@
 import { createServer, type Server } from "node:http";
-import type { ReadinessSummary } from "@rapi/core";
+import type { ReadinessSummary } from "@rapi/domain";
 import { runtimeRevision } from "./runtime-revision.js";
 
 export function createLocalHealthServer(

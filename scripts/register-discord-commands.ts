@@ -1,5 +1,5 @@
 import { loadEnvironment } from "@rapi/config";
-import { resolveHomeGuildId } from "@rapi/core";
+import { resolveHomeGuildId } from "@rapi/domain";
 import { PostgresStore } from "@rapi/db";
 import { registerAllowedGuildCommands } from "../apps/bot/src/discord-http.js";
 

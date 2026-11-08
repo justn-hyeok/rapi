@@ -4,7 +4,7 @@ import {
   describeGuildFeatures,
   enabledGuildFeatures,
   guildFeatureRefusal,
-} from "@rapi/core";
+} from "@rapi/domain";
 
 describe("guild feature rules", () => {
   it("has only the read-only basics and each person's own stars on without a row", () => {

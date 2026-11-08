@@ -13,7 +13,7 @@ import type {
   NewReport,
   ProblemReportForCard,
   ReportOutcome,
-} from "@rapi/core";
+} from "@rapi/domain";
 import { slashCommandDefinitions } from "../apps/bot/src/discord-http.js";
 
 const MEMBER = { userId: "7", guildId: "g", channelId: "c", roleIds: [] };

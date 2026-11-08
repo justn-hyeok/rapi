@@ -2,8 +2,8 @@ import {
   allGuildFeatures,
   enabledGuildFeatures,
   type GuildFeature,
-} from "@rapi/core";
-import type { GuildStore } from "@rapi/core";
+} from "@rapi/domain";
+import type { GuildStore } from "@rapi/domain";
 
 export interface GuildFeatureSwitch {
   enabled(guildId: string): Promise<ReadonlySet<GuildFeature>>;

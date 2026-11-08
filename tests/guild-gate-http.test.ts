@@ -6,7 +6,7 @@ import type { DiscordCommandService } from "@rapi/agent";
 import {
   GUILD_CHECK_FAILED_MESSAGE,
   GUILD_NOT_ALLOWED_MESSAGE,
-} from "@rapi/core";
+} from "@rapi/domain";
 import { createDiscordInteractionServer } from "../apps/bot/src/discord-http.js";
 
 /** The real server with signed requests; every handler only counts its calls. */

@@ -7,7 +7,7 @@ import {
   type CandidateToVerify,
   type KnownOperator,
   type ServicePage,
-} from "@rapi/core";
+} from "@rapi/domain";
 
 const OPENAI: KnownOperator = {
   domain: "openai.com",

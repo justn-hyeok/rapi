@@ -6,10 +6,10 @@ import {
   type DiscountCandidateKind,
   type DiscordIdentity,
   isPublicUrl,
-} from "@rapi/core";
+} from "@rapi/domain";
 import { messageBody } from "./community-feeds.js";
 import { isReviewChannel, PROBLEM_RED_PREFIX } from "./discount-candidates.js";
-import type { ReportStore } from "@rapi/core";
+import type { ReportStore } from "@rapi/domain";
 
 export const REPORTS_PER_HOUR = 5;
 
