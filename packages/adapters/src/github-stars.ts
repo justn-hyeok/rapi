@@ -7,7 +7,7 @@ import {
   type NeighborRole,
 } from "@rapi/domain";
 import { readSource, type SourceHttpOptions } from "./sources.js";
-import { type ExternalItem } from "@rapi/application";
+import { type ExternalItem, type GitHubGateway } from "@rapi/application";
 
 export interface StarredRepository {
   fullName: string;
@@ -644,4 +644,16 @@ export async function followNeighbors(
       ).flat(),
     }),
   );
+}
+
+/** GitHub's REST API for star reminders, each call with the token of the person it is for. */
+export function gitHubHttpGateway(
+  options: SourceHttpOptions = {},
+): Required<GitHubGateway> {
+  return {
+    readStars: (login, token) => readOwnStars(login, token, options),
+    digTrails: (seeds, token) => digTrails(seeds, token, options),
+    followNeighbors: (logins, token) => followNeighbors(logins, token, options),
+    searchRepos: (queries, token) => searchRepos(queries, token, options),
+  };
 }

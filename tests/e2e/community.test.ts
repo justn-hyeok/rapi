@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { PostgresStore } from "@rapi/adapters";
+import { PostgresDatabase, postgresStores } from "@rapi/adapters";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl || new URL(databaseUrl).pathname !== "/rapi_test")
@@ -8,10 +8,11 @@ if (!databaseUrl || new URL(databaseUrl).pathname !== "/rapi_test")
 
 describe("community persistence", () => {
   it("stores one-use Discord layout plans and stable resource keys", async () => {
-    const store = new PostgresStore(databaseUrl);
+    const store = new PostgresDatabase(databaseUrl);
+    const stores = postgresStores(store);
     try {
       await store.resetForTests();
-      await store.upsertManagedDiscordResource({
+      await stores.discordLayout.upsertManagedDiscordResource({
         guildId: "guild",
         resourceType: "channel",
         key: "operations_alerts",
@@ -19,14 +20,14 @@ describe("community persistence", () => {
         layoutDigest: "layout",
       });
       assert.equal(
-        await store.managedDiscordResourceId(
+        await stores.discordLayout.managedDiscordResourceId(
           "guild",
           "channel",
           "operations_alerts",
         ),
         "123",
       );
-      const planId = await store.createDiscordLayoutPlan({
+      const planId = await stores.discordLayout.createDiscordLayoutPlan({
         guildId: "guild",
         createdBy: "owner",
         layoutDigest: "layout",
@@ -35,15 +36,22 @@ describe("community persistence", () => {
         expiresAt: new Date(Date.now() + 600_000),
       });
       assert.equal(
-        (await store.discordLayoutPlan("guild", planId))?.createdBy,
+        (await stores.discordLayout.discordLayoutPlan("guild", planId))
+          ?.createdBy,
         "owner",
       );
       assert.equal(
-        await store.markDiscordLayoutPlanApplied("guild", planId),
+        await stores.discordLayout.markDiscordLayoutPlanApplied(
+          "guild",
+          planId,
+        ),
         true,
       );
       assert.equal(
-        await store.markDiscordLayoutPlanApplied("guild", planId),
+        await stores.discordLayout.markDiscordLayoutPlanApplied(
+          "guild",
+          planId,
+        ),
         false,
       );
     } finally {

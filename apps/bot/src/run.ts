@@ -4,18 +4,15 @@ import {
   DiscordHttpGateway,
   createModelClient,
   readLatestRapiRelease,
-  readOwnStars,
   githubOAuthGateway,
   secretBox,
-  searchRepos,
-  digTrails,
-  followNeighbors,
   superadminDmNotifier,
   discordLayoutPorts,
   loadDiscountSources,
   discountCandidateJobs,
   servicePageGateway,
   WebSourceGateway,
+  gitHubHttpGateway,
 } from "@rapi/adapters";
 import {
   DEFAULT_SUMMARY_MODEL,
@@ -61,9 +58,9 @@ import { loadEnvironment } from "@rapi/config";
 import {
   compareMigrationNames,
   expectedMigrationNames,
-  ModelUsageStore,
-  PostgresConnectionStore,
-  PostgresStore,
+  PostgresDatabase,
+  joinStores,
+  postgresStores,
 } from "@rapi/adapters";
 import { readFile } from "node:fs/promises";
 import { connectPages } from "./connect-page.js";
@@ -79,19 +76,20 @@ import { assessSourceHealth } from "./source-health.js";
 import { createCommunityFeeds } from "./community-feeds.js";
 
 const config = loadEnvironment();
-const store = new PostgresStore(config.DATABASE_URL, {
+const db = new PostgresDatabase(config.DATABASE_URL, {
   max: config.DB_POOL_MAX,
   connectionTimeoutMs: config.DB_CONNECT_TIMEOUT_MS,
   queryTimeoutMs: config.DB_QUERY_TIMEOUT_MS,
 });
+const stores = postgresStores(db);
 const discord = new DiscordHttpGateway(config.DISCORD_BOT_TOKEN);
-const layout = new DiscordLayoutManager(store, {
+const layout = new DiscordLayoutManager(stores.discordLayout, {
   ...discordLayoutPorts(config.DISCORD_BOT_TOKEN, config.DISCORD_LAYOUT_FILE),
 });
 // Null unless MODEL_API_BASE_URL and MODEL_API_KEY are set; callers fall back to the CLI.
 const modelClient = createModelClient(
   config,
-  new ModelUsageStore(store),
+  stores.modelUsage,
   superadminDmNotifier(discord, config.DISCORD_SUPERADMIN_USER_IDS ?? []),
 );
 const summarizer =
@@ -106,7 +104,7 @@ const summarizer =
           process.env.SUMMARY_MODEL || DEFAULT_SUMMARY_MODEL,
         );
 const agent = new RapiAgent(
-  store,
+  stores.sources,
   new WebSourceGateway({ githubToken: config.GITHUB_READ_TOKEN }),
 );
 const homeGuildId = resolveHomeGuildId(
@@ -114,11 +112,14 @@ const homeGuildId = resolveHomeGuildId(
   config.COMMUNITY_GUILD_ID,
   config.DISCORD_ALLOWED_GUILD_IDS,
 );
-const guildFeatures = createGuildFeatures({ store, homeGuildId });
+const guildFeatures = createGuildFeatures({
+  store: stores.guilds,
+  homeGuildId,
+});
 // The curation channels: AI blogs and free tokens.
 const communityFeeds = config.COMMUNITY_GUILD_ID
   ? await createCommunityFeeds({
-      store,
+      store: joinStores(stores.community, stores.guilds, stores.discordLayout),
       summarizer,
       guildId: config.COMMUNITY_GUILD_ID,
       extraGuildIds: config.DISCORD_ALLOWED_GUILD_IDS ?? [],
@@ -129,7 +130,7 @@ const communityFeeds = config.COMMUNITY_GUILD_ID
   : undefined;
 
 const loadApprovedGuilds = async () =>
-  (await store.allowedDiscordGuilds()).map((guild) => guild.guildId);
+  (await stores.guilds.allowedDiscordGuilds()).map((guild) => guild.guildId);
 // Guild membership is checked against the gate, which also covers approved guilds.
 const guildGate = createGuildGate({
   envIds: config.DISCORD_ALLOWED_GUILD_IDS,
@@ -162,7 +163,7 @@ const allowlists = {
     : {}),
 };
 const channels = createNotificationChannels({
-  store,
+  store: stores.guilds,
   delivery: discord,
   ownerIds: discordOwnerIds(allowlists),
   homeGuildId,
@@ -172,7 +173,7 @@ const channels = createNotificationChannels({
 });
 const reviewChannelIds = async () => (await channels.review()).ids;
 const guildRequests = {
-  store,
+  store: joinStores(stores.guilds, stores.discounts),
   gate: guildGate,
   ownerIds: discordOwnerIds(allowlists),
   reviewChannelId: async () => (await channels.review()).guildRequest,
@@ -213,7 +214,7 @@ const commands = new DiscordCommandService(agent, allowlists, {
   report: (identity, options) =>
     receiveReport(
       {
-        store,
+        store: stores.reports,
         reviewChannelId: async () => (await channels.review()).report,
       },
       identity,
@@ -256,7 +257,7 @@ const commands = new DiscordCommandService(agent, allowlists, {
       // Fall back to a direct database check before the monitor has written state.
     }
     try {
-      const health = await store.checkHealth();
+      const health = await db.checkHealth();
       return `라피 상태: 정상\nDB 응답: ${health.latencyMs}ms\nDB 사용량: ${health.databaseBytes} bytes`;
     } catch {
       return "라피 상태: 확인 불가\nDB 연결을 확인하지 못했습니다.";
@@ -336,7 +337,7 @@ async function collectCandidates(): Promise<void> {
   const sources = await loadDiscountSources(process.cwd());
   const failures = [
     ...(await collectDiscountCandidates({
-      store,
+      store: joinStores(stores.discounts, stores.sources),
       jobs: discountCandidateJobs({
         sources,
         githubToken: config.GITHUB_READ_TOKEN,
@@ -347,7 +348,7 @@ async function collectCandidates(): Promise<void> {
       }),
     })),
     ...(await verifyDiscountCandidates({
-      store,
+      store: stores.discounts,
       operators: sources.operators,
       pages: servicePageGateway(),
       ...(summarizer?.translate && {
@@ -363,7 +364,7 @@ async function checkReports(): Promise<string[]> {
   try {
     const { operators } = await loadDiscountSources(process.cwd());
     return await verifyReports({
-      store,
+      store: stores.discounts,
       operators,
       pages: servicePageGateway(),
     });
@@ -377,7 +378,10 @@ async function checkReports(): Promise<string[]> {
 async function sendCards(): Promise<void> {
   const review = await channels.review();
   const { guildRequest, report } = review;
-  const target = { store, delivery: discord };
+  const target = {
+    store: joinStores(stores.discounts, stores.guilds),
+    delivery: discord,
+  };
   // First, because someone is waiting and checking reports reads web pages.
   const failures = guildRequest
     ? await sendGuildRequestCards({
@@ -414,7 +418,7 @@ const starLogin = config.STAR_REMINDER_GITHUB_USER;
 const starSite =
   config.RAPI_PUBLIC_BASE_URL && config.WEBHOOK_ENCRYPTION_KEY
     ? {
-        store,
+        store: stores.stars,
         secret: config.WEBHOOK_ENCRYPTION_KEY,
         baseUrl: config.RAPI_PUBLIC_BASE_URL,
         defaultOwnerId: starOwnerId,
@@ -434,7 +438,7 @@ const encryptionKey = config.WEBHOOK_ENCRYPTION_KEY;
 // Accounts people connect on other services; tokens are sealed with the key.
 const connections: ConnectionService | undefined = encryptionKey
   ? {
-      store: new PostgresConnectionStore(store),
+      store: stores.connections,
       providers: githubApp ? { github: githubOAuthGateway(githubApp) } : {},
       box: secretBox(encryptionKey),
       secret: encryptionKey,
@@ -442,14 +446,9 @@ const connections: ConnectionService | undefined = encryptionKey
     }
   : undefined;
 const starService: StarService = {
-  store,
+  store: stores.stars,
   delivery: discord,
-  github: {
-    readStars: (login, token) => readOwnStars(login, token),
-    digTrails: (seeds, token) => digTrails(seeds, token),
-    followNeighbors: (logins, token) => followNeighbors(logins, token),
-    searchRepos: (queries, token) => searchRepos(queries, token),
-  },
+  github: gitHubHttpGateway(),
   connections,
   owner: starOwnerId
     ? { userId: starOwnerId, login: starLogin, token: config.GITHUB_READ_TOKEN }
@@ -462,8 +461,8 @@ if (connections)
 let starsReady: Promise<void> | undefined;
 const prepareStars = async () => {
   if (!starOwnerId) return;
-  await store.adoptOwnerlessStars(starOwnerId);
-  if (starLogin) await store.addStarSubscriber(starOwnerId, starLogin);
+  await stores.stars.adoptOwnerlessStars(starOwnerId);
+  if (starLogin) await stores.stars.addStarSubscriber(starOwnerId, starLogin);
 };
 
 async function sendStarReminder(): Promise<void> {
@@ -479,7 +478,7 @@ async function sendStarReminder(): Promise<void> {
 }
 
 const discountApproval = {
-  store,
+  store: joinStores(stores.discounts, stores.reports),
   delivery: discord,
   ownerIds: discordOwnerIds(allowlists),
   reviewChannelIds,
@@ -545,10 +544,10 @@ const server = createDiscordInteractionServer(
         const now = new Date();
         const [result, expectedMigrations, appliedMigrations, sources] =
           await Promise.all([
-            store.checkHealth(),
+            db.checkHealth(),
             expectedMigrationNames(),
-            store.appliedMigrationNames(),
-            store.sourceStatus(),
+            db.appliedMigrationNames(),
+            stores.sources.sourceStatus(),
           ]);
         const migrations = compareMigrationNames(
           expectedMigrations,
@@ -678,7 +677,7 @@ const shutdown = (): void => {
   clearInterval(cardsTimer);
   clearInterval(starsTimer);
   server.close(() => {
-    void store.close().finally(() => process.exit(0));
+    void db.close().finally(() => process.exit(0));
   });
 };
 process.on("SIGINT", shutdown);

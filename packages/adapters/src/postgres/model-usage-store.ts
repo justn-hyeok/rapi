@@ -1,4 +1,4 @@
-import type { PostgresStore } from "./postgres-store.js";
+import type { PostgresDatabase } from "./database.js";
 
 export interface ModelUsageRow {
   feature: string;
@@ -21,8 +21,8 @@ export interface FeatureCost {
   costMicroUsd: number;
 }
 
-export class ModelUsageStore {
-  constructor(private readonly db: PostgresStore) {}
+export class PostgresModelUsageStore {
+  constructor(private readonly db: Pick<PostgresDatabase, "pool">) {}
 
   async record(row: ModelUsageRow, at = new Date()): Promise<void> {
     await this.db.pool.query(

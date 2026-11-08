@@ -8,7 +8,6 @@ import {
   parseDiscordLayout,
   planDiscordLayout,
 } from "@rapi/application";
-import type { PostgresStore } from "@rapi/adapters";
 
 test("layout admission resolves the real bot ID and checks desired role hierarchy", async () => {
   const root = await mkdtemp(join(tmpdir(), "rapi-layout-"));
@@ -27,7 +26,7 @@ test("layout admission resolves the real bot ID and checks desired role hierarch
     async createDiscordLayoutPlan() {
       return "plan-1";
     },
-  } as unknown as PostgresStore;
+  } as never;
   const roles = () => [
     { id: "guild", name: "@everyone", permissions: "0", position: 0 },
     { id: "bot-role", name: "bot", permissions: "8", position: 10 },

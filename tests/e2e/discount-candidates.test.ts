@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { NewReport } from "@rapi/domain";
-import { PostgresStore } from "@rapi/adapters";
+import { PostgresDatabase, postgresStores } from "@rapi/adapters";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl || new URL(databaseUrl).pathname !== "/rapi_test")
@@ -9,7 +9,8 @@ if (!databaseUrl || new URL(databaseUrl).pathname !== "/rapi_test")
 
 describe("discount candidates", () => {
   it("keeps the first row when a candidate is seen again", async () => {
-    const store = new PostgresStore(databaseUrl);
+    const store = new PostgresDatabase(databaseUrl);
+    const stores = postgresStores(store);
     try {
       await store.resetForTests();
       const candidate = {
@@ -22,13 +23,24 @@ describe("discount candidates", () => {
         evidence: "50% off",
         publishedAt: "2026-11-01T00:00:00.000Z",
       } as const;
-      assert.equal(await store.saveDiscountCandidate(candidate), true);
+      assert.equal(
+        await stores.discounts.saveDiscountCandidate(candidate),
+        true,
+      );
       assert.deepEqual(
-        [...(await store.knownCandidateKeys(["changelog:a", "changelog:b"]))],
+        [
+          ...(await stores.discounts.knownCandidateKeys([
+            "changelog:a",
+            "changelog:b",
+          ])),
+        ],
         ["changelog:a"],
       );
       assert.equal(
-        await store.saveDiscountCandidate({ ...candidate, title: "Changed" }),
+        await stores.discounts.saveDiscountCandidate({
+          ...candidate,
+          title: "Changed",
+        }),
         false,
       );
       const { rows } = await store.pool.query<{
@@ -42,7 +54,8 @@ describe("discount candidates", () => {
   });
 
   it("counts board posts and list entries together toward their daily limit", async () => {
-    const store = new PostgresStore(databaseUrl);
+    const store = new PostgresDatabase(databaseUrl);
+    const stores = postgresStores(store);
     try {
       await store.resetForTests();
       const row = (route: "community" | "relay_list" | "changelog") =>
@@ -57,18 +70,19 @@ describe("discount candidates", () => {
           publishedAt: null,
         }) as const;
       for (const route of ["community", "relay_list", "changelog"] as const)
-        await store.saveDiscountCandidate(row(route));
+        await stores.discounts.saveDiscountCandidate(row(route));
       await store.pool.query(
         "UPDATE discount_candidates SET carded_at = now(), card_message_id = '1'",
       );
-      assert.equal(await store.unvettedCardsInLastDay(), 2);
+      assert.equal(await stores.discounts.unvettedCardsInLastDay(), 2);
     } finally {
       await store.close();
     }
   });
 
   it("tells a reported deal a route found first from one it missed", async () => {
-    const store = new PostgresStore(databaseUrl);
+    const store = new PostgresDatabase(databaseUrl);
+    const stores = postgresStores(store);
     try {
       await store.resetForTests();
       const row = (
@@ -86,13 +100,19 @@ describe("discount candidates", () => {
           evidence: "",
           publishedAt: null,
         }) as const;
-      await store.saveDiscountCandidate(row("changelog", "found.io", "c"));
+      await stores.discounts.saveDiscountCandidate(
+        row("changelog", "found.io", "c"),
+      );
       await store.pool.query(
         "UPDATE discount_candidates SET first_seen_at = now() - interval '1 day'",
       );
-      await store.saveDiscountCandidate(row("report", "found.io", "r1"));
-      await store.saveDiscountCandidate(row("report", "missed.io", "r2"));
-      const reports = await store.reportedDeals(
+      await stores.discounts.saveDiscountCandidate(
+        row("report", "found.io", "r1"),
+      );
+      await stores.discounts.saveDiscountCandidate(
+        row("report", "missed.io", "r2"),
+      );
+      const reports = await stores.discounts.reportedDeals(
         new Date(Date.now() - 3_600_000),
       );
       assert.deepEqual(
@@ -108,7 +128,8 @@ describe("discount candidates", () => {
   });
 
   it("records a verification once and never overwrites a red set by hand", async () => {
-    const store = new PostgresStore(databaseUrl);
+    const store = new PostgresDatabase(databaseUrl);
+    const stores = postgresStores(store);
     try {
       await store.resetForTests();
       const candidate = {
@@ -120,9 +141,16 @@ describe("discount candidates", () => {
         evidence: "https://github.com/o/r",
         publishedAt: null,
       } as const;
-      await store.saveDiscountCandidate({ ...candidate, dedupeKey: "a" });
-      await store.saveDiscountCandidate({ ...candidate, dedupeKey: "b" });
-      const [first, second] = await store.unverifiedDiscountCandidates(10);
+      await stores.discounts.saveDiscountCandidate({
+        ...candidate,
+        dedupeKey: "a",
+      });
+      await stores.discounts.saveDiscountCandidate({
+        ...candidate,
+        dedupeKey: "b",
+      });
+      const [first, second] =
+        await stores.discounts.unverifiedDiscountCandidates(10);
       assert.equal(first!.route, "code_search");
 
       const verification = {
@@ -133,14 +161,20 @@ describe("discount candidates", () => {
         termsUrl: null,
         termsNote: "확인 못 함",
       } as const;
-      await store.saveCandidateVerification(first!.id, verification);
+      await stores.discounts.saveCandidateVerification(first!.id, verification);
       await store.pool.query(
         "UPDATE discount_candidates SET band = 'red' WHERE id = $1",
         [second!.id],
       );
-      assert.deepEqual(await store.unverifiedDiscountCandidates(10), []);
+      assert.deepEqual(
+        await stores.discounts.unverifiedDiscountCandidates(10),
+        [],
+      );
 
-      await store.saveCandidateVerification(second!.id, verification);
+      await stores.discounts.saveCandidateVerification(
+        second!.id,
+        verification,
+      );
       const { rows } = await store.pool.query<{
         band: string;
         tags: string[];
@@ -162,7 +196,8 @@ describe("discount candidates", () => {
   });
 
   it("offers a recent checked row once, newest first, and keeps the claim", async () => {
-    const store = new PostgresStore(databaseUrl);
+    const store = new PostgresDatabase(databaseUrl);
+    const stores = postgresStores(store);
     try {
       await store.resetForTests();
       const day = 24 * 60 * 60_000;
@@ -172,7 +207,7 @@ describe("discount candidates", () => {
         band: string | null,
         publishedAt: Date | null,
       ) => {
-        await store.saveDiscountCandidate({
+        await stores.discounts.saveDiscountCandidate({
           kind: "discount",
           route: "changelog",
           dedupeKey,
@@ -194,7 +229,7 @@ describe("discount candidates", () => {
       await add("red", "red", ago(1));
       await add("unchecked", null, ago(1));
 
-      const rows = await store.candidatesForCards(10);
+      const rows = await stores.discounts.candidatesForCards(10);
       assert.deepEqual(
         rows.map((row) => row.title),
         ["undated", "newer", "older"],
@@ -202,37 +237,44 @@ describe("discount candidates", () => {
       assert.equal(rows[1]!.priceCheck, "below_list");
       assert.equal(rows[1]!.termsNote, null);
       const undated = rows[0]!;
-      assert.equal(await store.cardsInLastHour(), 0);
+      assert.equal(await stores.discounts.cardsInLastHour(), 0);
 
-      assert.equal(await store.claimCandidateCard(undated.id), true);
-      assert.equal(await store.claimCandidateCard(undated.id), false);
-      assert.equal(await store.cardsInLastHour(), 1);
+      assert.equal(await stores.discounts.claimCandidateCard(undated.id), true);
+      assert.equal(
+        await stores.discounts.claimCandidateCard(undated.id),
+        false,
+      );
+      assert.equal(await stores.discounts.cardsInLastHour(), 1);
       assert.deepEqual(
-        (await store.candidatesForCards(10)).map((row) => row.title),
+        (await stores.discounts.candidatesForCards(10)).map((row) => row.title),
         ["newer", "older"],
       );
 
-      await store.releaseCandidateCard(undated.id);
-      assert.equal(await store.cardsInLastHour(), 0);
-      assert.equal(await store.claimCandidateCard(undated.id), true);
-      await store.saveCandidateCardMessage(undated.id, "123");
-      await store.releaseCandidateCard(undated.id);
-      assert.equal(await store.cardsInLastHour(), 1);
+      await stores.discounts.releaseCandidateCard(undated.id);
+      assert.equal(await stores.discounts.cardsInLastHour(), 0);
+      assert.equal(await stores.discounts.claimCandidateCard(undated.id), true);
+      await stores.discounts.saveCandidateCardMessage(undated.id, "123");
+      await stores.discounts.releaseCandidateCard(undated.id);
+      assert.equal(await stores.discounts.cardsInLastHour(), 1);
 
       const older = rows[2]!;
       await store.pool.query(
         "UPDATE discount_candidates SET band = 'red' WHERE id = $1",
         [older.id],
       );
-      assert.equal(await store.claimCandidateCard(older.id), false);
+      assert.equal(await stores.discounts.claimCandidateCard(older.id), false);
     } finally {
       await store.close();
     }
   });
 
   describe("the owner's decision", () => {
-    const add = async (store: PostgresStore, key: string, band = "green") => {
-      await store.saveDiscountCandidate({
+    const add = async (
+      store: PostgresDatabase,
+      key: string,
+      band = "green",
+    ) => {
+      await postgresStores(store).discounts.saveDiscountCandidate({
         kind: "discount",
         route: "changelog",
         dedupeKey: key,
@@ -248,7 +290,7 @@ describe("discount candidates", () => {
       );
       return rows[0]!.id;
     };
-    const state = async (store: PostgresStore, id: string) =>
+    const state = async (store: PostgresDatabase, id: string) =>
       (
         await store.pool.query<{
           status: string;
@@ -262,23 +304,24 @@ describe("discount candidates", () => {
       ).rows[0]!;
 
     it("publishes a row once, even when two tabs submit together", async () => {
-      const store = new PostgresStore(databaseUrl);
+      const store = new PostgresDatabase(databaseUrl);
+      const stores = postgresStores(store);
       try {
         await store.resetForTests();
         const id = await add(store, "a");
         const claims = await Promise.all([
-          store.claimCandidatePublication(id, 5),
-          store.claimCandidatePublication(id, 5),
+          stores.discounts.claimCandidatePublication(id, 5),
+          stores.discounts.claimCandidatePublication(id, 5),
         ]);
         assert.equal(claims.filter((claim) => claim.claimed).length, 1);
         assert.equal(
-          (await store.candidateForDecision(id))!.status,
+          (await stores.discounts.candidateForDecision(id))!.status,
           "published",
         );
-        assert.equal(await store.discardCandidate(id), false);
+        assert.equal(await stores.discounts.discardCandidate(id), false);
 
-        await store.saveCandidatePublicMessage(id, "123");
-        await store.releaseCandidatePublication(id);
+        await stores.discounts.saveCandidatePublicMessage(id, "123");
+        await stores.discounts.releaseCandidatePublication(id);
         assert.deepEqual(await state(store, id), {
           status: "published",
           decided: true,
@@ -290,12 +333,13 @@ describe("discount candidates", () => {
     });
 
     it("gives a refused send back, and a discarded row cannot be published", async () => {
-      const store = new PostgresStore(databaseUrl);
+      const store = new PostgresDatabase(databaseUrl);
+      const stores = postgresStores(store);
       try {
         await store.resetForTests();
         const refused = await add(store, "refused");
-        await store.claimCandidatePublication(refused, 5);
-        await store.releaseCandidatePublication(refused);
+        await stores.discounts.claimCandidatePublication(refused, 5);
+        await stores.discounts.releaseCandidatePublication(refused);
         assert.deepEqual(await state(store, refused), {
           status: "new",
           decided: false,
@@ -303,15 +347,18 @@ describe("discount candidates", () => {
         });
 
         const discarded = await add(store, "discarded");
-        assert.equal(await store.discardCandidate(discarded), true);
-        assert.equal(await store.discardCandidate(discarded), false);
+        assert.equal(await stores.discounts.discardCandidate(discarded), true);
+        assert.equal(await stores.discounts.discardCandidate(discarded), false);
         assert.equal((await state(store, discarded)).decided, true);
-        assert.deepEqual(await store.claimCandidatePublication(discarded, 5), {
-          claimed: false,
-          retryAt: null,
-        });
+        assert.deepEqual(
+          await stores.discounts.claimCandidatePublication(discarded, 5),
+          {
+            claimed: false,
+            retryAt: null,
+          },
+        );
         // A release must not reopen what the owner threw away.
-        await store.releaseCandidatePublication(discarded);
+        await stores.discounts.releaseCandidatePublication(discarded);
         assert.equal((await state(store, discarded)).status, "discarded");
       } finally {
         await store.close();
@@ -319,49 +366,57 @@ describe("discount candidates", () => {
     });
 
     it("never publishes a red row, even one turned red after its card", async () => {
-      const store = new PostgresStore(databaseUrl);
+      const store = new PostgresDatabase(databaseUrl);
+      const stores = postgresStores(store);
       try {
         await store.resetForTests();
         const red = await add(store, "red", "red");
-        assert.deepEqual(await store.claimCandidatePublication(red, 5), {
-          claimed: false,
-          retryAt: null,
-        });
+        assert.deepEqual(
+          await stores.discounts.claimCandidatePublication(red, 5),
+          {
+            claimed: false,
+            retryAt: null,
+          },
+        );
         assert.equal((await state(store, red)).status, "new");
-        assert.equal((await store.candidateForDecision(red))!.band, "red");
+        assert.equal(
+          (await stores.discounts.candidateForDecision(red))!.band,
+          "red",
+        );
       } finally {
         await store.close();
       }
     });
 
     it("holds the sixth publication of the hour without changing the row", async () => {
-      const store = new PostgresStore(databaseUrl);
+      const store = new PostgresDatabase(databaseUrl);
+      const stores = postgresStores(store);
       try {
         await store.resetForTests();
-        assert.equal(await store.publicationRetryAt(5), null);
+        assert.equal(await stores.discounts.publicationRetryAt(5), null);
         const ids = await Promise.all(
           ["a", "b", "c", "d", "e", "f", "g"].map((key) => add(store, key)),
         );
         // Two more than the limit at once still only fills the limit.
         const claims = await Promise.all(
-          ids.map((id) => store.claimCandidatePublication(id, 5)),
+          ids.map((id) => stores.discounts.claimCandidatePublication(id, 5)),
         );
         assert.equal(claims.filter((claim) => claim.claimed).length, 5);
         const held = claims.find((claim) => !claim.claimed)!;
         assert.ok(held.retryAt! > new Date());
-        assert.ok((await store.publicationRetryAt(5))! > new Date());
+        assert.ok((await stores.discounts.publicationRetryAt(5))! > new Date());
 
         // Discarding is not limited and does not count.
         const unclaimed = ids[claims.findIndex((claim) => !claim.claimed)]!;
         assert.equal((await state(store, unclaimed)).status, "new");
-        assert.equal(await store.discardCandidate(unclaimed), true);
+        assert.equal(await stores.discounts.discardCandidate(unclaimed), true);
 
         // An hour later the place is free again.
         await store.pool.query(
           `UPDATE discount_candidates SET decided_at = now() - interval '61 minutes'
            WHERE status = 'published'`,
         );
-        assert.equal(await store.publicationRetryAt(5), null);
+        assert.equal(await stores.discounts.publicationRetryAt(5), null);
       } finally {
         await store.close();
       }
@@ -382,29 +437,28 @@ describe("discount candidates", () => {
     });
 
     it("saves one candidate per link, verified and carded like any other", async () => {
-      const store = new PostgresStore(databaseUrl);
+      const store = new PostgresDatabase(databaseUrl);
+      const stores = postgresStores(store);
       try {
         await store.resetForTests();
         const link = "https://new.ai/deal";
         assert.equal(
-          await store.saveReport(report(link, { memo: "싸요" }), 5),
+          await stores.reports.saveReport(report(link, { memo: "싸요" }), 5),
           "saved",
         );
         assert.equal(
-          await store.saveReport(report(link, { reporterId: "8" }), 5),
+          await stores.reports.saveReport(report(link, { reporterId: "8" }), 5),
           "duplicate",
         );
-        const [unverified] = await store.unverifiedDiscountCandidates(
-          10,
-          "report",
-        );
+        const [unverified] =
+          await stores.discounts.unverifiedDiscountCandidates(10, "report");
         assert.equal(unverified!.route, "report");
         assert.equal(unverified!.evidence, "");
         assert.deepEqual(
-          await store.unverifiedDiscountCandidates(10, "changelog"),
+          await stores.discounts.unverifiedDiscountCandidates(10, "changelog"),
           [],
         );
-        await store.saveCandidateVerification(unverified!.id, {
+        await stores.discounts.saveCandidateVerification(unverified!.id, {
           band: "yellow",
           tags: [],
           operator: null,
@@ -412,7 +466,7 @@ describe("discount candidates", () => {
           termsUrl: null,
           termsNote: "확인 못 함",
         });
-        const [row] = await store.candidatesForCards(10);
+        const [row] = await stores.discounts.candidatesForCards(10);
         assert.equal(row!.memo, "싸요");
         assert.equal(row!.url, link);
       } finally {
@@ -421,12 +475,13 @@ describe("discount candidates", () => {
     });
 
     it("limits a reporter across both kinds, even when sent all at once", async () => {
-      const store = new PostgresStore(databaseUrl);
+      const store = new PostgresDatabase(databaseUrl);
+      const stores = postgresStores(store);
       try {
         await store.resetForTests();
         const outcomes = await Promise.all(
           ["a", "b", "c", "d", "e", "f"].map((path, index) =>
-            store.saveReport(
+            stores.reports.saveReport(
               report(`https://new.ai/${path}`, {
                 kind: index % 2 ? "problem" : "new_service",
               }),
@@ -438,7 +493,7 @@ describe("discount candidates", () => {
         assert.equal(outcomes.filter((one) => one === "limited").length, 1);
         // Someone else is not held back, and an hour later neither is this reporter.
         assert.equal(
-          await store.saveReport(
+          await stores.reports.saveReport(
             report("https://new.ai/g", { reporterId: "8" }),
             5,
           ),
@@ -451,7 +506,7 @@ describe("discount candidates", () => {
           "UPDATE problem_reports SET reported_at = now() - interval '61 minutes'",
         );
         assert.equal(
-          await store.saveReport(report("https://new.ai/h"), 5),
+          await stores.reports.saveReport(report("https://new.ai/h"), 5),
           "saved",
         );
       } finally {
@@ -460,16 +515,20 @@ describe("discount candidates", () => {
     });
 
     it("keeps a problem report off the candidates until the owner decides", async () => {
-      const store = new PostgresStore(databaseUrl);
+      const store = new PostgresDatabase(databaseUrl);
+      const stores = postgresStores(store);
       try {
         await store.resetForTests();
         const link = "https://bad.ai/x";
         const problem = report(link, { kind: "problem", memo: "먹튀" });
-        assert.equal(await store.saveReport(problem, 5), "saved");
-        assert.equal(await store.saveReport(problem, 5), "duplicate");
-        assert.deepEqual(await store.unverifiedDiscountCandidates(10), []);
+        assert.equal(await stores.reports.saveReport(problem, 5), "saved");
+        assert.equal(await stores.reports.saveReport(problem, 5), "duplicate");
+        assert.deepEqual(
+          await stores.discounts.unverifiedDiscountCandidates(10),
+          [],
+        );
 
-        const [card] = await store.problemReportsForCards(10);
+        const [card] = await stores.discounts.problemReportsForCards(10);
         assert.deepEqual(
           { ...card!, id: "" },
           {
@@ -480,28 +539,29 @@ describe("discount candidates", () => {
             memo: "먹튀",
           },
         );
-        assert.equal(await store.claimProblemCard(card!.id), true);
-        assert.equal(await store.claimProblemCard(card!.id), false);
-        assert.equal(await store.cardsInLastHour(), 1);
-        assert.deepEqual(await store.problemReportsForCards(10), []);
+        assert.equal(await stores.discounts.claimProblemCard(card!.id), true);
+        assert.equal(await stores.discounts.claimProblemCard(card!.id), false);
+        assert.equal(await stores.discounts.cardsInLastHour(), 1);
+        assert.deepEqual(await stores.discounts.problemReportsForCards(10), []);
 
         assert.deepEqual(
-          await store.decideProblemReport(card!.id, "no_problem", "1"),
+          await stores.reports.decideProblemReport(card!.id, "no_problem", "1"),
           { url: link, domain: "bad.ai", turnedRed: 0, alreadyPublished: 0 },
         );
         assert.equal(
-          await store.decideProblemReport(card!.id, "red", "1"),
+          await stores.reports.decideProblemReport(card!.id, "red", "1"),
           null,
         );
         // The question is closed, so the same link can be raised again.
-        assert.equal(await store.saveReport(problem, 5), "saved");
+        assert.equal(await stores.reports.saveReport(problem, 5), "saved");
       } finally {
         await store.close();
       }
     });
 
     it("turns the whole domain red, now and for rows found later", async () => {
-      const store = new PostgresStore(databaseUrl);
+      const store = new PostgresDatabase(databaseUrl);
+      const stores = postgresStores(store);
       try {
         await store.resetForTests();
         const verification = {
@@ -513,20 +573,23 @@ describe("discount candidates", () => {
           termsNote: null,
         } as const;
         for (const url of ["https://bad.ai/a", "https://bad.ai/b"])
-          await store.saveReport(report(url), 5);
-        await store.saveReport(report("https://fine.ai/a"), 5);
-        const rows = await store.unverifiedDiscountCandidates(10);
+          await stores.reports.saveReport(report(url), 5);
+        await stores.reports.saveReport(report("https://fine.ai/a"), 5);
+        const rows = await stores.discounts.unverifiedDiscountCandidates(10);
         const [published] = rows;
-        await store.saveCandidateVerification(published!.id, verification);
-        await store.claimCandidatePublication(published!.id, 5);
+        await stores.discounts.saveCandidateVerification(
+          published!.id,
+          verification,
+        );
+        await stores.discounts.claimCandidatePublication(published!.id, 5);
 
-        await store.saveReport(
+        await stores.reports.saveReport(
           report("https://bad.ai/c", { kind: "problem", reporterId: "8" }),
           5,
         );
-        const [card] = await store.problemReportsForCards(10);
+        const [card] = await stores.discounts.problemReportsForCards(10);
         assert.deepEqual(
-          await store.decideProblemReport(card!.id, "red", "1"),
+          await stores.reports.decideProblemReport(card!.id, "red", "1"),
           {
             url: "https://bad.ai/c",
             domain: "bad.ai",
@@ -541,20 +604,25 @@ describe("discount candidates", () => {
           { decision: "red", decided_by: "1", reporter_id: "8" },
         ]);
         assert.deepEqual(
-          (await store.candidatesForCards(10)).map((row) => row.domain),
+          (await stores.discounts.candidatesForCards(10)).map(
+            (row) => row.domain,
+          ),
           [],
         );
 
-        await store.saveReport(
+        await stores.reports.saveReport(
           report("https://bad.ai/d", { reporterId: "9" }),
           5,
         );
-        const found = (await store.unverifiedDiscountCandidates(10)).find(
-          (row) => row.domain === "bad.ai",
+        const found = (
+          await stores.discounts.unverifiedDiscountCandidates(10)
+        ).find((row) => row.domain === "bad.ai");
+        await stores.discounts.saveCandidateVerification(
+          found!.id,
+          verification,
         );
-        await store.saveCandidateVerification(found!.id, verification);
         assert.equal(
-          (await store.candidateForDecision(found!.id))!.band,
+          (await stores.discounts.candidateForDecision(found!.id))!.band,
           "red",
         );
       } finally {

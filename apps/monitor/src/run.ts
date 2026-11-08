@@ -14,7 +14,7 @@ import {
   summarizeReadiness,
   type ComponentHealth,
 } from "@rapi/domain";
-import { PostgresStore } from "@rapi/adapters";
+import { PostgresDatabase } from "@rapi/adapters";
 
 interface PendingAlert {
   id: string;
@@ -32,7 +32,7 @@ interface MonitorState {
 }
 
 const config = loadEnvironment();
-const store = new PostgresStore(config.DATABASE_URL, {
+const db = new PostgresDatabase(config.DATABASE_URL, {
   max: 1,
   connectionTimeoutMs: 3000,
   queryTimeoutMs: 3000,
@@ -183,7 +183,7 @@ async function checkDatabaseCapacity(
   }
   state.lastCapacityCheckAt = now.toISOString();
   try {
-    const result = await store.checkHealth();
+    const result = await db.checkHealth();
     const percent =
       (result.clusterDatabaseBytes / config.DATABASE_SIZE_LIMIT_BYTES) * 100;
     const level: 0 | 80 | 90 = percent >= 90 ? 90 : percent >= 80 ? 80 : 0;
@@ -319,7 +319,7 @@ const shutdown = (): void => {
   stopped = true;
   clearInterval(timer);
   healthServer.close();
-  void store.close().finally(() => process.exit(0));
+  void db.close().finally(() => process.exit(0));
 };
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);

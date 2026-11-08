@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { WebSourceGateway } from "@rapi/adapters";
 import { CommunityFeeds, RapiAgent } from "@rapi/application";
-import { PostgresStore } from "@rapi/adapters";
+import { joinStores, PostgresDatabase, postgresStores } from "@rapi/adapters";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl || new URL(databaseUrl).pathname !== "/rapi_test")
@@ -10,8 +10,9 @@ if (!databaseUrl || new URL(databaseUrl).pathname !== "/rapi_test")
 
 describe("curation feeds", () => {
   it("posts each feed once to its managed channel and skips missing channels", async () => {
-    const store = new PostgresStore(databaseUrl);
-    const agent = new RapiAgent(store, new WebSourceGateway());
+    const store = new PostgresDatabase(databaseUrl);
+    const stores = postgresStores(store);
+    const agent = new RapiAgent(stores.sources, new WebSourceGateway());
     try {
       await store.resetForTests();
       await store.pool.query("DELETE FROM community_posts");
@@ -32,7 +33,7 @@ describe("curation feeds", () => {
         { id: "paid", pricing: { prompt: "1", completion: "1" } },
       ];
       const feeds = new CommunityFeeds(
-        store,
+        joinStores(stores.community, stores.guilds, stores.discordLayout),
         {
           policy: "t",
           summarize: async (items) =>

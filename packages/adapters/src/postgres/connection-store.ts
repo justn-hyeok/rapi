@@ -3,7 +3,7 @@ import {
   type ConnectionStore,
   type UserConnection,
 } from "@rapi/application";
-import type { PostgresStore } from "./postgres-store.js";
+import type { PostgresDatabase } from "./database.js";
 
 const COLUMNS = `user_id AS "userId", provider, account_id AS "accountId",
   account_name AS "accountName", token_sealed AS "sealedToken", scopes,
@@ -11,7 +11,7 @@ const COLUMNS = `user_id AS "userId", provider, account_id AS "accountId",
 
 /** user_connections: the accounts people connected, one per service. */
 export class PostgresConnectionStore implements ConnectionStore {
-  constructor(private readonly db: Pick<PostgresStore, "pool">) {}
+  constructor(private readonly db: Pick<PostgresDatabase, "pool">) {}
 
   async connection(
     userId: string,

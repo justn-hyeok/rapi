@@ -17,7 +17,6 @@ import {
   feedGuildTargets,
   type RapiAgent,
 } from "@rapi/application";
-import type { PostgresStore } from "@rapi/adapters";
 
 const ADMINISTRATOR = "8";
 const policy = {
@@ -249,7 +248,7 @@ describe("per-guild feeds", () => {
       }) => {
         sentKeys.add(`${input.guildId}|${input.key}`);
       },
-    } as unknown as PostgresStore;
+    } as never;
     const feeds = new CommunityFeeds(store, undefined, {
       guildId: "home",
       guildTargets: async () => targets,

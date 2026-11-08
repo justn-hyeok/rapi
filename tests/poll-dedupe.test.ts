@@ -4,7 +4,6 @@ import { createServer } from "node:http";
 import { test } from "node:test";
 import { WebSourceGateway } from "@rapi/adapters";
 import { RapiAgent } from "@rapi/application";
-import type { PostgresStore } from "@rapi/adapters";
 
 // In-memory store with the same uniqueness rules as the raw_events indexes:
 // (source_id, external_event_id) and, without an id, (source_id, payload hash).
@@ -59,7 +58,7 @@ function fakeStore(
     },
   };
   return {
-    store: store as unknown as PostgresStore,
+    store: store as never,
     rawEvents,
     items,
     failures,
