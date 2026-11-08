@@ -64,6 +64,12 @@ export interface OpenAiCompatibleOptions {
   /** Per-feature model overrides (`MODEL_FOR_<FEATURE>`). */
   modelsByFeature?: Partial<Record<ModelFeature, string>>;
   prices?: ModelPriceTable;
+  /**
+   * How a JSON answer is asked for. "schema" (the default) sends the schema as
+   * `json_schema`; "object" is for endpoints such as DeepSeek that only take
+   * `json_object`, and puts the schema in the system message instead.
+   */
+  jsonMode?: "schema" | "object";
   timeoutMs?: number;
   maxRetries?: number;
   fetch?: typeof fetch;
@@ -109,27 +115,31 @@ export class OpenAiCompatibleModelClient implements ModelClient {
 
   async complete(request: ModelRequest): Promise<ModelResponse> {
     const model = this.modelFor(request.feature);
+    const objectMode =
+      request.jsonSchema !== undefined && this.options.jsonMode === "object";
+    const system = objectMode
+      ? `${request.system}\n답은 다음 JSON 스키마를 따르는 JSON 객체 하나다: ${JSON.stringify(request.jsonSchema)}`
+      : request.system;
     const body = JSON.stringify({
       model,
-      messages: [
-        { role: "system", content: request.system },
-        ...request.messages,
-      ],
+      messages: [{ role: "system", content: system }, ...request.messages],
       ...(request.maxOutputTokens
         ? { max_tokens: request.maxOutputTokens }
         : {}),
-      ...(request.jsonSchema
-        ? {
-            response_format: {
-              type: "json_schema",
-              json_schema: {
-                name: "response",
-                strict: true,
-                schema: request.jsonSchema,
+      ...(objectMode
+        ? { response_format: { type: "json_object" } }
+        : request.jsonSchema
+          ? {
+              response_format: {
+                type: "json_schema",
+                json_schema: {
+                  name: "response",
+                  strict: true,
+                  schema: request.jsonSchema,
+                },
               },
-            },
-          }
-        : {}),
+            }
+          : {}),
     });
     for (let attempt = 0; ; attempt += 1) {
       if (request.signal?.aborted)
