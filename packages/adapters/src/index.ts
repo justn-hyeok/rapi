@@ -17,3 +17,5 @@ export * from "./relay-sites.js";
 export * from "./commit-logs.js";
 export * from "./curl-fetch.js";
 export * from "./site-offers.js";
+export * from "./health-server.js";
+export * from "./runtime-revision.js";

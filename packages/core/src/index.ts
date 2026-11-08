@@ -15,8 +15,6 @@ export * from "./domain/guild-features.js";
 export * from "./domain/health.js";
 export * from "./ports/clock.js";
 export * from "./ports/repositories.js";
-export * from "./ports/health-server.js";
-export * from "./ports/runtime-revision.js";
 export * from "./domain/model-budget.js";
 export * from "./domain/html-source.js";
 export * from "./domain/card-template.js";

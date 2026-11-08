@@ -41,9 +41,6 @@ const pending = new Set<string>([
   "packages/agent/src/star-reminders.ts -> @rapi/adapters",
   "packages/agent/src/star-reminders.ts -> @rapi/db",
   "packages/agent/src/star-subscriptions.ts -> @rapi/db",
-  "packages/core/src/ports/health-server.ts -> node:http",
-  "packages/core/src/ports/runtime-revision.ts -> node:fs",
-  "packages/core/src/ports/runtime-revision.ts -> node:path",
 ]);
 
 function sources(directory: string): string[] {
