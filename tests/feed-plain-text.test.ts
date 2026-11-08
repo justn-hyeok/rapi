@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { CommunityFeeds } from "../packages/application/src/community-feeds.js";
+import { CommunityFeeds } from "../packages/application/src/community/feeds.js";
 
 test("each AI blog post gets its own card without markup or entities", async () => {
   const drafts: Array<{ key: string; embeds: Array<Record<string, unknown>> }> =

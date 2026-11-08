@@ -23,7 +23,10 @@ import { format } from "prettier";
 // card functions with sample data and saves to the template file in the repo;
 // the bot reads that file once a change is committed and deployed.
 const TEMPLATE_FILE = fileURLToPath(
-  new URL("../packages/domain/src/domain/card-templates.json", import.meta.url),
+  new URL(
+    "../packages/domain/src/discounts/card-templates.json",
+    import.meta.url,
+  ),
 );
 const PAGE = fileURLToPath(new URL("./card-studio.html", import.meta.url));
 const PORT = Number(process.env.CARD_STUDIO_PORT ?? "4700");
