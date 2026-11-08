@@ -680,7 +680,7 @@ docker exec rapi-postgres-1 psql -U rapi -d rapi -c "UPDATE discord_guilds SET c
 
 ## 카드 템플릿
 
-봇이 Discord로 보내는 카드(할인, 검토, 문제 제보, 서버 승인 요청, 스타 알림, 라피 업데이트)와 채널 연결 테스트 글의 문구, 줄 순서, 색은 `packages/domain/src/domain/card-templates.json`에 있다. 코드는 값만 채운다.
+봇이 Discord로 보내는 카드(할인, 검토, 문제 제보, 서버 승인 요청, 스타 알림, 라피 업데이트)와 채널 연결 테스트 글의 문구, 줄 순서, 색은 `packages/domain/src/discounts/card-templates.json`에 있다. 코드는 값만 채운다.
 
 - `{이름}`은 코드가 채우는 값이다. 낯선 사람의 글은 이미 마크다운이 막힌 채로 들어온다.
 - `[[ ... ]]` 안에 빈 값이 하나라도 있으면 그 부분이 빠지고, 비어 버린 줄도 빠진다.
