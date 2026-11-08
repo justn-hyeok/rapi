@@ -402,7 +402,8 @@ async function sendCards(): Promise<void> {
   failures.push(
     ...(await sendDiscountCards({ ...target, channels: review })),
     ...(await announceRapiUpdate({
-      ...target,
+      store: stores.rapiUpdates,
+      delivery: discord,
       channelIds: () => channels.publicChannels("rapi_update"),
       latestRelease: () => readLatestRapiRelease(),
     })),
