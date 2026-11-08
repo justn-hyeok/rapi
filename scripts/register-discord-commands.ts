@@ -1,6 +1,6 @@
 import { loadEnvironment } from "@rapi/config";
 import { resolveHomeGuildId } from "@rapi/domain";
-import { PostgresStore } from "@rapi/db";
+import { PostgresStore } from "@rapi/adapters";
 import { registerAllowedGuildCommands } from "../apps/bot/src/discord-http.js";
 
 const config = loadEnvironment();

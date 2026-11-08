@@ -69,7 +69,10 @@ describe("restore smoke target safety", () => {
     const source = await readFile(script, "utf8");
     assert.match(source, /json_agg\(name ORDER BY name\)/);
     assert.match(source, /scripts\/verify-migration-set\.mjs/);
-    assert.match(source, /--directory packages\/db\/migrations/);
+    assert.match(
+      source,
+      /--directory packages\/adapters\/postgres\/migrations/,
+    );
     assert.match(source, /--applied "\$applied_migrations"/);
   });
 });

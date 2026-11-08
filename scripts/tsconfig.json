@@ -19,9 +19,6 @@
       "path": "../packages/application"
     },
     {
-      "path": "../packages/db"
-    },
-    {
       "path": "../apps/bot"
     }
   ]

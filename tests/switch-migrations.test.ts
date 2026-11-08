@@ -21,16 +21,20 @@ async function stage(
   rollbacks: string[],
 ): Promise<string> {
   const path = join(root, name);
-  await mkdir(join(path, "packages/db/migrations"), { recursive: true });
-  await mkdir(join(path, "packages/db/rollbacks"), { recursive: true });
+  await mkdir(join(path, "packages/adapters/postgres/migrations"), {
+    recursive: true,
+  });
+  await mkdir(join(path, "packages/adapters/postgres/rollbacks"), {
+    recursive: true,
+  });
   for (const migration of migrations)
     await writeFile(
-      join(path, "packages/db/migrations", migration),
+      join(path, "packages/adapters/postgres/migrations", migration),
       `-- up ${migration}\n`,
     );
   for (const migration of rollbacks)
     await writeFile(
-      join(path, "packages/db/rollbacks", migration),
+      join(path, "packages/adapters/postgres/rollbacks", migration),
       `-- down ${migration}\n`,
     );
   await writeFile(
@@ -147,14 +151,16 @@ test("switch migrations require a rollback and undo in reverse order", async () 
 });
 
 test("every migration after 0014 ships a rollback", async () => {
-  const migrations = (await readdir("packages/db/migrations")).filter((n) =>
-    /^\d+.*\.sql$/.test(n),
+  const migrations = (
+    await readdir("packages/adapters/postgres/migrations")
+  ).filter((n) => /^\d+.*\.sql$/.test(n));
+  const rollbacks = new Set(
+    await readdir("packages/adapters/postgres/rollbacks"),
   );
-  const rollbacks = new Set(await readdir("packages/db/rollbacks"));
   for (const name of migrations)
     if (Number(name.slice(0, 4)) > 14)
       assert.ok(
         rollbacks.has(name),
-        `${name} needs packages/db/rollbacks/${name}`,
+        `${name} needs packages/adapters/postgres/rollbacks/${name}`,
       );
 });

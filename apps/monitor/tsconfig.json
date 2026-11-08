@@ -1,11 +1,19 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "rootDir": "src", "outDir": "dist" },
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist"
+  },
   "include": ["src/**/*.ts"],
   "references": [
-    { "path": "../../packages/adapters" },
-    { "path": "../../packages/config" },
-    { "path": "../../packages/domain" },
-    { "path": "../../packages/db" }
+    {
+      "path": "../../packages/adapters"
+    },
+    {
+      "path": "../../packages/config"
+    },
+    {
+      "path": "../../packages/domain"
+    }
   ]
 }

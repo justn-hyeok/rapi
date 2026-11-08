@@ -14,7 +14,7 @@ import {
   summarizeReadiness,
   type ComponentHealth,
 } from "@rapi/domain";
-import { PostgresStore } from "@rapi/db";
+import { PostgresStore } from "@rapi/adapters";
 
 interface PendingAlert {
   id: string;

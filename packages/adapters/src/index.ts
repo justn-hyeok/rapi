@@ -21,3 +21,4 @@ export * from "./health-server.js";
 export * from "./runtime-revision.js";
 export * from "./discord-rest.js";
 export * from "./discount-jobs.js";
+export * from "./postgres/index.js";

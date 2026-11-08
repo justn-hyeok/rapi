@@ -15,3 +15,5 @@ export function verifyRelease(
   root: string,
   expectedSha?: string,
 ): Promise<ReleaseManifest>;
+export function migrationsPath(root: string): string;
+export function rollbacksPath(root: string): string;

@@ -9,10 +9,8 @@ const root = join(import.meta.dirname, "..");
 const rules: Record<string, RegExp> = {
   "packages/domain": /^(zod|node:crypto)$/,
   "packages/application": /^(@rapi\/domain|node:crypto|zod|yaml)$/,
-  "packages/db":
-    /^(@rapi\/(domain|application)|node:(crypto|fs\/promises)|pg)$/,
   "packages/adapters":
-    /^(@rapi\/(domain|application)|node:.+|fast-xml-parser)$/,
+    /^(@rapi\/(domain|application)|node:.+|fast-xml-parser|pg)$/,
   "packages/config": /^(zod)$/,
 };
 

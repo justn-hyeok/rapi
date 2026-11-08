@@ -8,6 +8,7 @@
   "dependencies": {
     "@rapi/application": "0.1.0",
     "@rapi/domain": "0.1.0",
-    "fast-xml-parser": "5.11.1"
+    "fast-xml-parser": "5.11.1",
+    "pg": "8.16.3"
   }
 }

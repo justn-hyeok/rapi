@@ -11,9 +11,6 @@
       "path": "./packages/application"
     },
     {
-      "path": "./packages/db"
-    },
-    {
       "path": "./packages/adapters"
     },
     {

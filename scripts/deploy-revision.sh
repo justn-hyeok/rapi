@@ -76,7 +76,7 @@ fi
 RAPI_STAGED_GATES="$gates" RAPI_STAGED_SHA="$expected_sha" RAPI_STAGED_TREE="$(git rev-parse HEAD^{tree})" \
   RAPI_STAGED_PATH="$stage" node --input-type=module -e '
   import { writeFileSync, readdirSync } from "node:fs";
-  const { releaseFileDigests } = await import(`${process.env.RAPI_STAGED_PATH}/scripts/release-artifact.mjs`);
+  const { releaseFileDigests, migrationsPath } = await import(`${process.env.RAPI_STAGED_PATH}/scripts/release-artifact.mjs`);
   const receipt = {
     sha: process.env.RAPI_STAGED_SHA,
     tree: process.env.RAPI_STAGED_TREE,
@@ -85,7 +85,7 @@ RAPI_STAGED_GATES="$gates" RAPI_STAGED_SHA="$expected_sha" RAPI_STAGED_TREE="$(g
     gates: JSON.parse(process.env.RAPI_STAGED_GATES),
     switched: false,
     files: await releaseFileDigests(process.env.RAPI_STAGED_PATH),
-    migrations: readdirSync(`${process.env.RAPI_STAGED_PATH}/packages/db/migrations`).filter(name => name.endsWith(".sql")).sort(),
+    migrations: readdirSync(migrationsPath(process.env.RAPI_STAGED_PATH)).filter(name => name.endsWith(".sql")).sort(),
   };
   writeFileSync(`${process.env.RAPI_STAGED_PATH}/release-manifest.json`, `${JSON.stringify(receipt, null, 2)}\n`, { flag: "wx" });
 '

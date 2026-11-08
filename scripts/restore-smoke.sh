@@ -71,7 +71,7 @@ applied_json=$("${compose[@]}" exec -T postgres psql -U rapi -d "$restore_databa
   "SELECT COALESCE(json_agg(name ORDER BY name)::text, '[]') FROM schema_migrations;")
 printf '%s\n' "$applied_json" > "$applied_migrations"
 node scripts/verify-migration-set.mjs \
-  --directory packages/db/migrations \
+  --directory packages/adapters/postgres/migrations \
   --applied "$applied_migrations" >/dev/null
 constraints=$("${compose[@]}" exec -T postgres psql -U rapi -d "$restore_database" -Atc \
   "SELECT count(*) FROM pg_constraint c JOIN pg_namespace n ON n.oid=c.connamespace WHERE n.nspname='public' AND c.contype IN ('p','u','f','c');")

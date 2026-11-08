@@ -7,7 +7,6 @@
     "@rapi/adapters": "0.1.0",
     "@rapi/application": "0.1.0",
     "@rapi/config": "0.1.0",
-    "@rapi/domain": "0.1.0",
-    "@rapi/db": "0.1.0"
+    "@rapi/domain": "0.1.0"
   }
 }

@@ -8,7 +8,7 @@ import {
   parseDiscordLayout,
   planDiscordLayout,
 } from "@rapi/application";
-import type { PostgresStore } from "@rapi/db";
+import type { PostgresStore } from "@rapi/adapters";
 
 test("layout admission resolves the real bot ID and checks desired role hierarchy", async () => {
   const root = await mkdtemp(join(tmpdir(), "rapi-layout-"));

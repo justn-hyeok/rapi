@@ -1,6 +1,9 @@
 import { readdir } from "node:fs/promises";
 
-export const migrationsDirectory = new URL("../migrations/", import.meta.url);
+export const migrationsDirectory = new URL(
+  "../../postgres/migrations/",
+  import.meta.url,
+);
 
 export async function expectedMigrationNames(): Promise<string[]> {
   return (await readdir(migrationsDirectory))
@@ -22,8 +25,3 @@ export function compareMigrationNames(
     ok: missing.length === 0 && unexpected.length === 0,
   };
 }
-
-export * from "./postgres-store.js";
-export * from "./star-owner-store.js";
-export * from "./connection-store.js";
-export * from "./model-usage-store.js";
