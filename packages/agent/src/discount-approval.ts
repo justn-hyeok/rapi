@@ -1,4 +1,3 @@
-import { DiscordServerError, UncertainDeliveryError } from "@rapi/adapters";
 import {
   deadlineLine,
   DEADLINE_MAX_CHARS,
@@ -8,6 +7,8 @@ import {
   type DeliveryAdapter,
   type DiscordIdentity,
   type PublicAlertKind,
+  DiscordServerError,
+  UncertainDeliveryError,
 } from "@rapi/core";
 import type { PostgresStore } from "@rapi/db";
 import {

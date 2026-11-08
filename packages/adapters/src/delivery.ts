@@ -4,19 +4,12 @@ import type {
   DeliveryResult,
   DeliveryTarget,
 } from "@rapi/core";
-import { splitDiscordMessage } from "@rapi/core";
-
-export class UncertainDeliveryError extends Error {
-  readonly possiblyDelivered = true;
-}
-
-export class PermanentDeliveryError extends Error {}
-
-/** Nothing was sent; the caller should stop asking for a while. */
-export class DiscordRateLimitError extends Error {}
-
-/** A 5xx: usually nothing was posted, but Discord did not say so. */
-export class DiscordServerError extends Error {}
+import {
+  DiscordRateLimitError,
+  DiscordServerError,
+  splitDiscordMessage,
+  UncertainDeliveryError,
+} from "@rapi/core";
 
 export class DiscordDeliveryAdapter implements DeliveryAdapter {
   constructor(private readonly botToken: string) {}

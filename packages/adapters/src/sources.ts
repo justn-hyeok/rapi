@@ -1,7 +1,10 @@
 import { createHash } from "node:crypto";
 import { XMLParser } from "fast-xml-parser";
-import { type HtmlSourcePolicy, type ServicePage } from "@rapi/core";
-import { isPublicUrl } from "./public-fetch.js";
+import {
+  type HtmlSourcePolicy,
+  type ServicePage,
+  isPublicUrl,
+} from "@rapi/core";
 
 export interface SourceHttpOptions {
   timeoutMs?: number;

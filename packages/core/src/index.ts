@@ -14,6 +14,8 @@ export * from "./domain/guild-channels.js";
 export * from "./domain/guild-features.js";
 export * from "./domain/health.js";
 export * from "./ports/clock.js";
+export * from "./ports/delivery.js";
+export * from "./domain/public-url.js";
 export * from "./ports/repositories.js";
 export * from "./domain/model-budget.js";
 export * from "./domain/html-source.js";

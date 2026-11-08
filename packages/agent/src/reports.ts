@@ -1,4 +1,3 @@
-import { isPublicUrl } from "@rapi/adapters";
 import {
   canonicalizeUrl,
   cardLink,
@@ -6,6 +5,7 @@ import {
   REPORT_MEMO_MAX_CHARS,
   type DiscountCandidateKind,
   type DiscordIdentity,
+  isPublicUrl,
 } from "@rapi/core";
 import type { PostgresStore } from "@rapi/db";
 import { messageBody } from "./community-feeds.js";
