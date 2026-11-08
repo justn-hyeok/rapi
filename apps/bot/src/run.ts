@@ -26,7 +26,6 @@ import {
   DiscordLayoutManager,
   RapiAgent,
   collectDiscountCandidates,
-  createCommunityFeeds,
   changeGuild,
   announceRapiUpdate,
   createGuildFeatures,
@@ -77,6 +76,7 @@ import {
   registerSlashCommands,
 } from "./discord-http.js";
 import { assessSourceHealth } from "./source-health.js";
+import { createCommunityFeeds } from "./community-feeds.js";
 
 const config = loadEnvironment();
 const store = new PostgresStore(config.DATABASE_URL, {

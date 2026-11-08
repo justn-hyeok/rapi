@@ -17,6 +17,7 @@ export * from "./ports/clock.js";
 export * from "./ports/delivery.js";
 export * from "./ports/sources-store.js";
 export * from "./ports/source-readers.js";
+export * from "./ports/summarizer.js";
 export * from "./ports/discounts-store.js";
 export * from "./ports/guilds-store.js";
 export * from "./ports/community-store.js";
