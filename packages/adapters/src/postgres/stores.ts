@@ -28,18 +28,24 @@ export function postgresStores(db: PostgresDatabase) {
 
 export type PostgresStores = ReturnType<typeof postgresStores>;
 
-type Joined<T extends object[]> = T extends [
+// Public members only: two classes with the same private field (every store
+// has a private db) intersect to never, which would accept any use.
+type Public<T> = { [K in keyof T]: T[K] };
+
+type Joined<T extends readonly object[]> = T extends readonly [
   infer First,
-  ...infer Rest extends object[],
+  ...infer Rest extends readonly object[],
 ]
-  ? First & Joined<Rest>
+  ? Public<First> & Joined<Rest>
   : unknown;
 
 /**
  * One object with the methods of several stores, for a use case that needs
  * more than one port. Later stores do not replace an earlier one's method.
  */
-export function joinStores<T extends object[]>(...stores: T): Joined<T> {
+export function joinStores<const T extends readonly object[]>(
+  ...stores: T
+): Joined<T> {
   const joined: Record<string, unknown> = {};
   for (const store of stores) {
     let proto: object | null = store;
