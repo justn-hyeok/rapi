@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { sourceParsers } from "@rapi/adapters";
 import { RapiAgent } from "@rapi/agent";
 import { PostgresStore } from "@rapi/db";
 
