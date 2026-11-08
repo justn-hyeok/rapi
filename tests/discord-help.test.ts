@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { DiscordLayoutManager } from "@rapi/agent";
+import { DiscordLayoutManager } from "@rapi/application";
 import type { PostgresStore } from "@rapi/db";
 
 function setup(existing: string | null) {

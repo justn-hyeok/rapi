@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { plainText, type DiscountCandidate } from "@rapi/domain";
-import type { CandidateResult } from "@rapi/domain";
+import { type CandidateResult } from "@rapi/application";
 import { readSource, type SourceHttpOptions } from "./sources.js";
 
 /**

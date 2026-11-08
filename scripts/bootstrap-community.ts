@@ -1,7 +1,7 @@
 import { readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { discordLayoutPorts } from "@rapi/adapters";
-import { DiscordLayoutManager } from "@rapi/agent";
+import { DiscordLayoutManager } from "@rapi/application";
 import { loadEnvironment } from "@rapi/config";
 import { PostgresStore } from "@rapi/db";
 import { replaceEnvironmentValue } from "./update-discord-token.mjs";

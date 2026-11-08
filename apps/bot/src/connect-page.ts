@@ -1,4 +1,4 @@
-import { finishConnect, type ConnectionService } from "@rapi/agent";
+import { finishConnect, type ConnectionService } from "@rapi/application";
 
 const escapeHtml = (text: string) =>
   text.replace(

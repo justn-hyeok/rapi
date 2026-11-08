@@ -1,4 +1,13 @@
 import {
+  type CandidateJob,
+  type DeliveryAdapter,
+  DiscordRateLimitError,
+  type DiscountCandidateStore,
+  type ServicePages,
+  type SourceStore,
+  UncertainDeliveryError,
+} from "./ports/index.js";
+import {
   discordEmbed,
   discountCard,
   knownOperator,
@@ -8,22 +17,13 @@ import {
   UNVETTED_ROUTES,
   verifyCandidate,
   type CandidateForCard,
-  type DeliveryAdapter,
   type DeliveryPayload,
   type DiscountCandidate,
   type DiscountCandidateRoute,
   type ProblemReportForCard,
   type KnownOperator,
-  DiscordRateLimitError,
-  UncertainDeliveryError,
 } from "@rapi/domain";
 import { messageBody } from "./community-feeds.js";
-import type {
-  CandidateJob,
-  DiscountCandidateStore,
-  ServicePages,
-  SourceStore,
-} from "@rapi/domain";
 
 type CandidateStore = Pick<
   DiscountCandidateStore,

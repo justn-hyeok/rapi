@@ -1,19 +1,16 @@
-import type {
-  CandidateToVerify,
-  CandidateVerification,
-} from "../domain/candidate-verification.js";
+import type { CandidateToVerify, CandidateVerification } from "@rapi/domain";
 import type {
   DiscountCandidate,
   DiscountCandidateRoute,
   NewReport,
   ReportOutcome,
-} from "../domain/discount-candidates.js";
+} from "@rapi/domain";
 import type {
   CandidateForCard,
   CandidateForDecision,
   ProblemDecision,
   ProblemReportForCard,
-} from "../domain/discount-cards.js";
+} from "@rapi/domain";
 
 export interface DiscountCandidateStore {
   knownCandidateKeys(keys: readonly string[]): Promise<Set<string>>;

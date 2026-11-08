@@ -5,10 +5,12 @@ import {
   type FeedReader,
   type GitHubEventReader,
   type HtmlReader,
-  type HtmlSourcePolicy,
-  type ServicePage,
   type SourceParsers,
   type SourcePayload,
+} from "@rapi/application";
+import {
+  type HtmlSourcePolicy,
+  type ServicePage,
   isPublicUrl,
 } from "@rapi/domain";
 

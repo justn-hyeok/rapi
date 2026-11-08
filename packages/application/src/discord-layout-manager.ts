@@ -8,7 +8,7 @@ import {
   type ManagedDiscordResource,
 } from "./discord-layout.js";
 import { helpMessageBody } from "./discord-help.js";
-import type { DiscordLayoutStore, DiscordRest } from "@rapi/domain";
+import { type DiscordLayoutStore, type DiscordRest } from "./ports/index.js";
 
 type DiscordRole = {
   id: string;

@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import { test } from "node:test";
 import { once } from "node:events";
 import { FeedSourceAdapter } from "@rapi/adapters";
-import type { SourcePayload } from "@rapi/domain";
+import { type SourcePayload } from "@rapi/application";
 
 test("source deadlines cover both headers and body, and preserve malformed raw responses", async () => {
   const xml =

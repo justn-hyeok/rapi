@@ -1,14 +1,14 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import {
   CONNECTION_PROVIDERS,
-  isConnectionProvider,
   type ConnectionProviderId,
   type ConnectionStore,
-  type DiscordIdentity,
   type OAuthProvider,
   type SecretBox,
   type UserConnection,
-} from "@rapi/domain";
+  isConnectionProvider,
+} from "./ports/index.js";
+import { type DiscordIdentity } from "@rapi/domain";
 
 // The link to the provider works this long after it is given.
 const CONNECT_MINUTES = 15;

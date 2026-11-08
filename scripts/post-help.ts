@@ -1,5 +1,5 @@
 import { discordLayoutPorts } from "@rapi/adapters";
-import { DiscordLayoutManager } from "@rapi/agent";
+import { DiscordLayoutManager } from "@rapi/application";
 import { loadEnvironment } from "@rapi/config";
 import { PostgresStore } from "@rapi/db";
 

@@ -11,14 +11,14 @@ import {
   type FeedGuildTarget,
 } from "@rapi/domain";
 import type { GuildFeatureSwitch } from "./guild-features.js";
-import type {
-  CommunityStore,
-  CurationChannel,
-  DiscordLayoutStore,
-  GuildStore,
-  ItemSummarizer,
-  SummaryInput,
-} from "@rapi/domain";
+import {
+  type CommunityStore,
+  type CurationChannel,
+  type DiscordLayoutStore,
+  type GuildStore,
+  type ItemSummarizer,
+  type SummaryInput,
+} from "./ports/index.js";
 
 type Feed = "ai-blogs" | "free-tokens";
 type Embed = Record<string, unknown>;

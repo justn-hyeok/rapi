@@ -1,5 +1,6 @@
 import type { Pool, PoolClient } from "pg";
-import type { GitHubStar, StarOwnerStore, StoredStar } from "@rapi/domain";
+import { type StarOwnerStore } from "@rapi/application";
+import type { GitHubStar, StoredStar } from "@rapi/domain";
 
 /**
  * One person's GitHub stars and everything learned from them: what they picked

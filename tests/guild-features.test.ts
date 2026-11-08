@@ -7,7 +7,7 @@ import {
   DiscordCommandService,
   type DiscordCommand,
   type RapiAgent,
-} from "@rapi/agent";
+} from "@rapi/application";
 import type { DiscordIdentity } from "@rapi/domain";
 import { createDiscordInteractionServer } from "../apps/bot/src/discord-http.js";
 

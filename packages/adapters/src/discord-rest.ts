@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import type { DiscordRest } from "@rapi/domain";
+import { type DiscordRest } from "@rapi/application";
 
 export class DiscordRestClient implements DiscordRest {
   constructor(

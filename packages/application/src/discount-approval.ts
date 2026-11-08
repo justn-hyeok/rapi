@@ -1,14 +1,17 @@
 import {
+  type DeliveryAdapter,
+  DiscordServerError,
+  type DiscountCandidateStore,
+  UncertainDeliveryError,
+} from "./ports/index.js";
+import {
   deadlineLine,
   DEADLINE_MAX_CHARS,
   findDeadline,
   shouldCardCandidate,
   type CandidateForDecision,
-  type DeliveryAdapter,
   type DiscordIdentity,
   type PublicAlertKind,
-  DiscordServerError,
-  UncertainDeliveryError,
 } from "@rapi/domain";
 import {
   CARDS_PER_HOUR,
@@ -16,7 +19,6 @@ import {
   DISCOUNT_DISCARD_PREFIX,
   isReviewChannel,
 } from "./discount-candidates.js";
-import type { DiscountCandidateStore } from "@rapi/domain";
 
 export const DISCOUNT_MODAL_PREFIX = "discount_publish_modal:";
 export const DISCOUNT_DEADLINE_INPUT = "deadline";

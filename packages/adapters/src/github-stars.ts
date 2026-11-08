@@ -7,7 +7,7 @@ import {
   type NeighborRole,
 } from "@rapi/domain";
 import { readSource, type SourceHttpOptions } from "./sources.js";
-import type { ExternalItem, StarRecommender } from "@rapi/domain";
+import { type ExternalItem, type StarRecommender } from "@rapi/application";
 
 export interface StarredRepository {
   fullName: string;

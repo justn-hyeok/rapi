@@ -4,7 +4,7 @@ import {
   defaultCommunityLayout,
   parseDiscordLayout,
   planDiscordLayout,
-} from "@rapi/agent";
+} from "@rapi/application";
 describe("Discord layout", () => {
   it("parses the default YAML-compatible layout", () => {
     const layout = parseDiscordLayout(JSON.stringify(defaultCommunityLayout));

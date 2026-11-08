@@ -7,7 +7,7 @@ import {
   reportableLink,
   sendProblemCards,
   type RapiAgent,
-} from "@rapi/agent";
+} from "@rapi/application";
 import { DiscordDeliveryAdapter } from "@rapi/adapters";
 import type {
   NewReport,

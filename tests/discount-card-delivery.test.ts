@@ -5,7 +5,7 @@ import {
   UNVETTED_CARDS_PER_DAY,
   NEW_SERVICE_CARDS_PER_DAY,
   sendDiscountCards,
-} from "@rapi/agent";
+} from "@rapi/application";
 import type { CandidateForCard } from "@rapi/domain";
 
 const row = (id: string, fields: Partial<CandidateForCard> = {}) => ({

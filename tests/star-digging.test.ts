@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { digTrails, followNeighbors } from "@rapi/adapters";
-import { remindStars } from "@rapi/agent";
+import { remindStars } from "@rapi/application";
 import {
   betaDraw,
   closeNeighbors,

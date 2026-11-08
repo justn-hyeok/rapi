@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
-import { createNotificationChannels } from "@rapi/agent";
+import { createNotificationChannels } from "@rapi/application";
 
 const OWNER = { userId: "1", guildId: "home" };
 const ADMIN = { userId: "2", guildId: "other", guildPermissions: "32" };

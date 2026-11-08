@@ -1,7 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { createServer, type IncomingMessage } from "node:http";
 import { fileURLToPath } from "node:url";
-import { cardPayloadFor } from "@rapi/agent";
+import { cardPayloadFor } from "@rapi/application";
 import {
   DEFAULT_CARD_TEMPLATES,
   discordEmbed,

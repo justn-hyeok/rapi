@@ -10,8 +10,8 @@ import {
   finishConnect,
   readConnectState,
   type ConnectionService,
-} from "@rapi/agent";
-import type { UserConnection } from "@rapi/domain";
+} from "@rapi/application";
+import { type UserConnection } from "@rapi/application";
 import { connectPages } from "../apps/bot/src/connect-page.js";
 
 const now = new Date("2026-11-08T00:30:00Z");

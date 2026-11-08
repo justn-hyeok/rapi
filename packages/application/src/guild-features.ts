@@ -3,7 +3,7 @@ import {
   enabledGuildFeatures,
   type GuildFeature,
 } from "@rapi/domain";
-import type { GuildStore } from "@rapi/domain";
+import { type GuildStore } from "./ports/index.js";
 
 export interface GuildFeatureSwitch {
   enabled(guildId: string): Promise<ReadonlySet<GuildFeature>>;

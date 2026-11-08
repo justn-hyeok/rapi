@@ -17,7 +17,8 @@ import {
   PROBLEM_RED_PREFIX,
   type DiscordCommand,
   type DiscountPublishResult,
-} from "@rapi/agent";
+} from "@rapi/application";
+import { CONNECTION_PROVIDERS } from "@rapi/application";
 import {
   allowedGuildIds,
   isGuildAllowed,
@@ -31,7 +32,6 @@ import {
   REVIEW_ALERT_KINDS,
   REPORT_MEMO_MAX_CHARS,
   type DiscordIdentity,
-  CONNECTION_PROVIDERS,
 } from "@rapi/domain";
 import { redactChat } from "@rapi/domain";
 

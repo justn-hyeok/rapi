@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { discountCandidateJobs } from "@rapi/adapters";
-import { collectDiscountCandidates, needsKorean } from "@rapi/agent";
+import { collectDiscountCandidates, needsKorean } from "@rapi/application";
 import type { DiscountCandidate } from "@rapi/domain";
 
 const deal = { kind: "discount", route: "changelog" } as const;

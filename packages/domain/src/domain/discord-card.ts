@@ -1,4 +1,4 @@
-import type { DeliveryPayload } from "../ports/delivery.js";
+import type { DeliveryPayload } from "./delivery.js";
 
 /** One Discord embed. Reports and notices share this shape so they read the same. */
 export interface DiscordCard {

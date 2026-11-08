@@ -1,4 +1,4 @@
-import type { NormalizedItem, Visibility } from "../domain/models.js";
+import type { NormalizedItem, Visibility } from "@rapi/domain";
 
 export interface RawEventResult {
   id: string;

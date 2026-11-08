@@ -3,11 +3,11 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  plainText,
   type CurationChannel,
   type ItemSummarizer,
   type SummaryInput,
-} from "@rapi/domain";
+} from "@rapi/application";
+import { plainText } from "@rapi/domain";
 import type { ModelClient } from "./model-client.js";
 
 const CURATION_RULES: Record<CurationChannel, string[]> = {

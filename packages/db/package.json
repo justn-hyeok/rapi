@@ -6,6 +6,7 @@
   "exports": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "dependencies": {
+    "@rapi/application": "0.1.0",
     "@rapi/domain": "0.1.0",
     "pg": "8.16.3"
   }

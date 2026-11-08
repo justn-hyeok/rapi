@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { generateKeyPairSync, sign } from "node:crypto";
 import { once } from "node:events";
 import { test, type TestContext } from "node:test";
-import type { DiscordCommandService, DiscountPublishResult } from "@rapi/agent";
+import type {
+  DiscordCommandService,
+  DiscountPublishResult,
+} from "@rapi/application";
 import { createDiscordInteractionServer } from "../apps/bot/src/discord-http.js";
 
 const PUBLISH = "discount_publish:row";

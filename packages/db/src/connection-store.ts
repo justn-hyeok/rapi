@@ -1,8 +1,8 @@
-import type {
-  ConnectionProviderId,
-  ConnectionStore,
-  UserConnection,
-} from "@rapi/domain";
+import {
+  type ConnectionProviderId,
+  type ConnectionStore,
+  type UserConnection,
+} from "@rapi/application";
 import type { PostgresStore } from "./postgres-store.js";
 
 const COLUMNS = `user_id AS "userId", provider, account_id AS "accountId",

@@ -7,7 +7,7 @@ import {
   DiscordLayoutManager,
   parseDiscordLayout,
   planDiscordLayout,
-} from "@rapi/agent";
+} from "@rapi/application";
 import type { PostgresStore } from "@rapi/db";
 
 test("layout admission resolves the real bot ID and checks desired role hierarchy", async () => {
