@@ -14,13 +14,15 @@ import {
   isPriceCut,
   offerOnPage,
   PullRequestRoute,
+  loadDiscountSources,
+  type DiscountSources,
+  discountCandidateJobs,
+  servicePages,
 } from "@rapi/adapters";
 import {
   collectDiscountCandidates,
-  loadDiscountSources,
   verifyDiscountCandidates,
   verifyReports,
-  type DiscountSources,
 } from "@rapi/agent";
 import {
   discountEvidence,
@@ -424,10 +426,12 @@ test("one source failing leaves the others running and shows the failure", async
   const { store, rows, ok, failed } = fakeStore();
   const failures = await collectDiscountCandidates({
     store: store as never,
-    sources: SOURCES,
-    githubToken: "read-token",
-    http: { fetch: web },
-    now,
+    jobs: discountCandidateJobs({
+      sources: SOURCES,
+      githubToken: "read-token",
+      http: { fetch: web },
+      now,
+    }),
   });
   assert.deepEqual(failed, [
     ["candidate_changelog|https://broken.test/atom", "Source returned 503"],
@@ -449,10 +453,12 @@ test("seeing the same candidates again adds nothing", async () => {
   const run = () =>
     collectDiscountCandidates({
       store: store as never,
-      sources: SOURCES,
-      githubToken: "read-token",
-      http: { fetch: web },
-      now,
+      jobs: discountCandidateJobs({
+        sources: SOURCES,
+        githubToken: "read-token",
+        http: { fetch: web },
+        now,
+      }),
     });
   await run();
   const first = [...rows.keys()];
@@ -466,14 +472,16 @@ test("without a token the GitHub routes are skipped visibly, not failed", async 
   const requested: string[] = [];
   const failures = await collectDiscountCandidates({
     store: store as never,
-    sources: { ...SOURCES, changelogs: [SOURCES.changelogs[1]!] },
-    http: {
-      fetch: ((url: string, init?: RequestInit) => {
-        requested.push(url);
-        return web(url, init);
-      }) as typeof fetch,
-    },
-    now,
+    jobs: discountCandidateJobs({
+      sources: { ...SOURCES, changelogs: [SOURCES.changelogs[1]!] },
+      http: {
+        fetch: ((url: string, init?: RequestInit) => {
+          requested.push(url);
+          return web(url, init);
+        }) as typeof fetch,
+      },
+      now,
+    }),
   });
   assert.deepEqual(failures, []);
   assert.deepEqual(requested, ["https://x.test/atom"]);
@@ -559,14 +567,14 @@ test("one candidate failing to read or save leaves the others checked", async ()
   const failures = await verifyDiscountCandidates({
     store: store as never,
     operators: [],
-    http: {
+    pages: servicePages({
       resolve,
       fetch: (async (url: string) => {
         requested.push(url);
         if (url === "https://down.io/") throw new Error("ECONNREFUSED");
         return new Response('<a href="/terms">Terms</a>', { headers: HOME });
       }) as typeof fetch,
-    },
+    }),
   });
   assert.deepEqual(failures, ["up.io: db down"]);
   assert.deepEqual([...saved.keys()], ["down", "local", "pr", "up"]);
@@ -602,7 +610,7 @@ test("a new service whose page offers something becomes a deal of its own", asyn
     operators: [
       { domain: "openai.com", name: "OpenAI", service: "official", tags: [] },
     ],
-    http: {
+    pages: servicePages({
       resolve,
       fetch: (async (url: string) => {
         if (url === "https://code0.io/")
@@ -625,7 +633,7 @@ test("a new service whose page offers something becomes a deal of its own", asyn
           headers: HOME,
         });
       }) as typeof fetch,
-    },
+    }),
     translate: async (texts) => {
       asked.push(texts);
       return texts.map(() => "가입하면 무료 크레딧");
@@ -660,6 +668,7 @@ test("the store failing to list is reported, not thrown", async () => {
         },
       } as never,
       operators: [],
+      pages: servicePages(),
     }),
     ["verification: db down"],
   );
@@ -676,6 +685,7 @@ test("the short timer asks only for reports, and few at a time", async () => {
       saveCandidateVerification: async () => {},
     } as never,
     operators: [],
+    pages: servicePages(),
   });
   assert.deepEqual(failures, []);
   assert.deepEqual(asked, [[20, "report"]]);

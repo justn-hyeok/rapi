@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parsePromoClock, PromoClockRoute } from "@rapi/adapters";
-import { loadDiscountSources } from "@rapi/agent";
+import {
+  parsePromoClock,
+  PromoClockRoute,
+  loadDiscountSources,
+} from "@rapi/adapters";
 
 const line = (slug: string, title: string, terms: string, source: string) =>
   `- **${title}** — ${terms} Details: https://promoclock.co/en/deals/${slug}/ · Source: ${source} (verified 2026-11-02)`;

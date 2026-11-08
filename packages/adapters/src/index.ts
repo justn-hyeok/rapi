@@ -20,3 +20,4 @@ export * from "./site-offers.js";
 export * from "./health-server.js";
 export * from "./runtime-revision.js";
 export * from "./discord-rest.js";
+export * from "./discount-jobs.js";

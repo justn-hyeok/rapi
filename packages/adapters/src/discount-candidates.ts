@@ -5,6 +5,7 @@ import {
   plainText,
   postSummary,
   type DiscountCandidate,
+  type CandidateResult,
   type DiscountCandidateKind,
   type ServicePage,
 } from "@rapi/core";
@@ -17,14 +18,6 @@ import {
   type SourceHttpOptions,
 } from "./sources.js";
 import type { ExternalItem } from "@rapi/core";
-
-export interface CandidateResult {
-  candidates: DiscountCandidate[];
-  // Set when part of a source failed but the rest is still worth keeping.
-  problem?: string;
-  // What the next run compares against, for a source that says nothing about what changed.
-  cursor?: string;
-}
 
 function hostname(url: string): string | null {
   try {

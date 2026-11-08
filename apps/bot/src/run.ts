@@ -20,6 +20,9 @@ import {
   superadminDmNotifier,
   sourceParsers,
   discordLayoutPorts,
+  loadDiscountSources,
+  discountCandidateJobs,
+  servicePages,
 } from "@rapi/adapters";
 import {
   DEFAULT_SUMMARY_MODEL,
@@ -33,7 +36,6 @@ import {
   createNotificationChannels,
   discountCardButton,
   guildRequestButton,
-  loadDiscountSources,
   problemCardButton,
   publishDiscountCard,
   receiveGuildRequest,
@@ -336,8 +338,10 @@ async function collectCandidates(): Promise<void> {
   const failures = [
     ...(await collectDiscountCandidates({
       store,
-      sources,
-      githubToken: config.GITHUB_READ_TOKEN,
+      jobs: discountCandidateJobs({
+        sources,
+        githubToken: config.GITHUB_READ_TOKEN,
+      }),
       // Lists and forums in Chinese go out in Korean.
       ...(summarizer?.translate && {
         translate: (texts: string[]) => summarizer.translate!(texts),
@@ -346,6 +350,7 @@ async function collectCandidates(): Promise<void> {
     ...(await verifyDiscountCandidates({
       store,
       operators: sources.operators,
+      pages: servicePages(),
       ...(summarizer?.translate && {
         translate: (texts: string[]) => summarizer.translate!(texts),
       }),
@@ -358,7 +363,7 @@ async function collectCandidates(): Promise<void> {
 async function checkReports(): Promise<string[]> {
   try {
     const { operators } = await loadDiscountSources(process.cwd());
-    return await verifyReports({ store, operators });
+    return await verifyReports({ store, operators, pages: servicePages() });
   } catch (error) {
     return [`reports: ${error instanceof Error ? error.message : "failed"}`];
   }

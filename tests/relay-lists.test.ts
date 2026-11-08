@@ -6,8 +6,10 @@ import {
   RELAY_LIST_MAX_CHANGES,
   RelayListRoute,
   type RelayListSource,
+  loadDiscountSources,
+  discountCandidateJobs,
 } from "@rapi/adapters";
-import { collectDiscountCandidates, loadDiscountSources } from "@rapi/agent";
+import { collectDiscountCandidates } from "@rapi/agent";
 import type { DiscountCandidate } from "@rapi/core";
 
 const site = (id: string, credits: Record<string, unknown>) => ({
@@ -224,14 +226,16 @@ async function seenThenChanged(
   const run = () =>
     collectDiscountCandidates({
       store: store as never,
-      sources: {
-        changelogs: [],
-        pullRequests: { repository: "a/b" },
-        codeSearch: { queries: [], denylist: [] },
-        relayLists: [TABLE],
-        operators: [],
-      },
-      http: { fetch: (async () => new Response(body)) as typeof fetch },
+      jobs: discountCandidateJobs({
+        sources: {
+          changelogs: [],
+          pullRequests: { repository: "a/b" },
+          codeSearch: { queries: [], denylist: [] },
+          relayLists: [TABLE],
+          operators: [],
+        },
+        http: { fetch: (async () => new Response(body)) as typeof fetch },
+      }),
       ...(translate && { translate }),
     });
   await run();
