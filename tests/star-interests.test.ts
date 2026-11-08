@@ -179,7 +179,7 @@ const page = (
   store: Partial<StarInterestPage["store"]> = {},
 ): StarInterestPage => ({
   store: store as StarInterestPage["store"],
-  ownerId: "42",
+  userId: "42",
   secret: "deployment-secret",
   baseUrl: "https://rapi.example/",
 });
@@ -208,7 +208,7 @@ test("the link is signed for the owner and expires after a week", () => {
     validStarToken(page(), token, new Date(now.getTime() + 8 * 86_400_000)),
     false,
   );
-  assert.equal(validStarToken({ ...page(), ownerId: "43" }, token, now), false);
+  assert.equal(validStarToken({ ...page(), userId: "43" }, token, now), false);
   assert.equal(
     validStarToken({ ...page(), secret: "other" }, token, now),
     false,
@@ -380,7 +380,7 @@ test("with interests the DM brings the best forgotten star and one new repositor
   const failures = await remindStars({
     now,
     random: () => 0,
-    ownerId: "42",
+    userId: "42",
     reads: {},
     readStars: async () => ({ stars: [], complete: false }),
     searchRepos: async (q) => {

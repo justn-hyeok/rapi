@@ -133,7 +133,7 @@ export async function remindEveryone(
     const own = await remindStars({
       store,
       delivery: service.delivery,
-      ownerId: subscriber.userId,
+      userId: subscriber.userId,
       readStars: async () => {
         try {
           return await github.readStars(subscriber.githubLogin, token);

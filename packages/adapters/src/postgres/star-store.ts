@@ -13,7 +13,7 @@ export class PostgresStarStore implements StarStore {
     private readonly transaction: <T>(
       work: (client: PoolClient) => Promise<T>,
     ) => Promise<T>,
-    readonly ownerId: string,
+    readonly userId: string,
   ) {}
 
   /**
@@ -27,7 +27,7 @@ export class PostgresStarStore implements StarStore {
     await this.transaction(async (client) => {
       await client.query(
         `INSERT INTO github_stars
-           (owner_id, full_name, url, description, language, stars_count, archived, starred_at,
+           (user_id, full_name, url, description, language, stars_count, archived, starred_at,
             topics, pushed_at, repo_created_at, owner_type, license)
          SELECT $13, full_name, url, description, language, stars_count, archived, starred_at,
                 string_to_array(topics, ' '), pushed_at, repo_created_at, owner_type, license
@@ -36,7 +36,7 @@ export class PostgresStarStore implements StarStore {
                      $9::timestamptz[], $10::timestamptz[], $11::text[], $12::text[])
               AS s(full_name, url, description, language, stars_count, archived,
                    starred_at, topics, pushed_at, repo_created_at, owner_type, license)
-         ON CONFLICT (owner_id, full_name) DO UPDATE
+         ON CONFLICT (user_id, full_name) DO UPDATE
          SET url = EXCLUDED.url, description = EXCLUDED.description,
              language = EXCLUDED.language, stars_count = EXCLUDED.stars_count,
              archived = EXCLUDED.archived, starred_at = EXCLUDED.starred_at,
@@ -58,15 +58,15 @@ export class PostgresStarStore implements StarStore {
           stars.map((star) => star.createdAt ?? null),
           stars.map((star) => star.ownerType ?? null),
           stars.map((star) => star.license ?? null),
-          this.ownerId,
+          this.userId,
         ],
       );
       if (complete)
         await client.query(
           `UPDATE github_stars SET unstarred_at = now()
-           WHERE owner_id = $2 AND unstarred_at IS NULL
+           WHERE user_id = $2 AND unstarred_at IS NULL
              AND NOT full_name = ANY($1::text[])`,
-          [stars.map((star) => star.fullName), this.ownerId],
+          [stars.map((star) => star.fullName), this.userId],
         );
     });
   }
@@ -78,8 +78,8 @@ export class PostgresStarStore implements StarStore {
               last_reminded_at AS "lastRemindedAt", topics,
               pushed_at AS "pushedAt", repo_created_at AS "createdAt",
               owner_type AS "ownerType", license
-       FROM github_stars WHERE owner_id = $1 AND unstarred_at IS NULL`,
-      [this.ownerId],
+       FROM github_stars WHERE user_id = $1 AND unstarred_at IS NULL`,
+      [this.userId],
     );
     return rows;
   }
@@ -96,8 +96,8 @@ export class PostgresStarStore implements StarStore {
   }> {
     const [picked, votes] = await Promise.all([
       this.pool.query<{ facets: Record<string, number> }>(
-        "SELECT facets FROM star_interests WHERE owner_id = $1",
-        [this.ownerId],
+        "SELECT facets FROM star_interests WHERE user_id = $1",
+        [this.userId],
       ),
       this.pool.query<{
         fullName: string;
@@ -106,8 +106,8 @@ export class PostgresStarStore implements StarStore {
         votedAt: Date;
       }>(
         `SELECT full_name AS "fullName", vote, facets, voted_at AS "votedAt"
-         FROM star_votes WHERE owner_id = $1 ORDER BY voted_at, full_name`,
-        [this.ownerId],
+         FROM star_votes WHERE user_id = $1 ORDER BY voted_at, full_name`,
+        [this.userId],
       ),
     ]);
     return { picked: picked.rows[0]?.facets ?? {}, votes: votes.rows };
@@ -115,9 +115,9 @@ export class PostgresStarStore implements StarStore {
 
   async saveStarInterests(facets: Record<string, number>): Promise<void> {
     await this.pool.query(
-      `INSERT INTO star_interests (owner_id, facets) VALUES ($1, $2)
-       ON CONFLICT (owner_id) DO UPDATE SET facets = EXCLUDED.facets, updated_at = now()`,
-      [this.ownerId, JSON.stringify(facets)],
+      `INSERT INTO star_interests (user_id, facets) VALUES ($1, $2)
+       ON CONFLICT (user_id) DO UPDATE SET facets = EXCLUDED.facets, updated_at = now()`,
+      [this.userId, JSON.stringify(facets)],
     );
   }
 
@@ -128,10 +128,10 @@ export class PostgresStarStore implements StarStore {
     facets: readonly string[],
   ): Promise<void> {
     await this.pool.query(
-      `INSERT INTO star_votes (owner_id, full_name, vote, facets) VALUES ($1, $2, $3, $4)
-       ON CONFLICT (owner_id, full_name) DO UPDATE
+      `INSERT INTO star_votes (user_id, full_name, vote, facets) VALUES ($1, $2, $3, $4)
+       ON CONFLICT (user_id, full_name) DO UPDATE
        SET vote = EXCLUDED.vote, facets = EXCLUDED.facets, voted_at = now()`,
-      [this.ownerId, fullName, vote, facets],
+      [this.userId, fullName, vote, facets],
     );
   }
 
@@ -142,15 +142,15 @@ export class PostgresStarStore implements StarStore {
               stars_count AS stars, archived, starred_at::text AS "starredAt", topics,
               pushed_at::text AS "pushedAt", repo_created_at::text AS "createdAt",
               owner_type AS "ownerType", license
-       FROM github_stars WHERE owner_id = $2 AND full_name = $1
+       FROM github_stars WHERE user_id = $2 AND full_name = $1
        UNION ALL
        SELECT full_name, repo->>'url', repo->>'description', repo->>'language',
               (repo->>'stars')::int, false, suggested_at::text,
               ARRAY(SELECT jsonb_array_elements_text(COALESCE(repo->'topics', '[]'))),
               repo->>'pushedAt', repo->>'createdAt', repo->>'ownerType', repo->>'license'
-       FROM star_suggestions WHERE owner_id = $2 AND full_name = $1
+       FROM star_suggestions WHERE user_id = $2 AND full_name = $1
        LIMIT 1`,
-      [fullName, this.ownerId],
+      [fullName, this.userId],
     );
     return rows[0] ?? null;
   }
@@ -160,15 +160,15 @@ export class PostgresStarStore implements StarStore {
     trail?: { kind: string; seed: string },
   ): Promise<void> {
     await this.pool.query(
-      `INSERT INTO star_suggestions (owner_id, full_name, repo, trail_kind, trail_seed)
+      `INSERT INTO star_suggestions (user_id, full_name, repo, trail_kind, trail_seed)
        VALUES ($5, $1, $2, $3, $4)
-       ON CONFLICT (owner_id, full_name) DO NOTHING`,
+       ON CONFLICT (user_id, full_name) DO NOTHING`,
       [
         repo.fullName,
         JSON.stringify(repo),
         trail?.kind ?? null,
         trail?.seed ?? null,
-        this.ownerId,
+        this.userId,
       ],
     );
   }
@@ -195,10 +195,10 @@ export class PostgresStarStore implements StarStore {
       `SELECT s.full_name AS "fullName", s.trail_kind AS kind, s.trail_seed AS seed,
               s.suggested_at AS "suggestedAt", v.vote, v.voted_at AS "votedAt"
        FROM star_suggestions s
-       LEFT JOIN star_votes v ON v.full_name = s.full_name AND v.owner_id = s.owner_id
-       WHERE s.owner_id = $1
+       LEFT JOIN star_votes v ON v.full_name = s.full_name AND v.user_id = s.user_id
+       WHERE s.user_id = $1
        ORDER BY s.suggested_at`,
-      [this.ownerId],
+      [this.userId],
     );
     return rows;
   }
@@ -209,12 +209,12 @@ export class PostgresStarStore implements StarStore {
   ): Promise<void> {
     for (const neighbor of neighbors)
       await this.pool.query(
-        `INSERT INTO star_neighbors (owner_id, login, shared, found_from)
+        `INSERT INTO star_neighbors (user_id, login, shared, found_from)
          VALUES ($4, $1, $2, $3)
-         ON CONFLICT (owner_id, login) DO UPDATE SET
+         ON CONFLICT (user_id, login) DO UPDATE SET
            shared = GREATEST(star_neighbors.shared, EXCLUDED.shared),
            found_from = EXCLUDED.found_from, found_at = now()`,
-        [neighbor.login, neighbor.shared, neighbor.from, this.ownerId],
+        [neighbor.login, neighbor.shared, neighbor.from, this.userId],
       );
   }
 
@@ -223,9 +223,9 @@ export class PostgresStarStore implements StarStore {
     limit: number,
   ): Promise<Array<{ login: string; shared: number }>> {
     const { rows } = await this.pool.query<{ login: string; shared: number }>(
-      `SELECT login, shared FROM star_neighbors WHERE owner_id = $2
+      `SELECT login, shared FROM star_neighbors WHERE user_id = $2
        ORDER BY followed_at NULLS FIRST, shared DESC, login LIMIT $1`,
-      [limit, this.ownerId],
+      [limit, this.userId],
     );
     return rows;
   }
@@ -234,25 +234,25 @@ export class PostgresStarStore implements StarStore {
     if (logins.length === 0) return;
     await this.pool.query(
       `UPDATE star_neighbors SET followed_at = now()
-       WHERE owner_id = $2 AND login = ANY($1)`,
-      [logins, this.ownerId],
+       WHERE user_id = $2 AND login = ANY($1)`,
+      [logins, this.userId],
     );
   }
 
   /** Names a dig or search must not suggest: shown before, or any of the owner's stars. */
   async seenStarRepos(): Promise<Set<string>> {
     const { rows } = await this.pool.query<{ name: string }>(
-      `SELECT lower(full_name) AS name FROM star_suggestions WHERE owner_id = $1
-       UNION SELECT lower(full_name) FROM github_stars WHERE owner_id = $1`,
-      [this.ownerId],
+      `SELECT lower(full_name) AS name FROM star_suggestions WHERE user_id = $1
+       UNION SELECT lower(full_name) FROM github_stars WHERE user_id = $1`,
+      [this.userId],
     );
     return new Set(rows.map((row) => row.name));
   }
 
   async starReminderClaimed(day: string): Promise<boolean> {
     const { rowCount } = await this.pool.query(
-      "SELECT 1 FROM star_reminder_days WHERE owner_id = $2 AND day = $1",
-      [day, this.ownerId],
+      "SELECT 1 FROM star_reminder_days WHERE user_id = $2 AND day = $1",
+      [day, this.userId],
     );
     return rowCount === 1;
   }
@@ -265,16 +265,16 @@ export class PostgresStarStore implements StarStore {
     const names = stars.map((star) => star.fullName);
     return this.transaction(async (client) => {
       const claimed = await client.query(
-        `INSERT INTO star_reminder_days (owner_id, day, repos) VALUES ($3, $1, $2)
-         ON CONFLICT (owner_id, day) DO NOTHING`,
-        [day, names, this.ownerId],
+        `INSERT INTO star_reminder_days (user_id, day, repos) VALUES ($3, $1, $2)
+         ON CONFLICT (user_id, day) DO NOTHING`,
+        [day, names, this.userId],
       );
       if (claimed.rowCount !== 1) return false;
       await client.query(
         `UPDATE github_stars
          SET last_reminded_at = now(), reminded_count = reminded_count + 1
-         WHERE owner_id = $2 AND full_name = ANY($1::text[])`,
-        [names, this.ownerId],
+         WHERE user_id = $2 AND full_name = ANY($1::text[])`,
+        [names, this.userId],
       );
       return true;
     });
@@ -288,19 +288,19 @@ export class PostgresStarStore implements StarStore {
     await this.transaction(async (client) => {
       const freed = await client.query(
         `DELETE FROM star_reminder_days
-         WHERE owner_id = $2 AND day = $1 AND message_id IS NULL`,
-        [day, this.ownerId],
+         WHERE user_id = $2 AND day = $1 AND message_id IS NULL`,
+        [day, this.userId],
       );
       if (freed.rowCount !== 1) return;
       await client.query(
         `UPDATE github_stars SET last_reminded_at = earlier.last_at,
                 reminded_count = reminded_count - 1
          FROM unnest($1::text[], $2::timestamptz[]) AS earlier(repo, last_at)
-         WHERE owner_id = $3 AND full_name = earlier.repo`,
+         WHERE user_id = $3 AND full_name = earlier.repo`,
         [
           stars.map((star) => star.fullName),
           stars.map((star) => star.lastRemindedAt?.toISOString() ?? null),
-          this.ownerId,
+          this.userId,
         ],
       );
     });
@@ -308,8 +308,8 @@ export class PostgresStarStore implements StarStore {
 
   async saveStarReminderMessage(day: string, messageId: string): Promise<void> {
     await this.pool.query(
-      "UPDATE star_reminder_days SET message_id = $2 WHERE owner_id = $3 AND day = $1",
-      [day, messageId, this.ownerId],
+      "UPDATE star_reminder_days SET message_id = $2 WHERE user_id = $3 AND day = $1",
+      [day, messageId, this.userId],
     );
   }
 }

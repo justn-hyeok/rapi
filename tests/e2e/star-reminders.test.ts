@@ -54,7 +54,7 @@ describe("star reminders", () => {
       const count = async () =>
         (
           await store.pool.query<{ reminded_count: number }>(
-            "SELECT reminded_count FROM github_stars WHERE owner_id = '42'",
+            "SELECT reminded_count FROM github_stars WHERE user_id = '42'",
           )
         ).rows[0]!.reminded_count;
 

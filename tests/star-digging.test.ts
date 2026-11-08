@@ -500,7 +500,7 @@ test("the day's new repository is dug first and says how it was found", async ()
   const failures = await remindStars({
     now,
     random: () => 0,
-    ownerId: "42",
+    userId: "42",
     reads: {},
     readStars: async () => ({ stars: [], complete: false }),
     digTrails: async (seeds) => [
@@ -594,7 +594,7 @@ test("a day's dig keeps close neighbors, follows kept ones and records its way",
   const failures = await remindStars({
     now,
     random: () => 0,
-    ownerId: "42",
+    userId: "42",
     reads: {},
     readStars: async () => ({ stars: [], complete: false }),
     digTrails: async (seeds) => [

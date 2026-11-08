@@ -259,7 +259,7 @@ export class DiscordCommandService {
       assertDiscordScope(access, "global", GUILD_ADMIN_COMMAND_LABELS);
     if (guildAdmin && required === "superadmin") required = "admin";
     assertDiscordLevel(level, required);
-    const ownerId = identity.userId;
+    const actorId = identity.userId;
     switch (command.name) {
       case "sources": {
         const rows = await this.agent.store.sourceStatus();
@@ -279,7 +279,7 @@ export class DiscordCommandService {
         if (action === "미리보기") {
           const preview = await this.operations.serverConfig.preview(
             identity.guildId,
-            ownerId,
+            actorId,
           );
           return {
             messages: splitDiscordMessage(preview.summary),
@@ -293,7 +293,7 @@ export class DiscordCommandService {
             messages: splitDiscordMessage(
               await this.operations.serverConfig.apply(
                 identity.guildId,
-                ownerId,
+                actorId,
                 requiredString(command.options, "planId"),
               ),
             ),

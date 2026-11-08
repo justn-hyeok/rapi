@@ -166,7 +166,7 @@ async function findNew(
       votedAt?: Date | string;
     }>;
   },
-  ownerId: string,
+  userId: string,
   now: Date,
   random: (() => number) | undefined,
   finders: Finders,
@@ -304,7 +304,7 @@ async function findNew(
  */
 async function choose(
   store: ReminderStore,
-  ownerId: string,
+  userId: string,
   stars: StoredStar[],
   now: Date,
   random: (() => number) | undefined,
@@ -338,7 +338,7 @@ async function choose(
     store,
     kept,
     { interests, votes },
-    ownerId,
+    userId,
     now,
     random,
     finders,
@@ -365,7 +365,7 @@ async function choose(
 export async function remindStars(input: {
   store: ReminderStore;
   delivery: Pick<DiscordGateway, "send">;
-  ownerId: string;
+  userId: string;
   readStars: () => Promise<{ stars: GitHubStar[]; complete: boolean }>;
   // Follows seed repositories out to the people and projects around them.
   digTrails?: (seeds: string[]) => Promise<DigTrail[]>;
@@ -387,7 +387,7 @@ export async function remindStars(input: {
   now?: Date;
   random?: () => number;
 }): Promise<string[]> {
-  const { store, delivery, ownerId, readStars, reads } = input;
+  const { store, delivery, userId, readStars, reads } = input;
   const now = input.now ?? new Date();
   if (!kstReached(now, REMINDER_KST_HOUR)) return [];
   const day = kstDateKey(now);
@@ -410,7 +410,7 @@ export async function remindStars(input: {
         day,
         picks: await choose(
           store,
-          ownerId,
+          userId,
           await store.currentStars(),
           now,
           input.random,
@@ -453,9 +453,9 @@ export async function remindStars(input: {
   let messageId: string;
   try {
     const sent = await delivery.send(
-      { channel: "discord_dm", recipientId: ownerId },
+      { channel: "discord_dm", recipientId: userId },
       starReminderPayload(picks, input.interestUrl?.(now)),
-      `star-reminder:${ownerId}:${day}`,
+      `star-reminder:${userId}:${day}`,
     );
     messageId = sent.providerId;
   } catch (error) {
