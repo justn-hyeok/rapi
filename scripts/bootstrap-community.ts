@@ -1,5 +1,6 @@
 import { readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { discordLayoutPorts } from "@rapi/adapters";
 import { DiscordLayoutManager } from "@rapi/agent";
 import { loadEnvironment } from "@rapi/config";
 import { PostgresStore } from "@rapi/db";
@@ -41,8 +42,7 @@ const store = new PostgresStore(config.DATABASE_URL, {
   queryTimeoutMs: config.DB_QUERY_TIMEOUT_MS,
 });
 const layout = new DiscordLayoutManager(store, {
-  botToken: config.DISCORD_BOT_TOKEN,
-  layoutFile: config.DISCORD_LAYOUT_FILE,
+  ...discordLayoutPorts(config.DISCORD_BOT_TOKEN, config.DISCORD_LAYOUT_FILE),
 });
 try {
   for (const feed of officialFeeds)

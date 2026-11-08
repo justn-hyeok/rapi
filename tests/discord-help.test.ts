@@ -20,8 +20,7 @@ function setup(existing: string | null) {
     },
   } as unknown as PostgresStore;
   const manager = new DiscordLayoutManager(store, {
-    botToken: "fixture",
-    layoutFile: "unused",
+    readLayout: async () => "",
     rest: {
       async request<T>(route: string, init?: RequestInit): Promise<T> {
         calls.push({
