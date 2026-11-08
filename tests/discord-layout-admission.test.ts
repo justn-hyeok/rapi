@@ -40,8 +40,7 @@ test("layout admission resolves the real bot ID and checks desired role hierarch
     },
   ];
   const manager = new DiscordLayoutManager(store, {
-    botToken: "fixture",
-    layoutFile,
+    readLayout: () => readFile(layoutFile, "utf8"),
     rest: {
       async request<T>(route: string): Promise<T> {
         calls.push(route);

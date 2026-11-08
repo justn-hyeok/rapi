@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises";
 import {
   parseDiscordLayout,
   planDiscordLayout,
@@ -9,56 +8,7 @@ import {
   type ManagedDiscordResource,
 } from "./discord-layout.js";
 import { helpMessageBody } from "./discord-help.js";
-import type { DiscordLayoutStore } from "@rapi/core";
-
-export interface DiscordRest {
-  request<T>(route: string, init?: RequestInit): Promise<T>;
-}
-
-export class DiscordRestClient implements DiscordRest {
-  constructor(
-    readonly token: string,
-    readonly fetcher: typeof fetch = fetch,
-  ) {}
-
-  async request<T>(route: string, init: RequestInit = {}): Promise<T> {
-    for (let attempt = 1; attempt <= 4; attempt += 1) {
-      const headers = new Headers(init.headers);
-      headers.set("authorization", `Bot ${this.token}`);
-      if (init.body) headers.set("content-type", "application/json");
-      const response = await this.fetcher(
-        `https://discord.com/api/v10${route}`,
-        {
-          ...init,
-          headers,
-          redirect: "manual",
-          signal: AbortSignal.timeout(10_000),
-        },
-      );
-      if (response.ok) {
-        if (response.status === 204) return undefined as T;
-        return (await response.json()) as T;
-      }
-      const error = (await response.json().catch(() => ({}))) as {
-        message?: string;
-        retry_after?: number;
-      };
-      if (response.status === 429 && attempt < 4) {
-        await new Promise((resolve) =>
-          setTimeout(
-            resolve,
-            Math.min(30_000, Math.max(1_000, (error.retry_after ?? 1) * 1_000)),
-          ),
-        );
-        continue;
-      }
-      throw new Error(
-        `Discord API ${response.status}${error.message ? `: ${error.message}` : ""}`,
-      );
-    }
-    throw new Error("Discord API retry budget exhausted");
-  }
-}
+import type { DiscordLayoutStore, DiscordRest } from "@rapi/core";
 
 type DiscordRole = {
   id: string;
@@ -117,13 +67,13 @@ export class DiscordLayoutManager {
   constructor(
     readonly store: DiscordLayoutStore,
     readonly options: {
-      botToken: string;
-      layoutFile: string;
-      rest?: DiscordRest;
+      rest: DiscordRest;
+      /** The layout YAML, read when a plan is made. */
+      readLayout: () => Promise<string>;
       now?: () => Date;
     },
   ) {
-    this.rest = options.rest ?? new DiscordRestClient(options.botToken);
+    this.rest = options.rest;
   }
 
   private now(): Date {
@@ -131,7 +81,7 @@ export class DiscordLayoutManager {
   }
 
   async loadLayout(): Promise<DiscordLayout> {
-    return parseDiscordLayout(await readFile(this.options.layoutFile, "utf8"));
+    return parseDiscordLayout(await this.options.readLayout());
   }
 
   async snapshot(guildId: string): Promise<DiscordGuildSnapshot> {

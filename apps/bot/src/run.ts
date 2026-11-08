@@ -19,6 +19,7 @@ import {
   followNeighbors,
   superadminDmNotifier,
   sourceParsers,
+  discordLayoutPorts,
 } from "@rapi/adapters";
 import {
   DEFAULT_SUMMARY_MODEL,
@@ -86,8 +87,7 @@ const store = new PostgresStore(config.DATABASE_URL, {
 });
 const discord = new DiscordDeliveryAdapter(config.DISCORD_BOT_TOKEN);
 const layout = new DiscordLayoutManager(store, {
-  botToken: config.DISCORD_BOT_TOKEN,
-  layoutFile: config.DISCORD_LAYOUT_FILE,
+  ...discordLayoutPorts(config.DISCORD_BOT_TOKEN, config.DISCORD_LAYOUT_FILE),
 });
 // Null unless MODEL_API_BASE_URL and MODEL_API_KEY are set; callers fall back to the CLI.
 const modelClient = createModelClient(
