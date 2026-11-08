@@ -6,7 +6,7 @@ import {
   PermanentDeliveryError,
   UncertainDeliveryError,
 } from "@rapi/application";
-import { DiscordDeliveryAdapter } from "@rapi/adapters";
+import { DiscordHttpGateway } from "@rapi/adapters";
 import { remindStars, starReminderPayload } from "@rapi/application";
 import type { DeliveryPayload, GitHubStar, StoredStar } from "@rapi/domain";
 
@@ -289,7 +289,7 @@ test("the real adapter opens a DM and posts there with mentions off", async (t: 
     starredAt: new Date("2024-01-01T00:00:00Z"),
     lastRemindedAt: null,
   };
-  await new DiscordDeliveryAdapter("token").send(
+  await new DiscordHttpGateway("token").send(
     { channel: "discord_dm", recipientId: "42" },
     starReminderPayload([
       { repo: star, reason: "" },

@@ -1,4 +1,4 @@
-import { type DeliveryAdapter, type RapiUpdateStore } from "./ports/index.js";
+import { type DiscordGateway, type RapiUpdateStore } from "./ports/index.js";
 import { discordEmbed, releaseSummary, templateCard } from "@rapi/domain";
 import { messageBody } from "./community-feeds.js";
 
@@ -18,7 +18,7 @@ const failureText = (id: string, error: unknown) =>
  */
 export async function announceRapiUpdate(input: {
   store: Pick<RapiUpdateStore, "rapiUpdateNoticed" | "claimRapiUpdate">;
-  delivery: Pick<DeliveryAdapter, "send">;
+  delivery: Pick<DiscordGateway, "send">;
   channelIds: () => Promise<readonly string[]>;
   latestRelease: () => Promise<RapiRelease>;
 }): Promise<string[]> {

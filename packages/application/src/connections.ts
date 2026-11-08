@@ -3,7 +3,7 @@ import {
   CONNECTION_PROVIDERS,
   type ConnectionProviderId,
   type ConnectionStore,
-  type OAuthProvider,
+  type OAuthGateway,
   type SecretBox,
   type UserConnection,
   isConnectionProvider,
@@ -40,7 +40,7 @@ export interface ConnectionUser {
 export interface ConnectionService {
   store: ConnectionStore;
   /** The OAuth apps this deployment has; a provider without one cannot be connected. */
-  providers: Partial<Record<ConnectionProviderId, OAuthProvider>>;
+  providers: Partial<Record<ConnectionProviderId, OAuthGateway>>;
   box: SecretBox;
   /** Signs the state that says who went to the provider. */
   secret: string;

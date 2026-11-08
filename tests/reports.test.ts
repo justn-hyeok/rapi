@@ -8,7 +8,7 @@ import {
   sendProblemCards,
   type RapiAgent,
 } from "@rapi/application";
-import { DiscordDeliveryAdapter } from "@rapi/adapters";
+import { DiscordHttpGateway } from "@rapi/adapters";
 import type {
   NewReport,
   ProblemReportForCard,
@@ -294,7 +294,7 @@ function discord(t: TestContext, answer = () => new Response('{"id":"900"}')) {
       return answer();
     },
   );
-  return { sent, delivery: new DiscordDeliveryAdapter("token") };
+  return { sent, delivery: new DiscordHttpGateway("token") };
 }
 
 test("a problem card names the domain, link and memo, safely, with two buttons", async (t) => {

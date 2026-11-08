@@ -11,7 +11,7 @@ import {
   type RawEventResult,
   type ReportStore,
   type SourceStore,
-  type StarOwnerStore,
+  type StarStore,
   type StarSubscriber,
   type StarSubscriberStore,
 } from "@rapi/application";
@@ -29,7 +29,7 @@ import type {
   ReportOutcome,
   Visibility,
 } from "@rapi/domain";
-import { PostgresStarOwnerStore } from "./star-owner-store.js";
+import { PostgresStarStore } from "./star-store.js";
 import {
   parseHtmlSourcePolicy,
   UNVETTED_ROUTES,
@@ -1082,8 +1082,8 @@ export class PostgresStore
   }
 
   /** One person's stars and everything learned from them. */
-  starsOf(ownerId: string): StarOwnerStore {
-    return new PostgresStarOwnerStore(
+  starsOf(ownerId: string): StarStore {
+    return new PostgresStarStore(
       this.pool,
       (work) => this.transaction(work),
       ownerId,

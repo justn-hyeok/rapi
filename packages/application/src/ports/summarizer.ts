@@ -7,7 +7,7 @@ export interface SummaryInput {
   context?: string;
 }
 
-export interface ItemSummarizer {
+export interface ModelGateway {
   readonly policy: string;
   summarize(items: SummaryInput[]): Promise<Map<string, string>>;
   /** Keeps the items that fit a channel, each with a short Korean summary. */

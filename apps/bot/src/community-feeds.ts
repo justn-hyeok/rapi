@@ -9,12 +9,12 @@ import {
   type CommunityFeedStore,
   type GuildFeatureSwitch,
 } from "@rapi/application";
-import { type ItemSummarizer } from "@rapi/application";
+import { type ModelGateway } from "@rapi/application";
 
 /** Builds the feeds from config/curation in a release root, posting as the bot. */
 export async function createCommunityFeeds(input: {
   store: CommunityFeedStore;
-  summarizer: ItemSummarizer | undefined;
+  summarizer: ModelGateway | undefined;
   guildId: string;
   extraGuildIds?: readonly string[];
   guildFeatures: Pick<GuildFeatureSwitch, "enabled">;

@@ -1,7 +1,7 @@
 export * from "./sources.js";
 export * from "./public-fetch.js";
 export * from "./discount-candidates.js";
-export * from "./delivery.js";
+export * from "./discord-gateway.js";
 export * from "./managed-webhooks.js";
 export * from "./github-stars.js";
 export * from "./github-oauth.js";
@@ -19,6 +19,7 @@ export * from "./curl-fetch.js";
 export * from "./site-offers.js";
 export * from "./health-server.js";
 export * from "./runtime-revision.js";
-export * from "./discord-rest.js";
+export * from "./discord-layout-ports.js";
 export * from "./discount-jobs.js";
 export * from "./postgres/index.js";
+export * from "./web-source-gateway.js";

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
-import { DiscordDeliveryAdapter } from "@rapi/adapters";
+import { DiscordHttpGateway } from "@rapi/adapters";
 import {
   discountCardButton,
   publishDiscountCard,
@@ -103,7 +103,7 @@ function setup(
     sent,
     input: {
       store,
-      delivery: new DiscordDeliveryAdapter("token"),
+      delivery: new DiscordHttpGateway("token"),
       ownerIds: ["1"],
       reviewChannelIds: async () => ["100"],
       publicChannelIds: async () => ["200"],

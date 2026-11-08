@@ -1,25 +1,21 @@
 import {
-  ApiSummarizer,
-  CodexSummarizer,
-  DiscordDeliveryAdapter,
-  FeedSourceAdapter,
-  GitHubSourceAdapter,
-  GitHubStarRecommender,
-  HtmlSourceAdapter,
+  ApiModelGateway,
+  CodexModelGateway,
+  DiscordHttpGateway,
   createModelClient,
   readLatestRapiRelease,
   readOwnStars,
-  githubOAuthProvider,
+  githubOAuthGateway,
   secretBox,
   searchRepos,
   digTrails,
   followNeighbors,
   superadminDmNotifier,
-  sourceParsers,
   discordLayoutPorts,
   loadDiscountSources,
   discountCandidateJobs,
-  servicePages,
+  servicePageGateway,
+  WebSourceGateway,
 } from "@rapi/adapters";
 import {
   DEFAULT_SUMMARY_MODEL,
@@ -88,7 +84,7 @@ const store = new PostgresStore(config.DATABASE_URL, {
   connectionTimeoutMs: config.DB_CONNECT_TIMEOUT_MS,
   queryTimeoutMs: config.DB_QUERY_TIMEOUT_MS,
 });
-const discord = new DiscordDeliveryAdapter(config.DISCORD_BOT_TOKEN);
+const discord = new DiscordHttpGateway(config.DISCORD_BOT_TOKEN);
 const layout = new DiscordLayoutManager(store, {
   ...discordLayoutPorts(config.DISCORD_BOT_TOKEN, config.DISCORD_LAYOUT_FILE),
 });
@@ -102,12 +98,17 @@ const summarizer =
   process.env.SUMMARY_MODEL === "off"
     ? undefined
     : config.SUMMARIZER_BACKEND === "api" && modelClient
-      ? new ApiSummarizer(
+      ? new ApiModelGateway(
           modelClient,
           `api:${config.MODEL_FOR_SUMMARY ?? config.MODEL_DEFAULT}`,
         )
-      : new CodexSummarizer(process.env.SUMMARY_MODEL || DEFAULT_SUMMARY_MODEL);
-const agent = new RapiAgent(store, sourceParsers);
+      : new CodexModelGateway(
+          process.env.SUMMARY_MODEL || DEFAULT_SUMMARY_MODEL,
+        );
+const agent = new RapiAgent(
+  store,
+  new WebSourceGateway({ githubToken: config.GITHUB_READ_TOKEN }),
+);
 const homeGuildId = resolveHomeGuildId(
   config.DISCORD_HOME_GUILD_ID,
   config.COMMUNITY_GUILD_ID,
@@ -126,10 +127,6 @@ const communityFeeds = config.COMMUNITY_GUILD_ID
       root: process.cwd(),
     })
   : undefined;
-const feed = new FeedSourceAdapter();
-const htmlList = new HtmlSourceAdapter();
-const github = new GitHubSourceAdapter(config.GITHUB_READ_TOKEN);
-const stars = new GitHubStarRecommender(config.GITHUB_READ_TOKEN);
 
 const loadApprovedGuilds = async () =>
   (await store.allowedDiscordGuilds()).map((guild) => guild.guildId);
@@ -324,8 +321,7 @@ async function runLoop(
   }
 }
 
-const collect = () =>
-  agent.collectConfiguredSources(feed, github, stars, htmlList);
+const collect = () => agent.collectConfiguredSources();
 
 // Curation calls the model and can take minutes; it never delays the collection loop.
 async function curate(): Promise<void> {
@@ -353,7 +349,7 @@ async function collectCandidates(): Promise<void> {
     ...(await verifyDiscountCandidates({
       store,
       operators: sources.operators,
-      pages: servicePages(),
+      pages: servicePageGateway(),
       ...(summarizer?.translate && {
         translate: (texts: string[]) => summarizer.translate!(texts),
       }),
@@ -366,7 +362,11 @@ async function collectCandidates(): Promise<void> {
 async function checkReports(): Promise<string[]> {
   try {
     const { operators } = await loadDiscountSources(process.cwd());
-    return await verifyReports({ store, operators, pages: servicePages() });
+    return await verifyReports({
+      store,
+      operators,
+      pages: servicePageGateway(),
+    });
   } catch (error) {
     return [`reports: ${error instanceof Error ? error.message : "failed"}`];
   }
@@ -435,7 +435,7 @@ const encryptionKey = config.WEBHOOK_ENCRYPTION_KEY;
 const connections: ConnectionService | undefined = encryptionKey
   ? {
       store: new PostgresConnectionStore(store),
-      providers: githubApp ? { github: githubOAuthProvider(githubApp) } : {},
+      providers: githubApp ? { github: githubOAuthGateway(githubApp) } : {},
       box: secretBox(encryptionKey),
       secret: encryptionKey,
       users: {},

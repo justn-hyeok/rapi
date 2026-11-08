@@ -8,7 +8,7 @@ import {
   type ManagedDiscordResource,
 } from "./discord-layout.js";
 import { helpMessageBody } from "./discord-help.js";
-import { type DiscordLayoutStore, type DiscordRest } from "./ports/index.js";
+import { type DiscordLayoutStore, type DiscordGateway } from "./ports/index.js";
 
 type DiscordRole = {
   id: string;
@@ -62,12 +62,12 @@ function actionSummary(actions: DiscordLayoutAction[]): string {
 }
 
 export class DiscordLayoutManager {
-  readonly rest: DiscordRest;
+  readonly rest: Pick<DiscordGateway, "request">;
 
   constructor(
     readonly store: DiscordLayoutStore,
     readonly options: {
-      rest: DiscordRest;
+      rest: Pick<DiscordGateway, "request">;
       /** The layout YAML, read when a plan is made. */
       readLayout: () => Promise<string>;
       now?: () => Date;

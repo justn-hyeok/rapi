@@ -1,13 +1,6 @@
 import { createHash } from "node:crypto";
 import { XMLParser } from "fast-xml-parser";
-import {
-  type ExternalItem,
-  type FeedReader,
-  type GitHubEventReader,
-  type HtmlReader,
-  type SourceParsers,
-  type SourcePayload,
-} from "@rapi/application";
+import { type ExternalItem, type SourcePayload } from "@rapi/application";
 import {
   type HtmlSourcePolicy,
   type ServicePage,
@@ -678,7 +671,7 @@ export function parseGitHubEvent(
   };
 }
 
-export class GitHubSourceAdapter implements GitHubEventReader {
+export class GitHubEventSource {
   constructor(
     private readonly token?: string,
     private readonly options: SourceHttpOptions = {},
@@ -713,7 +706,7 @@ export class GitHubSourceAdapter implements GitHubEventReader {
   }
 }
 
-export class FeedSourceAdapter implements FeedReader {
+export class FeedSource {
   constructor(private readonly options: SourceHttpOptions = {}) {}
 
   async fetch(
@@ -740,7 +733,7 @@ export class FeedSourceAdapter implements FeedReader {
 
 const HTML_HEADERS = { Accept: "text/html", "User-Agent": "rapi" };
 
-export class HtmlSourceAdapter implements HtmlReader {
+export class HtmlSource {
   constructor(private readonly options: SourceHttpOptions = {}) {}
 
   // Same limits and fetch path as the RSS adapter (shared readSource).
@@ -779,8 +772,3 @@ export class HtmlSourceAdapter implements HtmlReader {
     return parseHtmlArticle(body);
   }
 }
-
-export const sourceParsers: SourceParsers = {
-  feed: parseFeed,
-  githubEvent: parseGitHubEvent,
-};

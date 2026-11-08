@@ -1,5 +1,5 @@
 import {
-  type DeliveryAdapter,
+  type DiscordGateway,
   DiscordServerError,
   type DiscountCandidateStore,
   UncertainDeliveryError,
@@ -33,7 +33,7 @@ export interface DiscountApproval {
     | "saveCandidatePublicMessage"
     | "discardCandidate"
   >;
-  delivery: Pick<DeliveryAdapter, "send">;
+  delivery: Pick<DiscordGateway, "send">;
   ownerIds: readonly string[];
   reviewChannelIds: () => Promise<readonly string[]>;
   publicChannelIds: (kind: PublicAlertKind) => Promise<readonly string[]>;

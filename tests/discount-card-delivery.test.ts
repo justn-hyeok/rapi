@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
-import { DiscordDeliveryAdapter } from "@rapi/adapters";
+import { DiscordHttpGateway } from "@rapi/adapters";
 import {
   UNVETTED_CARDS_PER_DAY,
   NEW_SERVICE_CARDS_PER_DAY,
@@ -109,7 +109,7 @@ function discordAnswering(t: TestContext, answer?: (id: string) => Response) {
   );
   return {
     sent,
-    delivery: new DiscordDeliveryAdapter("token"),
+    delivery: new DiscordHttpGateway("token"),
     ids: () => sent.map((message) => message.embeds[0]!.url.split("/").pop()),
   };
 }
@@ -245,7 +245,7 @@ test("a send with an unknown outcome is never sent again", async (t) => {
     if (attempts === 1) throw new Error("timed out");
     return new Response(JSON.stringify({ id: "message" }));
   });
-  const delivery = new DiscordDeliveryAdapter("token");
+  const delivery = new DiscordHttpGateway("token");
   const failures = await sendDiscountCards({
     delivery,
     store,

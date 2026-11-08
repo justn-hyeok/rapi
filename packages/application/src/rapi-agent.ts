@@ -2,13 +2,9 @@ import { randomUUID } from "node:crypto";
 export { DEFAULT_CODEX_MODEL as DEFAULT_SUMMARY_MODEL } from "@rapi/domain";
 import {
   type ExternalItem,
-  type FeedReader,
-  type GitHubEventReader,
-  type HtmlReader,
-  type SourceParsers,
   type SourcePayload,
+  type SourceGateway,
   type SourceStore,
-  type StarRecommender,
 } from "./ports/index.js";
 import type { Visibility } from "@rapi/domain";
 import {
@@ -48,7 +44,7 @@ export function redactUrlTokens(body: string): string {
 export class RapiAgent {
   constructor(
     readonly store: SourceStore,
-    private readonly parse: SourceParsers,
+    private readonly sources: SourceGateway,
   ) {}
 
   createSource(
@@ -105,7 +101,7 @@ export class RapiAgent {
       collectedAt,
     );
     let inserted = 0;
-    for (const item of this.parse.feed(xml)) {
+    for (const item of this.sources.parseFeed(xml)) {
       const result = await this.ingestExternalItem(sourceId, item, collectedAt);
       if (result.inserted) inserted += 1;
     }
@@ -127,7 +123,7 @@ export class RapiAgent {
     for (const payload of payloads) {
       const result = await this.ingestExternalItem(
         sourceId,
-        this.parse.githubEvent(payload),
+        this.sources.parseGitHubEvent(payload),
         collectedAt,
       );
       if (result.inserted) inserted += 1;
@@ -153,12 +149,8 @@ export class RapiAgent {
     );
   }
 
-  async collectConfiguredSources(
-    feed: FeedReader,
-    github: GitHubEventReader,
-    stars: StarRecommender | undefined,
-    html: HtmlReader,
-  ): Promise<void> {
+  async collectConfiguredSources(): Promise<void> {
+    const { sources: web } = this;
     const sources = await this.store.collectableSources();
     await this.collectIndependently(
       sources.map((source) => ({
@@ -171,13 +163,13 @@ export class RapiAgent {
               source.id,
               (onPayload) =>
                 source.kind === "html"
-                  ? html.fetch(
+                  ? web.html(
                       locator,
                       parseHtmlSourcePolicy(source.collection_policy),
                       source.etag ?? undefined,
                       onPayload,
                     )
-                  : feed.fetch(locator, source.etag ?? undefined, onPayload),
+                  : web.feed(locator, source.etag ?? undefined, onPayload),
               secret,
             );
             for (const item of result.items)
@@ -190,8 +182,6 @@ export class RapiAgent {
             return;
           }
           if (source.kind === "github_stars") {
-            if (!stars)
-              throw new Error("GitHub star recommendations are not configured");
             // Recommendations are a daily digest, not a polled stream.
             if (
               source.last_success_at &&
@@ -202,7 +192,10 @@ export class RapiAgent {
             const exclude = new Set(
               await this.store.sourceExternalIds(source.id),
             );
-            for (const item of await stars.recommend(source.locator, exclude))
+            for (const item of await web.recommendStars(
+              source.locator,
+              exclude,
+            ))
               await this.ingestExternalItem(source.id, item);
             await this.store.saveCursor(
               source.id,
@@ -218,7 +211,7 @@ export class RapiAgent {
           const result = await this.withFailureSnapshot(
             source.id,
             (onPayload) =>
-              github.fetchRepositoryEvents(
+              web.githubEvents(
                 owner,
                 repository,
                 source.etag ?? undefined,

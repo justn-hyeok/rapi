@@ -47,7 +47,7 @@ export interface OAuthGrant {
 }
 
 /** One service's OAuth app, registered by the operator. */
-export interface OAuthProvider {
+export interface OAuthGateway {
   /** Where to send someone to grant the app, carrying `state` back. */
   authorizeUrl(state: string): string;
   /** Trades the code for a token and says whose account it is. Throws on refusal. */

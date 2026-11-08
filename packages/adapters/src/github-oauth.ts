@@ -1,4 +1,4 @@
-import { type OAuthGrant, type OAuthProvider } from "@rapi/application";
+import { type OAuthGrant, type OAuthGateway } from "@rapi/application";
 import { readSource, type SourceHttpOptions } from "./sources.js";
 
 /** A GitHub OAuth app this deployment owns. It asks for no scope: public data only. */
@@ -111,10 +111,10 @@ export async function revokeGitHubGrant(
 }
 
 /** The app as the connections port sees it. */
-export function githubOAuthProvider(
+export function githubOAuthGateway(
   app: GitHubOAuthApp,
   options: SourceHttpOptions = {},
-): OAuthProvider {
+): OAuthGateway {
   return {
     authorizeUrl: (state) => githubAuthorizeUrl(app, state),
     finish: (code) => finishGitHubOAuth(app, code, options),

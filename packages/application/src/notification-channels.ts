@@ -1,4 +1,4 @@
-import { type DeliveryAdapter, type GuildStore } from "./ports/index.js";
+import { type DiscordGateway, type GuildStore } from "./ports/index.js";
 import {
   alertLabel,
   canManageGuild,
@@ -43,7 +43,7 @@ export function createNotificationChannels(input: {
     | "setGuildChannel"
     | "clearGuildChannel"
   >;
-  delivery: Pick<DeliveryAdapter, "send">;
+  delivery: Pick<DiscordGateway, "send">;
   ownerIds: readonly string[];
   homeGuildId: string | undefined;
   allowedGuilds: () => Promise<readonly string[]>;

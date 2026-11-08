@@ -1,5 +1,5 @@
 import {
-  type DeliveryAdapter,
+  type DiscordGateway,
   type DiscountCandidateStore,
   type GuildStore,
 } from "./ports/index.js";
@@ -246,7 +246,7 @@ export async function sendGuildRequestCards(input: {
       | "releaseGuildCard"
       | "saveGuildCardMessage"
     >;
-  delivery: Pick<DeliveryAdapter, "send">;
+  delivery: Pick<DiscordGateway, "send">;
   channelId: string;
   guildName: (guildId: string) => Promise<string | null>;
 }): Promise<string[]> {

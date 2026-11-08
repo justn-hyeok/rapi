@@ -4,7 +4,9 @@ import type {
   DeliveryTarget,
 } from "@rapi/domain";
 
-export interface DeliveryAdapter {
+/** Discord, as the bot: messages, and its REST API for everything else. */
+export interface DiscordGateway {
+  request<T>(route: string, init?: RequestInit): Promise<T>;
   send(
     target: DeliveryTarget,
     payload: DeliveryPayload,

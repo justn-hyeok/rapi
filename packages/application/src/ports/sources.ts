@@ -22,41 +22,31 @@ export interface FetchedItems {
   etag?: string;
 }
 
-export interface FeedReader {
-  fetch(
+/** Where configured sources are read: feeds, HTML lists and GitHub. */
+export interface SourceGateway {
+  feed(
     url: string,
     etag?: string,
     onPayload?: OnSourcePayload,
   ): Promise<FetchedItems>;
-}
-
-export interface HtmlReader {
-  fetch(
+  html(
     url: string,
     policy: HtmlSourcePolicy,
     etag?: string,
     onPayload?: OnSourcePayload,
   ): Promise<FetchedItems>;
-}
-
-export interface GitHubEventReader {
-  fetchRepositoryEvents(
+  githubEvents(
     owner: string,
     repository: string,
     etag?: string,
     onPayload?: OnSourcePayload,
   ): Promise<FetchedItems>;
-}
-
-export interface StarRecommender {
-  recommend(
+  /** Repositories like the ones `user` starred, minus `exclude`. */
+  recommendStars(
     user: string,
     exclude: ReadonlySet<string>,
   ): Promise<ExternalItem[]>;
-}
-
-/** Turns a raw feed body or GitHub event into items. */
-export interface SourceParsers {
-  feed(xml: string): ExternalItem[];
-  githubEvent(payload: Record<string, unknown>): ExternalItem;
+  /** Turns a raw feed body or GitHub event into items. */
+  parseFeed(xml: string): ExternalItem[];
+  parseGitHubEvent(payload: Record<string, unknown>): ExternalItem;
 }

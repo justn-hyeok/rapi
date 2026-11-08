@@ -39,7 +39,7 @@ Rapi는 헥사고날(포트와 어댑터) 구조를 따른다. 안쪽은 바깥�
 | 자리 | 위치 | 예 |
 | --- | --- | --- |
 | 도메인 | `core/src/domain/star-*.ts` | 디깅 점수, 관심사, 쉬는 규칙 |
-| 포트 | `core/src/ports/*.ts` | `StarOwnerStore`, `StarGitHub` |
+| 포트 | `core/src/ports/*.ts` | `StarStore`, `GitHubGateway` |
 | 유스케이스 | `agent/src/star-*.ts` | 매일 알림, 투표, 구독 |
 | 어댑터 | `db/src/star-owner-store.ts`, `adapters/src/github-stars.ts`, `apps/bot/src/star-page.ts` | Postgres, GitHub API, 관심사 페이지 |
 

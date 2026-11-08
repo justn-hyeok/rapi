@@ -2,13 +2,8 @@ import assert from "node:assert/strict";
 import { once } from "node:events";
 import { createServer } from "node:http";
 import { test } from "node:test";
-import {
-  FeedSourceAdapter,
-  HtmlSourceAdapter,
-  sourceParsers,
-} from "@rapi/adapters";
+import { WebSourceGateway } from "@rapi/adapters";
 import { RapiAgent } from "@rapi/application";
-import { GitHubSourceAdapter } from "@rapi/adapters";
 import type { PostgresStore } from "@rapi/adapters";
 
 // In-memory store with the same uniqueness rules as the raw_events indexes:
@@ -106,14 +101,9 @@ test("polling an unchanged feed twice stores its items once and no per-poll snap
         policy: { html: { linkPattern: "^/news/[a-z]+$" } },
       },
     ]);
-    const agent = new RapiAgent(store, sourceParsers);
+    const agent = new RapiAgent(store, new WebSourceGateway());
     for (let poll = 0; poll < 2; poll += 1)
-      await agent.collectConfiguredSources(
-        new FeedSourceAdapter(),
-        new GitHubSourceAdapter(),
-        undefined,
-        new HtmlSourceAdapter(),
-      );
+      await agent.collectConfiguredSources();
     assert.deepEqual(failures, []);
     assert.equal(rawEvents.size, 3, "two rss items and one html item");
     assert.ok([...rawEvents.values()].every((raw) => raw.externalId));
@@ -139,11 +129,8 @@ test("a response that fails to parse is still kept for diagnosis", async () => {
         locator: `http://127.0.0.1:${address.port}/feed`,
       },
     ]);
-    const agent = new RapiAgent(store, sourceParsers);
-    await agent.collectConfiguredSources(
-      new FeedSourceAdapter(),
-      new GitHubSourceAdapter(),
-    );
+    const agent = new RapiAgent(store, new WebSourceGateway());
+    await agent.collectConfiguredSources();
     assert.equal(failures.length, 1);
     assert.equal(rawEvents.size, 1);
   } finally {
