@@ -1,4 +1,3 @@
-import { DiscordServerError, UncertainDeliveryError } from "@rapi/adapters";
 import {
   clip,
   closeNeighbors,
@@ -25,6 +24,8 @@ import {
   type Interests,
   type KeptNeighbor,
   type StoredStar,
+  DiscordServerError,
+  UncertainDeliveryError,
 } from "@rapi/core";
 import type { StarOwnerStore } from "@rapi/db";
 

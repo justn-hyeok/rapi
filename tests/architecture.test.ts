@@ -23,7 +23,6 @@ const pending = new Set<string>([
   "packages/agent/src/community-feeds.ts -> node:fs/promises",
   "packages/agent/src/discord-layout-manager.ts -> @rapi/db",
   "packages/agent/src/discord-layout-manager.ts -> node:fs/promises",
-  "packages/agent/src/discount-approval.ts -> @rapi/adapters",
   "packages/agent/src/discount-approval.ts -> @rapi/db",
   "packages/agent/src/discount-candidates.ts -> @rapi/adapters",
   "packages/agent/src/discount-candidates.ts -> @rapi/db",
@@ -35,10 +34,8 @@ const pending = new Set<string>([
   "packages/agent/src/rapi-agent.ts -> @rapi/db",
   "packages/agent/src/rapi-agent.ts -> pg",
   "packages/agent/src/rapi-updates.ts -> @rapi/db",
-  "packages/agent/src/reports.ts -> @rapi/adapters",
   "packages/agent/src/reports.ts -> @rapi/db",
   "packages/agent/src/star-interests.ts -> @rapi/db",
-  "packages/agent/src/star-reminders.ts -> @rapi/adapters",
   "packages/agent/src/star-reminders.ts -> @rapi/db",
   "packages/agent/src/star-subscriptions.ts -> @rapi/db",
 ]);

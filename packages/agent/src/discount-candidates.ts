@@ -7,7 +7,6 @@ import {
   CommunityRoute,
   curlFetch,
   CreditFeedRoute,
-  DiscordRateLimitError,
   HackerNewsRoute,
   PromoClockRoute,
   PullRequestRoute,
@@ -15,7 +14,6 @@ import {
   siteOffer,
   RelayListRoute,
   RelaySiteRoute,
-  UncertainDeliveryError,
   type CandidateResult,
   type CatalogSource,
   type CommitLogSource,
@@ -45,6 +43,8 @@ import {
   type DiscountCandidateRoute,
   type ProblemReportForCard,
   type KnownOperator,
+  DiscordRateLimitError,
+  UncertainDeliveryError,
 } from "@rapi/core";
 import type { PostgresStore } from "@rapi/db";
 import { messageBody } from "./community-feeds.js";

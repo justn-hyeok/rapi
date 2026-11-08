@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import {
-  DiscordDeliveryAdapter,
   DiscordRateLimitError,
   DiscordServerError,
   PermanentDeliveryError,
   UncertainDeliveryError,
-} from "@rapi/adapters";
+} from "@rapi/core";
+import { DiscordDeliveryAdapter } from "@rapi/adapters";
 import { remindStars, starReminderPayload } from "@rapi/agent";
 import type { DeliveryPayload, GitHubStar, StoredStar } from "@rapi/core";
 
