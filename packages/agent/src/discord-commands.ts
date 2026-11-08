@@ -27,6 +27,7 @@ export const slashCommands = [
   "server_config",
   "report",
   "stars",
+  "connections",
   "features",
   "guilds",
   "notification_channels",
@@ -42,6 +43,8 @@ const commandFeatures: Record<
   server_config: "server_config",
   report: "report",
   stars: "stars",
+  // Connecting an account is not a server's feature to switch off.
+  connections: undefined,
   features: undefined,
   guilds: undefined,
   notification_channels: undefined,
@@ -57,10 +60,14 @@ export interface DiscordCommandResult {
   data?: Record<string, unknown>;
 }
 
+// Each person's own: anyone in an allowed server, and only from a server,
+// since a DM needs a server shared with the bot.
+const PERSONAL = new Set<DiscordCommand["name"]>(["stars", "connections"]);
+
 export function requiredCommandAccess(
   command: DiscordCommand["name"],
 ): DiscordAccessLevel {
-  if (command === "report" || command === "stars") return "user";
+  if (PERSONAL.has(command) || command === "report") return "user";
   return command === "server_config" ||
     command === "features" ||
     command === "guilds"
@@ -124,6 +131,11 @@ export class DiscordCommandService {
       ) => Promise<string>;
       // Each person's own star reminders.
       stars?: (
+        identity: DiscordIdentity,
+        options: Record<string, unknown>,
+      ) => Promise<string>;
+      // Each person's own accounts on other services.
+      connections?: (
         identity: DiscordIdentity,
         options: Record<string, unknown>,
       ) => Promise<string>;
@@ -226,12 +238,12 @@ export class DiscordCommandService {
       await this.assertGuildFeature(identity.guildId, feature);
     // Anyone in an allowed server may report or get star reminders; the channel
     // gate still applies.
-    const anyMember = command.name === "report" || command.name === "stars";
+    const anyMember = command.name === "report" || PERSONAL.has(command.name);
     if (command.name === "report" && !identity.guildId)
       throw new Error("제보는 서버에서만 보낼 수 있습니다.");
     // The DM needs a server shared with the bot, which a server command proves.
-    if (command.name === "stars" && !identity.guildId)
-      throw new Error("스타 알림은 라피가 있는 서버에서 연결해 주세요.");
+    if (PERSONAL.has(command.name) && !identity.guildId)
+      throw new Error("라피가 있는 서버에서 해 주세요.");
     const access = resolveDiscordAccess(
       identity,
       anyMember
@@ -307,6 +319,15 @@ export class DiscordCommandService {
           throw new Error("스타 알림이 설정되지 않았습니다.");
         return {
           messages: [await this.operations.stars(identity, command.options)],
+        };
+      }
+      case "connections": {
+        if (!this.operations?.connections)
+          throw new Error("연결 기능이 설정되지 않았습니다.");
+        return {
+          messages: [
+            await this.operations.connections(identity, command.options),
+          ],
         };
       }
       case "report": {

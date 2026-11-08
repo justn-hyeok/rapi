@@ -103,7 +103,7 @@ export class PostgresStore
     if (!database.rows[0]?.name.endsWith("_test"))
       throw new Error("Refusing to reset a database without an _test suffix");
     await this.pool
-      .query(`TRUNCATE discord_guilds, discord_guild_features, discord_guild_channels, rapi_update_notices, github_stars, star_reminder_days, star_interests, star_votes, star_suggestions, star_neighbors, star_subscribers, discount_candidates, problem_reports, discord_layout_plans, discord_managed_resources, summaries, classifications,
+      .query(`TRUNCATE discord_guilds, discord_guild_features, discord_guild_channels, rapi_update_notices, github_stars, star_reminder_days, star_interests, star_votes, star_suggestions, star_neighbors, star_subscribers, user_connections, discount_candidates, problem_reports, discord_layout_plans, discord_managed_resources, summaries, classifications,
       item_relations, source_items, source_cursors, raw_events, sources RESTART IDENTITY CASCADE`);
   }
 
@@ -1092,7 +1092,7 @@ export class PostgresStore
   async starSubscribers(): Promise<StarSubscriber[]> {
     const { rows } = await this.pool.query<StarSubscriber>(
       `SELECT user_id AS "userId", github_login AS "githubLogin",
-              github_token AS "githubToken", subscribed_at AS "subscribedAt", paused_at AS "pausedAt",
+              subscribed_at AS "subscribedAt", paused_at AS "pausedAt",
               paused_reason AS "pausedReason"
        FROM star_subscribers ORDER BY subscribed_at, user_id`,
     );
@@ -1102,7 +1102,7 @@ export class PostgresStore
   async starSubscriber(userId: string): Promise<StarSubscriber | null> {
     const { rows } = await this.pool.query<StarSubscriber>(
       `SELECT user_id AS "userId", github_login AS "githubLogin",
-              github_token AS "githubToken", subscribed_at AS "subscribedAt", paused_at AS "pausedAt",
+              subscribed_at AS "subscribedAt", paused_at AS "pausedAt",
               paused_reason AS "pausedReason"
        FROM star_subscribers WHERE user_id = $1`,
       [userId],
@@ -1111,16 +1111,12 @@ export class PostgresStore
   }
 
   /**
-   * Connects someone to a GitHub login, or changes it. A new login drops the
-   * stars and neighbors read for the old one; the interests they picked, their
-   * thumbs and what they were shown stay. Connecting again unpauses and
-   * replaces the token.
+   * Turns reminders on for someone, or changes whose stars they read. A new
+   * login drops the stars and neighbors read for the old one; the interests
+   * they picked, their thumbs and what they were shown stay. Saving again
+   * unpauses.
    */
-  async saveStarSubscriber(
-    userId: string,
-    githubLogin: string,
-    githubToken: string | null,
-  ): Promise<void> {
+  async saveStarSubscriber(userId: string, githubLogin: string): Promise<void> {
     await this.transaction(async (client) => {
       const before = await client.query<{ github_login: string }>(
         "SELECT github_login FROM star_subscribers WHERE user_id = $1 FOR UPDATE",
@@ -1135,12 +1131,10 @@ export class PostgresStore
             userId,
           ]);
       await client.query(
-        `INSERT INTO star_subscribers (user_id, github_login, github_token)
-         VALUES ($1, $2, $3)
+        `INSERT INTO star_subscribers (user_id, github_login) VALUES ($1, $2)
          ON CONFLICT (user_id) DO UPDATE SET github_login = EXCLUDED.github_login,
-           github_token = EXCLUDED.github_token,
            paused_at = NULL, paused_reason = NULL`,
-        [userId, githubLogin, githubToken],
+        [userId, githubLogin],
       );
     });
   }

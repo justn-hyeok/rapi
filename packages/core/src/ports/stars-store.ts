@@ -2,9 +2,8 @@ import type { GitHubStar, StoredStar } from "../domain/star-reminders.js";
 
 export interface StarSubscriber {
   userId: string;
+  /** Whose stars are read; their GitHub connection, or the owner's configured login. */
   githubLogin: string;
-  // Encrypted. Null for the configured owner, read with the deployment's token.
-  githubToken: string | null;
   subscribedAt: Date;
   pausedAt: Date | null;
   pausedReason: string | null;
@@ -62,11 +61,7 @@ export interface StarSubscriberStore {
   starsOf(ownerId: string): StarOwnerStore;
   starSubscribers(): Promise<StarSubscriber[]>;
   starSubscriber(userId: string): Promise<StarSubscriber | null>;
-  saveStarSubscriber(
-    userId: string,
-    githubLogin: string,
-    githubToken: string | null,
-  ): Promise<void>;
+  saveStarSubscriber(userId: string, githubLogin: string): Promise<void>;
   pauseStarSubscriber(userId: string, reason: string): Promise<void>;
   removeStarSubscriber(userId: string): Promise<boolean>;
 }

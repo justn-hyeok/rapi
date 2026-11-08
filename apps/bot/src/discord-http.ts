@@ -31,6 +31,7 @@ import {
   REVIEW_ALERT_KINDS,
   REPORT_MEMO_MAX_CHARS,
   type DiscordIdentity,
+  CONNECTION_PROVIDERS,
 } from "@rapi/core";
 import { redactChat } from "@rapi/contracts";
 
@@ -68,6 +69,7 @@ export const discordCommandAliases = {
   서버구성: "server_config",
   제보: "report",
   스타: "stars",
+  연결: "connections",
   기능: "features",
   서버: "guilds",
   "ai-할인-알림": "notification_channels",
@@ -75,6 +77,14 @@ export const discordCommandAliases = {
   "라피-업데이트-알림": "notification_channels",
   "검토-알림": "notification_channels",
 } as const satisfies Record<string, DiscordCommand["name"]>;
+
+const serviceOption = {
+  ...stringOption("서비스", "연결할 서비스"),
+  choices: Object.entries(CONNECTION_PROVIDERS).map(([value, name]) => ({
+    name,
+    value,
+  })),
+};
 
 const featureOption = {
   ...stringOption("기능", "바꿀 기능"),
@@ -189,20 +199,44 @@ export const slashCommandDefinitions = [
     options: [
       {
         type: 1,
-        name: "깃허브-연결",
-        description: "GitHub로 로그인해 연결하고 DM을 받기 시작합니다",
+        name: "켜기",
+        description: "GitHub 연결로 매일 아침 DM을 받기 시작합니다",
       },
       {
         type: 1,
         name: "관심사",
         description: "관심사를 고르는 페이지 링크를 받습니다",
       },
-      { type: 1, name: "보기", description: "연결 상태를 봅니다" },
+      {
+        type: 1,
+        name: "보기",
+        description: "받고 있는지와 멈춘 이유를 봅니다",
+      },
       {
         type: 1,
         name: "끄기",
         description: "DM을 끄고 저장한 기록을 모두 지웁니다",
       },
+    ],
+  },
+  {
+    name: "연결",
+    description: "내 GitHub 같은 다른 서비스 계정을 라피에 연결합니다",
+    type: 1,
+    options: [
+      {
+        type: 1,
+        name: "추가",
+        description: "서비스에 로그인해 연결하는 링크를 받습니다",
+        options: [serviceOption],
+      },
+      {
+        type: 1,
+        name: "끊기",
+        description: "연결을 끊고 토큰을 지웁니다",
+        options: [serviceOption],
+      },
+      { type: 1, name: "보기", description: "연결한 서비스를 봅니다" },
     ],
   },
   {
