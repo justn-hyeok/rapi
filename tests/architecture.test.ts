@@ -18,8 +18,6 @@ const rules: Record<string, RegExp> = {
 // Imports that still cross a boundary. Each one is being moved behind a port;
 // the test fails when an entry here is no longer needed, so the list only shrinks.
 const pending = new Set<string>([
-  "packages/agent/src/community-feeds.ts -> @rapi/adapters",
-  "packages/agent/src/community-feeds.ts -> node:fs/promises",
   "packages/agent/src/discord-layout-manager.ts -> node:fs/promises",
   "packages/agent/src/discount-candidates.ts -> @rapi/adapters",
   "packages/agent/src/discount-candidates.ts -> node:fs/promises",

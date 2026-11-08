@@ -41,6 +41,9 @@ describe("curation feeds", () => {
         {
           guildId: "g",
           autoPost: { "ai-blogs": true, "free-tokens": true },
+          getText: async () => {
+            throw new Error("no network in tests");
+          },
           post: async (channel, embeds) => {
             posts.push({ channel, embeds });
             return String(posts.length);

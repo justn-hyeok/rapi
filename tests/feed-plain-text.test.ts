@@ -38,6 +38,9 @@ test("each AI blog post gets its own card without markup or entities", async () 
   const feeds = new CommunityFeeds(store as never, undefined, {
     guildId: "g",
     post: async () => "m",
+    getText: async () => {
+      throw new Error("no network in tests");
+    },
   });
   await feeds.aiBlogs(new Date("2026-10-27T01:00:00Z"));
   assert.deepEqual(
@@ -75,7 +78,13 @@ const blogFeeds = (
       },
     } as never,
     summarizer as never,
-    { guildId: "g", post: async () => "m" },
+    {
+      guildId: "g",
+      post: async () => "m",
+      getText: async () => {
+        throw new Error("no network in tests");
+      },
+    },
   );
 const blogItem = (id: string, summary = "English excerpt of the post") => ({
   id,

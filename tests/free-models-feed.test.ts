@@ -66,6 +66,9 @@ function harness(catalog: unknown, openRouter: unknown[] = []) {
   const feeds = new CommunityFeeds(store as never, undefined, {
     guildId: "g",
     autoPost: { "free-tokens": true },
+    getText: async () => {
+      throw new Error("no network in tests");
+    },
     post: async (_channel, embeds) => {
       const title = (embeds[0] as Embed).title;
       if (refused.has(title)) throw new Error("Discord returned 400");

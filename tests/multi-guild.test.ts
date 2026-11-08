@@ -253,6 +253,9 @@ describe("per-guild feeds", () => {
     const feeds = new CommunityFeeds(store, undefined, {
       guildId: "home",
       guildTargets: async () => targets,
+      getText: async () => {
+        throw new Error("no network in tests");
+      },
       post: async (channel) => {
         posted.push({ channel });
         return "m";

@@ -1,10 +1,3 @@
-import { readFile } from "node:fs/promises";
-import {
-  readSource,
-  type CurationChannel,
-  type ItemSummarizer,
-  type SummaryInput,
-} from "@rapi/adapters";
 import {
   findCitations,
   isFreeTokenNews,
@@ -19,9 +12,12 @@ import {
 } from "@rapi/core";
 import type { GuildFeatureSwitch } from "./guild-features.js";
 import type {
-  GuildStore,
   CommunityStore,
+  CurationChannel,
   DiscordLayoutStore,
+  GuildStore,
+  ItemSummarizer,
+  SummaryInput,
 } from "@rapi/core";
 
 type Feed = "ai-blogs" | "free-tokens";
@@ -38,7 +34,7 @@ const clip = (value: string, limit: number) => {
 };
 
 /** Public model catalog with per-provider prices; about 6 MB. */
-const MODEL_CATALOG_URL = "https://models.dev/api.json";
+export const MODEL_CATALOG_URL = "https://models.dev/api.json";
 
 interface FreeProvider {
   /** Marker scope; OpenRouter keeps the unscoped markers it already has. */
@@ -178,7 +174,8 @@ export interface CommunityFeedOptions {
   /** Pins a message; failing is only a missing convenience. */
   pin?(channelId: string, messageId: string): Promise<void>;
   getJson?: (url: string, accept?: string) => Promise<unknown>;
-  getText?: (url: string, accept?: string) => Promise<string>;
+  /** Reads a public page or API; the bot reads with size and time limits. */
+  getText: (url: string, accept?: string) => Promise<string>;
 }
 
 export type CommunityFeedStore = CommunityStore &
@@ -195,21 +192,7 @@ export class CommunityFeeds {
     private readonly summarizer: ItemSummarizer | undefined,
     private readonly options: CommunityFeedOptions,
   ) {
-    this.getText =
-      options.getText ??
-      (async (url, accept = "application/json") =>
-        (
-          await readSource(
-            url,
-            {
-              "User-Agent": "rapi",
-              Accept: accept,
-            },
-            url === MODEL_CATALOG_URL
-              ? { timeoutMs: 60_000, maxBodyBytes: 16_000_000 }
-              : { timeoutMs: 20_000, maxBodyBytes: 4_000_000 },
-          )
-        ).body);
+    this.getText = options.getText;
     this.getJson =
       options.getJson ??
       (async (url, accept) =>
@@ -710,59 +693,4 @@ export async function feedGuildTargets(input: {
     if ((await input.guildFeatures.enabled(target.guildId)).has("curation"))
       switchedOn.push(target);
   return switchedOn;
-}
-
-/** Builds the feeds from config/curation in a release root, posting as the bot. */
-export async function createCommunityFeeds(input: {
-  store: CommunityFeedStore;
-  summarizer: ItemSummarizer | undefined;
-  guildId: string;
-  extraGuildIds?: readonly string[];
-  guildFeatures: Pick<GuildFeatureSwitch, "enabled">;
-  botToken: string;
-  root: string;
-}): Promise<CommunityFeeds> {
-  let config: {
-    autoPost?: Partial<Record<Feed, boolean>>;
-  } = {};
-  try {
-    config = JSON.parse(
-      await readFile(`${input.root}/config/curation/feeds.json`, "utf8"),
-    ) as typeof config;
-  } catch {
-    // Without a config no card goes out.
-  }
-  return new CommunityFeeds(input.store, input.summarizer, {
-    guildId: input.guildId,
-    guildTargets: () => feedGuildTargets(input),
-    ...(config.autoPost ? { autoPost: config.autoPost } : {}),
-    post: async (channelId, embeds) => {
-      const response = await fetch(
-        `https://discord.com/api/v10/channels/${channelId}/messages`,
-        {
-          method: "POST",
-          headers: {
-            authorization: `Bot ${input.botToken}`,
-            "content-type": "application/json",
-          },
-          body: JSON.stringify(messageBody(embeds)),
-          signal: AbortSignal.timeout(15_000),
-        },
-      );
-      if (!response.ok) throw new Error(`Discord returned ${response.status}`);
-      const message = (await response.json()) as { id?: unknown };
-      return typeof message.id === "string" ? message.id : "";
-    },
-    pin: async (channelId, messageId) => {
-      const response = await fetch(
-        `https://discord.com/api/v10/channels/${channelId}/messages/pins/${messageId}`,
-        {
-          method: "PUT",
-          headers: { authorization: `Bot ${input.botToken}` },
-          signal: AbortSignal.timeout(15_000),
-        },
-      );
-      if (!response.ok) throw new Error(`Discord returned ${response.status}`);
-    },
-  });
 }
