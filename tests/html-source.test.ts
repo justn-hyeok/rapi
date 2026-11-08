@@ -6,7 +6,7 @@ import {
   parseHtmlEntries,
   parseHtmlList,
 } from "@rapi/adapters";
-import { parseHtmlSourcePolicy } from "@rapi/core";
+import { parseHtmlSourcePolicy } from "@rapi/domain";
 
 const BASE = "https://www.anthropic.com/news";
 const POLICY = {

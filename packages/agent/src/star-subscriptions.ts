@@ -6,7 +6,7 @@ import {
   type DigTrail,
   type DiscordIdentity,
   type GitHubStar,
-} from "@rapi/core";
+} from "@rapi/domain";
 import {
   interestPageOf,
   starInterestUrl,
@@ -20,7 +20,7 @@ import {
   type ConnectionUser,
 } from "./connections.js";
 import { remindStars, type ReminderPick } from "./star-reminders.js";
-import type { StarSubscriberStore } from "@rapi/core";
+import type { StarSubscriberStore } from "@rapi/domain";
 
 const REMINDER_KST_HOUR = 9;
 // A dig takes about twenty seconds and a hundred GitHub requests, so a run of

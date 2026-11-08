@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { NewReport } from "@rapi/core";
+import type { NewReport } from "@rapi/domain";
 import { PostgresStore } from "@rapi/db";
 
 const databaseUrl = process.env.DATABASE_URL;

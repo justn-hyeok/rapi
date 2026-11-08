@@ -11,7 +11,7 @@ import {
   postSummary,
   shouldCardCandidate as shouldCardAt,
   type CandidateForCard,
-} from "@rapi/core";
+} from "@rapi/domain";
 
 // The fixture's offer runs through September 18.
 const shouldCardCandidate = (candidate: CandidateForCard) =>

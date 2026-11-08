@@ -7,7 +7,7 @@
   "include": ["*.ts", "*.d.mts"],
   "references": [
     {
-      "path": "../packages/core"
+      "path": "../packages/domain"
     },
     {
       "path": "../packages/config"

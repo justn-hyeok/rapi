@@ -60,7 +60,7 @@ import {
   resolveHomeGuildId,
   summarizeReadiness,
   type PublicAlertKind,
-} from "@rapi/core";
+} from "@rapi/domain";
 import { loadEnvironment } from "@rapi/config";
 import {
   compareMigrationNames,

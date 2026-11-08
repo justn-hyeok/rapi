@@ -8,7 +8,7 @@ import {
   type OAuthProvider,
   type SecretBox,
   type UserConnection,
-} from "@rapi/core";
+} from "@rapi/domain";
 
 // The link to the provider works this long after it is given.
 const CONNECT_MINUTES = 15;

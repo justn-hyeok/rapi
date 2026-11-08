@@ -10,7 +10,7 @@ import {
   type SourceParsers,
   type SourcePayload,
   isPublicUrl,
-} from "@rapi/core";
+} from "@rapi/domain";
 
 export interface SourceHttpOptions {
   timeoutMs?: number;

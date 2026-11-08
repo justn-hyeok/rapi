@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { isPublicUrl } from "@rapi/core";
+import { isPublicUrl } from "@rapi/domain";
 import { publicFetch } from "@rapi/adapters";
 
 test("addresses that are not plainly public are refused without asking DNS", () => {

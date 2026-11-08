@@ -13,7 +13,7 @@ import {
   HealthTransitionTracker,
   summarizeReadiness,
   type ComponentHealth,
-} from "@rapi/core";
+} from "@rapi/domain";
 import { PostgresStore } from "@rapi/db";
 
 interface PendingAlert {

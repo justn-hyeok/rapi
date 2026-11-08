@@ -7,7 +7,7 @@ import {
   useCardTemplates,
   type CandidateForCard,
   type CardTemplates,
-} from "@rapi/core";
+} from "@rapi/domain";
 
 test("an optional part goes when any value in it is empty, and an empty line goes", () => {
   assert.equal(fillTemplate("{a}[[ · {b}]]", { a: "x", b: "y" }), "x · y");

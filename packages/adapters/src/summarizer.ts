@@ -7,7 +7,7 @@ import {
   type CurationChannel,
   type ItemSummarizer,
   type SummaryInput,
-} from "@rapi/core";
+} from "@rapi/domain";
 import type { ModelClient } from "./model-client.js";
 
 const CURATION_RULES: Record<CurationChannel, string[]> = {

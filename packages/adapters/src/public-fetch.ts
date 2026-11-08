@@ -1,6 +1,6 @@
 import { lookup } from "node:dns/promises";
 import { BlockList, isIP } from "node:net";
-import { isPublicUrl } from "@rapi/core";
+import { isPublicUrl } from "@rapi/domain";
 
 const PRIVATE_ADDRESSES = new BlockList();
 for (const [network, prefix] of [

@@ -11,7 +11,7 @@ import {
   type DeliveryPayload,
   type DiscordIdentity,
   type GuildRequestForCard,
-} from "@rapi/core";
+} from "@rapi/domain";
 import { messageBody } from "./community-feeds.js";
 import type { DiscountPublishResult } from "./discount-approval.js";
 import {
@@ -19,7 +19,7 @@ import {
   isReviewChannel,
   sendClaimedCards,
 } from "./discount-candidates.js";
-import type { DiscountCandidateStore, GuildStore } from "@rapi/core";
+import type { DiscountCandidateStore, GuildStore } from "@rapi/domain";
 
 export const GUILD_APPROVE_PREFIX = "guild_approve:";
 export const GUILD_BLOCK_PREFIX = "guild_block:";

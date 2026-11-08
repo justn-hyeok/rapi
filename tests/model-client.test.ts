@@ -18,7 +18,7 @@ import {
   evaluateBudget,
   formatModelCostReport,
   microUsdFromUsd,
-} from "@rapi/core";
+} from "@rapi/domain";
 
 const KEY = "sk-secret-key-123";
 const completion = (

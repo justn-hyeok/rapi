@@ -15,7 +15,7 @@ import {
   type DigTrail,
   type GitHubStar,
   type StoredStar,
-} from "@rapi/core";
+} from "@rapi/domain";
 
 const now = new Date("2026-11-08T00:30:00Z");
 const daysAgo = (days: number) =>

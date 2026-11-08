@@ -8,7 +8,7 @@ import {
   type CandidateResult,
   type DiscountCandidateKind,
   type ServicePage,
-} from "@rapi/core";
+} from "@rapi/domain";
 import { publicFetch, type ResolveHostname } from "./public-fetch.js";
 import {
   FeedSourceAdapter,
@@ -17,7 +17,7 @@ import {
   readSource,
   type SourceHttpOptions,
 } from "./sources.js";
-import type { ExternalItem } from "@rapi/core";
+import type { ExternalItem } from "@rapi/domain";
 
 function hostname(url: string): string | null {
   try {

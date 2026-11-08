@@ -26,13 +26,13 @@ import type {
   ProblemReportForCard,
   ReportOutcome,
   Visibility,
-} from "@rapi/core";
+} from "@rapi/domain";
 import { PostgresStarOwnerStore } from "./star-owner-store.js";
 import {
   parseHtmlSourcePolicy,
   UNVETTED_ROUTES,
   validateHtmlSourceLocator,
-} from "@rapi/core";
+} from "@rapi/domain";
 
 // Tables keyed by owner besides interests and votes, which were per owner from the start.
 const STAR_LOGIN_TABLES = [

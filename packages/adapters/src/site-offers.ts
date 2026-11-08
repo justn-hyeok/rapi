@@ -2,7 +2,7 @@ import {
   plainText,
   type DiscountCandidate,
   type ServicePage,
-} from "@rapi/core";
+} from "@rapi/domain";
 import { publicFetch, type ResolveHostname } from "./public-fetch.js";
 import { readSource, type SourceHttpOptions } from "./sources.js";
 

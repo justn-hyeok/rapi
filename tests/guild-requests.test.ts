@@ -19,7 +19,7 @@ import {
   guildRequestCard,
   isGuildAllowed,
   type DeliveryPayload,
-} from "@rapi/core";
+} from "@rapi/domain";
 import {
   createDiscordInteractionServer,
   fetchGuildName,

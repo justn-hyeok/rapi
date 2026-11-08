@@ -9,14 +9,14 @@ import {
   type PublicAlertKind,
   DiscordServerError,
   UncertainDeliveryError,
-} from "@rapi/core";
+} from "@rapi/domain";
 import {
   CARDS_PER_HOUR,
   cardPayloadFor,
   DISCOUNT_DISCARD_PREFIX,
   isReviewChannel,
 } from "./discount-candidates.js";
-import type { DiscountCandidateStore } from "@rapi/core";
+import type { DiscountCandidateStore } from "@rapi/domain";
 
 export const DISCOUNT_MODAL_PREFIX = "discount_publish_modal:";
 export const DISCOUNT_DEADLINE_INPUT = "deadline";

@@ -32,8 +32,8 @@ import {
   REPORT_MEMO_MAX_CHARS,
   type DiscordIdentity,
   CONNECTION_PROVIDERS,
-} from "@rapi/core";
-import { redactChat } from "@rapi/contracts";
+} from "@rapi/domain";
+import { redactChat } from "@rapi/domain";
 
 const ed25519SpkiPrefix = Buffer.from("302a300506032b6570032100", "hex");
 

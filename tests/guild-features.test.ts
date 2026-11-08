@@ -8,7 +8,7 @@ import {
   type DiscordCommand,
   type RapiAgent,
 } from "@rapi/agent";
-import type { DiscordIdentity } from "@rapi/core";
+import type { DiscordIdentity } from "@rapi/domain";
 import { createDiscordInteractionServer } from "../apps/bot/src/discord-http.js";
 
 const OWNER: DiscordIdentity = { userId: "owner", guildId: "other" };

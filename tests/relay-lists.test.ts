@@ -10,7 +10,7 @@ import {
   discountCandidateJobs,
 } from "@rapi/adapters";
 import { collectDiscountCandidates } from "@rapi/agent";
-import type { DiscountCandidate } from "@rapi/core";
+import type { DiscountCandidate } from "@rapi/domain";
 
 const site = (id: string, credits: Record<string, unknown>) => ({
   id,

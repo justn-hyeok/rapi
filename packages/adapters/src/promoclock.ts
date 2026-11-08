@@ -1,5 +1,5 @@
-import { plainText, type DiscountCandidate } from "@rapi/core";
-import type { CandidateResult } from "@rapi/core";
+import { plainText, type DiscountCandidate } from "@rapi/domain";
+import type { CandidateResult } from "@rapi/domain";
 import { readSource, type SourceHttpOptions } from "./sources.js";
 
 export interface PromoClockSource {

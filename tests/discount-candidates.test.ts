@@ -30,7 +30,7 @@ import {
   type CandidateToVerify,
   type CandidateVerification,
   type DiscountCandidate,
-} from "@rapi/core";
+} from "@rapi/domain";
 
 const now = () => new Date("2026-11-05T00:00:00Z");
 const pages = (byUrl: Record<string, string>): typeof fetch =>

@@ -4,7 +4,7 @@ import type {
   DiscountCandidateKind,
   KnownOperator,
   ServicePages,
-} from "@rapi/core";
+} from "@rapi/domain";
 import { type CommitLogSource, CommitLogRoute } from "./commit-logs.js";
 import { curlFetch } from "./curl-fetch.js";
 import {

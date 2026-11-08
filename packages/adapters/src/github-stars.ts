@@ -5,9 +5,9 @@ import {
   type DigTrail,
   type GitHubStar,
   type NeighborRole,
-} from "@rapi/core";
+} from "@rapi/domain";
 import { readSource, type SourceHttpOptions } from "./sources.js";
-import type { ExternalItem, StarRecommender } from "@rapi/core";
+import type { ExternalItem, StarRecommender } from "@rapi/domain";
 
 export interface StarredRepository {
   fullName: string;

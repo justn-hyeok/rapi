@@ -6,8 +6,7 @@
   "exports": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "dependencies": {
-    "@rapi/contracts": "0.1.0",
-    "@rapi/core": "0.1.0",
+    "@rapi/domain": "0.1.0",
     "yaml": "2.9.0",
     "zod": "4.6.7"
   }

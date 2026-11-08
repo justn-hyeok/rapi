@@ -1,4 +1,4 @@
-import type { OAuthGrant, OAuthProvider } from "@rapi/core";
+import type { OAuthGrant, OAuthProvider } from "@rapi/domain";
 import { readSource, type SourceHttpOptions } from "./sources.js";
 
 /** A GitHub OAuth app this deployment owns. It asks for no scope: public data only. */

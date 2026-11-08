@@ -7,7 +7,7 @@ import {
   starButton,
   starCard,
   type StoredStar,
-} from "@rapi/core";
+} from "@rapi/domain";
 
 const now = new Date("2026-11-05T00:00:00Z");
 const daysAgo = (days: number) => new Date(now.getTime() - days * 86_400_000);
