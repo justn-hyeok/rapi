@@ -87,3 +87,15 @@ export function discountEvidence(
   const start = Math.max(0, match.index - 200);
   return text.slice(start, start + DISCOUNT_EVIDENCE_MAX_CHARS).trim();
 }
+
+// Gambling, shared account or certificate pools and rented identities are never
+// a deal to pass on, whatever they cost, and they say so in their own words.
+const HAZARD =
+  /도박|룰렛|카지노|博彩|赌|轮盘|老虎机|\bcasino|\broulette|\bgambl|계정\s*풀|인증서\s*풀|号池|账号池|帳號池|证书池|證書池|人证|接码|\baccount\s+pools?\b|\bcert(?:ificate)?\s+pools?\b/i;
+
+/** Whether a candidate offers something no one should be pointed to. Rules only. */
+export function isHazardous(
+  candidate: Pick<DiscountCandidate, "title" | "evidence">,
+): boolean {
+  return HAZARD.test(`${candidate.title} ${candidate.evidence}`);
+}

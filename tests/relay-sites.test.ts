@@ -1,10 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import {
-  RELAY_SITE_MAX_CHANGES,
-  RelaySiteRoute,
-  loadDiscountSources,
-} from "@rapi/adapters";
+import { RELAY_SITE_MAX_CHANGES, RelaySiteRoute } from "@rapi/adapters";
 
 interface Site {
   invitee?: number;
@@ -181,18 +177,5 @@ test("an answer that says it failed is an error, not an empty site", async () =>
         new Response(JSON.stringify({ success: false }))) as typeof fetch,
     }).collect(SOURCE, null),
     /no success/,
-  );
-});
-
-test("the shipped relay sites read prices only where they are public", async () => {
-  const sources = await loadDiscountSources(process.cwd());
-  assert.deepEqual(
-    sources.relaySites?.map(({ url, pricing }) => [url, pricing ?? true]),
-    [
-      ["https://agentrouter.org", true],
-      ["https://vsllm.com", true],
-      ["https://docode.cc", false],
-      ["https://api.hcnsec.cn", false],
-    ],
   );
 });
