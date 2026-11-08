@@ -1,8 +1,14 @@
 import { createHash } from "node:crypto";
 import { XMLParser } from "fast-xml-parser";
 import {
+  type ExternalItem,
+  type FeedReader,
+  type GitHubEventReader,
+  type HtmlReader,
   type HtmlSourcePolicy,
   type ServicePage,
+  type SourceParsers,
+  type SourcePayload,
   isPublicUrl,
 } from "@rapi/core";
 
@@ -12,11 +18,6 @@ export interface SourceHttpOptions {
   // Keep the first maxBodyBytes instead of failing. Long feeds are newest first.
   truncate?: boolean;
   fetch?: typeof fetch;
-}
-
-export interface SourcePayload {
-  contentType: string;
-  body: string;
 }
 
 export async function readSource(
@@ -83,16 +84,6 @@ export async function readSource(
   } finally {
     clearTimeout(timer);
   }
-}
-
-export interface ExternalItem {
-  externalId: string;
-  url: string;
-  title: string;
-  body: string;
-  author: string | null;
-  publishedAt: string | null;
-  metadata: Record<string, unknown>;
 }
 
 function arrayOf<T>(value: T | T[] | undefined): T[] {
@@ -685,7 +676,7 @@ export function parseGitHubEvent(
   };
 }
 
-export class GitHubSourceAdapter {
+export class GitHubSourceAdapter implements GitHubEventReader {
   constructor(
     private readonly token?: string,
     private readonly options: SourceHttpOptions = {},
@@ -720,7 +711,7 @@ export class GitHubSourceAdapter {
   }
 }
 
-export class FeedSourceAdapter {
+export class FeedSourceAdapter implements FeedReader {
   constructor(private readonly options: SourceHttpOptions = {}) {}
 
   async fetch(
@@ -747,7 +738,7 @@ export class FeedSourceAdapter {
 
 const HTML_HEADERS = { Accept: "text/html", "User-Agent": "rapi" };
 
-export class HtmlSourceAdapter {
+export class HtmlSourceAdapter implements HtmlReader {
   constructor(private readonly options: SourceHttpOptions = {}) {}
 
   // Same limits and fetch path as the RSS adapter (shared readSource).
@@ -786,3 +777,8 @@ export class HtmlSourceAdapter {
     return parseHtmlArticle(body);
   }
 }
+
+export const sourceParsers: SourceParsers = {
+  feed: parseFeed,
+  githubEvent: parseGitHubEvent,
+};
