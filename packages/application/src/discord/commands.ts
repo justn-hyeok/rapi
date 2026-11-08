@@ -18,7 +18,7 @@ import {
 } from "@rapi/domain";
 import type { GuildFeatureSwitch } from "../guilds/features.js";
 import type { NotificationChannels } from "../guilds/notification-channels.js";
-import { RapiAgent } from "../sources/collection.js";
+import { SourceCollection } from "../sources/collection.js";
 import type { ReportOptions } from "../discounts/reports.js";
 
 export const slashCommands = [
@@ -107,9 +107,9 @@ function optionalString(
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
-export class DiscordCommandService {
+export class DiscordCommands {
   constructor(
-    private readonly agent: RapiAgent,
+    private readonly agent: SourceCollection,
     private readonly allowlists: DiscordAllowlists,
     private readonly operations?: {
       status: () => Promise<string>;

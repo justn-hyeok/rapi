@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { generateKeyPairSync, sign } from "node:crypto";
 import { once } from "node:events";
 import { describe, it, type TestContext } from "node:test";
-import type { DiscordCommandService } from "@rapi/application";
+import type { DiscordCommands } from "@rapi/application";
 import {
   GUILD_CHECK_FAILED_MESSAGE,
   GUILD_NOT_ALLOWED_MESSAGE,
@@ -23,7 +23,7 @@ async function setup(t: TestContext, allowed: () => Promise<string[]>) {
         called.push("command");
         return { messages: ["실행"] };
       },
-    } as unknown as DiscordCommandService,
+    } as unknown as DiscordCommands,
     (keys.publicKey.export({ type: "spki", format: "der" }) as Buffer)
       .subarray(-32)
       .toString("hex"),

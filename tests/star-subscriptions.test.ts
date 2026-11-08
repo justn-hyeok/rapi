@@ -7,7 +7,7 @@ import {
 } from "@rapi/adapters";
 import {
   connectState,
-  DiscordCommandService,
+  DiscordCommands,
   disconnect,
   finishConnect,
   remindEveryone,
@@ -422,7 +422,7 @@ test("every morning each connected person gets their own stars, a few digs a run
 
 test("/스타 is any member's, in a server only", async () => {
   let got: unknown;
-  const service = new DiscordCommandService(
+  const service = new DiscordCommands(
     {} as never,
     { userIds: ["owner"], guildIds: ["g"] },
     {

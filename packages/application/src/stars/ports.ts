@@ -85,3 +85,27 @@ export interface GitHubGateway {
     token: string | undefined,
   ) => Promise<GitHubStar[]>;
 }
+
+/** What the daily reminder needs of one person's star store; digging is optional. */
+export type ReminderStore = Pick<
+  StarStore,
+  | "saveStars"
+  | "currentStars"
+  | "starReminderClaimed"
+  | "claimStarReminder"
+  | "releaseStarReminder"
+  | "saveStarReminderMessage"
+> &
+  Partial<
+    Pick<
+      StarStore,
+      | "starInterests"
+      | "seenStarRepos"
+      | "saveStarSuggestion"
+      | "starRepo"
+      | "starDigHistory"
+      | "saveStarNeighbors"
+      | "starNeighbors"
+      | "markStarNeighborsFollowed"
+    >
+  >;

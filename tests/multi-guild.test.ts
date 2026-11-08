@@ -12,10 +12,10 @@ import {
   selectFeedTargets,
 } from "@rapi/domain";
 import {
-  DiscordCommandService,
+  DiscordCommands,
   CommunityFeeds,
   feedGuildTargets,
-  type RapiAgent,
+  type SourceCollection,
 } from "@rapi/application";
 
 const ADMINISTRATOR = "8";
@@ -123,8 +123,8 @@ describe("admin scope", () => {
 });
 
 describe("commands by scope", () => {
-  const service = new DiscordCommandService(
-    {} as unknown as RapiAgent,
+  const service = new DiscordCommands(
+    {} as unknown as SourceCollection,
     policy,
     {
       status: async () => "ok",

@@ -4,9 +4,9 @@ import { once } from "node:events";
 import { describe, it, test, type TestContext } from "node:test";
 import {
   createGuildFeatures,
-  DiscordCommandService,
+  DiscordCommands,
   type DiscordCommand,
-  type RapiAgent,
+  type SourceCollection,
 } from "@rapi/application";
 import type { DiscordIdentity } from "@rapi/domain";
 import { createDiscordInteractionServer } from "../apps/bot/src/discord-http.js";
@@ -42,8 +42,8 @@ function setup(t: TestContext, saved: Record<string, boolean> = {}) {
   const guildFeatures = createGuildFeatures({ store, homeGuildId: "home" });
   const reported = t.mock.fn(async () => "받았습니다");
   const apply = t.mock.fn(async () => "적용했습니다");
-  const commands = new DiscordCommandService(
-    {} as RapiAgent,
+  const commands = new DiscordCommands(
+    {} as SourceCollection,
     {
       userIds: ["owner"],
       superadminUserIds: ["second-owner"],
@@ -205,8 +205,8 @@ describe("/기능", () => {
 
   it("still reaches the owner when another guild's channel list is set", async (t) => {
     const guildFeatures = setup(t).guildFeatures;
-    const commands = new DiscordCommandService(
-      {} as RapiAgent,
+    const commands = new DiscordCommands(
+      {} as SourceCollection,
       { userIds: ["owner"], channelIds: ["home-channel"] },
       { status: async () => "ok", guildFeatures },
     );
@@ -231,8 +231,8 @@ test("a failed read refuses without showing the database error", async (t) => {
     homeGuildId: "home",
   });
   const reported = t.mock.fn(async () => "받았습니다");
-  const commands = new DiscordCommandService(
-    {} as RapiAgent,
+  const commands = new DiscordCommands(
+    {} as SourceCollection,
     { userIds: ["owner"] },
     { status: async () => "ok", report: reported, guildFeatures: failing },
   );
@@ -252,7 +252,7 @@ describe("answers over HTTP", () => {
   async function post(
     t: TestContext,
     interaction: object,
-    component?: (commands: DiscordCommandService) => () => Promise<string>,
+    component?: (commands: DiscordCommands) => () => Promise<string>,
   ) {
     const { commands } = setup(t);
     const keys = generateKeyPairSync("ed25519");

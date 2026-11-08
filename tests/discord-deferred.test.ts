@@ -2,10 +2,7 @@ import assert from "node:assert/strict";
 import { generateKeyPairSync, sign } from "node:crypto";
 import { once } from "node:events";
 import { test } from "node:test";
-import type {
-  DiscordCommandResult,
-  DiscordCommandService,
-} from "@rapi/application";
+import type { DiscordCommandResult, DiscordCommands } from "@rapi/application";
 import { createDiscordInteractionServer } from "../apps/bot/src/discord-http.js";
 
 test("applying a layout acknowledges before work ends and delivers every reply chunk", async (t) => {
@@ -18,7 +15,7 @@ test("applying a layout acknowledges before work ends and delivers every reply c
     .subarray(-32)
     .toString("hex");
   const server = createDiscordInteractionServer(
-    { execute: async () => pending } as unknown as DiscordCommandService,
+    { execute: async () => pending } as unknown as DiscordCommands,
     key,
   );
   const fetchRequest = globalThis.fetch;

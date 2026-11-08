@@ -4,12 +4,12 @@ import { once } from "node:events";
 import { describe, it, type TestContext } from "node:test";
 import {
   changeGuild,
-  DiscordCommandService,
+  DiscordCommands,
   guildRequestButton,
   receiveGuildRequest,
   sendGuildRequestCards,
   type GuildRequests,
-  type RapiAgent,
+  type SourceCollection,
 } from "@rapi/application";
 import {
   canManageGuild,
@@ -547,8 +547,8 @@ describe("/서버", () => {
 
   it("is for the owner only, whatever permission someone has", async (t) => {
     const changed = t.mock.fn(async () => "완료");
-    const service = new DiscordCommandService(
-      {} as RapiAgent,
+    const service = new DiscordCommands(
+      {} as SourceCollection,
       { userIds: ["owner"], homeGuildId: "801" },
       { status: async () => "ok", changeGuild: changed },
     );
@@ -578,7 +578,7 @@ describe("through the interaction server", () => {
     const keys = generateKeyPairSync("ed25519");
     const execute = t.mock.fn(async () => ({ messages: ["실행"] }));
     const http = createDiscordInteractionServer(
-      { execute } as unknown as DiscordCommandService,
+      { execute } as unknown as DiscordCommands,
       (keys.publicKey.export({ type: "spki", format: "der" }) as Buffer)
         .subarray(-32)
         .toString("hex"),

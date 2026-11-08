@@ -3,7 +3,7 @@ import { type DiscordGateway } from "@rapi/application";
 import { DiscordHttpGateway } from "./http-gateway.js";
 
 /** What the layout manager reads: Discord as the bot, and the layout file. */
-export function discordLayoutPorts(
+export function discordLayoutDependencies(
   botToken: string,
   layoutFile: string,
 ): {

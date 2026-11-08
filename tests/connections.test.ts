@@ -5,7 +5,7 @@ import {
   connectionRefused,
   connectionToken,
   connectState,
-  DiscordCommandService,
+  DiscordCommands,
   disconnect,
   finishConnect,
   readConnectState,
@@ -295,7 +295,7 @@ test("a token the provider refused is dropped, and one sealed under another key 
 
 test("/연결 is any member's, in a server only", async () => {
   let got: unknown;
-  const commands = new DiscordCommandService(
+  const commands = new DiscordCommands(
     {} as never,
     { userIds: ["owner"], guildIds: ["g"] },
     {

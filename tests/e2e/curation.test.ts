@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { WebSourceGateway } from "@rapi/adapters";
-import { CommunityFeeds, RapiAgent } from "@rapi/application";
+import { CommunityFeeds, SourceCollection } from "@rapi/application";
 import { joinStores, PostgresDatabase, postgresStores } from "@rapi/adapters";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -12,7 +12,7 @@ describe("curation feeds", () => {
   it("posts each feed once to its managed channel and skips missing channels", async () => {
     const store = new PostgresDatabase(databaseUrl);
     const stores = postgresStores(store);
-    const agent = new RapiAgent(stores.sources, new WebSourceGateway());
+    const agent = new SourceCollection(stores.sources, new WebSourceGateway());
     try {
       await store.resetForTests();
       await store.pool.query("DELETE FROM community_posts");

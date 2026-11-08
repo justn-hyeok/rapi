@@ -1,3 +1,5 @@
+import { type GuildStore } from "../guilds/ports.js";
+import { type CommunityFeedStore } from "./ports.js";
 import {
   findCitations,
   isFreeTokenNews,
@@ -11,14 +13,11 @@ import {
   type FeedGuildTarget,
 } from "@rapi/domain";
 import type { GuildFeatureSwitch } from "../guilds/features.js";
-import { type CommunityStore } from "./ports.js";
 import {
   type CurationChannel,
   type ModelGateway,
   type SummaryInput,
 } from "../models/ports.js";
-import { type DiscordLayoutStore } from "../discord/ports.js";
-import { type GuildStore } from "../guilds/ports.js";
 
 type Feed = "ai-blogs" | "free-tokens";
 type Embed = Record<string, unknown>;
@@ -177,10 +176,6 @@ export interface CommunityFeedOptions {
   /** Reads a public page or API; the bot reads with size and time limits. */
   getText: (url: string, accept?: string) => Promise<string>;
 }
-
-export type CommunityFeedStore = CommunityStore &
-  Pick<GuildStore, "allowedDiscordGuilds"> &
-  Pick<DiscordLayoutStore, "managedDiscordResourceId">;
 
 /** The curation channels: AI blogs and free tokens. */
 export class CommunityFeeds {

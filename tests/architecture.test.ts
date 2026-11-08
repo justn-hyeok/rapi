@@ -14,10 +14,6 @@ const rules: Record<string, RegExp> = {
   "packages/config": /^(zod)$/,
 };
 
-// Imports that still cross a boundary. Each one is being moved behind a port;
-// the test fails when an entry here is no longer needed, so the list only shrinks.
-const pending = new Set<string>([]);
-
 function sources(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const path = join(directory, entry.name);
@@ -49,21 +45,32 @@ function crossings(): string[] {
   );
 }
 
+function declarations(layer: string): Array<{
+  file: string;
+  kind: string;
+  name: string;
+  implemented: string[];
+}> {
+  return sources(join(root, layer, "src")).flatMap((file) =>
+    [
+      ...readFileSync(file, "utf8").matchAll(
+        /^export (?:abstract )?(interface|class|type) (\w+)(?:[^{=]*?implements ([\w,\s]+?))?\s*[{=]/gm,
+      ),
+    ].map((match) => ({
+      file: relative(root, file),
+      kind: match[1]!,
+      name: match[2]!,
+      implemented: (match[3] ?? "")
+        .split(",")
+        .map((name) => name.trim())
+        .filter(Boolean),
+    })),
+  );
+}
+
 describe("hexagonal boundaries", () => {
   it("keeps every layer to what it may import", () => {
-    const found = crossings();
-    assert.deepEqual(
-      found.filter((crossing) => !pending.has(crossing)),
-      [],
-    );
-  });
-
-  it("only lists crossings that still exist", () => {
-    const found = new Set(crossings());
-    assert.deepEqual(
-      [...pending].filter((crossing) => !found.has(crossing)),
-      [],
-    );
+    assert.deepEqual(crossings(), []);
   });
 
   it("declares no package dependency a layer may not use", () => {
@@ -71,13 +78,52 @@ describe("hexagonal boundaries", () => {
       const manifest = JSON.parse(
         readFileSync(join(root, layer, "package.json"), "utf8"),
       ) as { dependencies?: Record<string, string> };
-      const stillCrossing = [...pending].some((crossing) =>
-        crossing.startsWith(`${layer}/`),
-      );
-      for (const name of Object.keys(manifest.dependencies ?? {})) {
-        if (stillCrossing && name.startsWith("@rapi/")) continue;
+      for (const name of Object.keys(manifest.dependencies ?? {}))
         assert.match(name, rules[layer]!, `${layer} depends on ${name}`);
-      }
     }
+  });
+});
+
+describe("names", () => {
+  it("declares Store and Gateway ports only in a feature's ports.ts", () => {
+    const misplaced = declarations("packages/application")
+      .filter(({ name }) => /(Store|Gateway)$/.test(name))
+      .filter(({ file }) => !/\/src\/[a-z-]+\/ports\.ts$/.test(file));
+    assert.deepEqual(misplaced, []);
+  });
+
+  it("keeps ports out of domain and adapters", () => {
+    for (const layer of ["packages/domain", "packages/adapters"])
+      assert.deepEqual(
+        declarations(layer).filter(
+          ({ kind, name }) =>
+            kind === "interface" && /(Store|Gateway)$/.test(name),
+        ),
+        [],
+      );
+  });
+
+  it("names an implementation after its port, with what it uses in front", () => {
+    const wrong = declarations("packages/adapters").flatMap(
+      ({ name, implemented }) =>
+        implemented
+          .filter((port) => /(Store|Gateway)$/.test(port))
+          .filter(
+            (port) =>
+              name === port ||
+              name.slice(-5) !== port.slice(-5) ||
+              !name.endsWith(port.replace(/^\w*?(?=(Store|Gateway)$)/, "")),
+          )
+          .map((port) => `${name} implements ${port}`),
+    );
+    assert.deepEqual(wrong, []);
+  });
+
+  it("uses no other suffix for ports and adapters", () => {
+    const old = ["packages/domain", "packages/application", "packages/adapters"]
+      .flatMap((layer) => declarations(layer))
+      .filter(({ name }) => /Adapter$/.test(name))
+      .map(({ file, name }) => `${file}: ${name}`);
+    assert.deepEqual(old, []);
   });
 });

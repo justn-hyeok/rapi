@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import {
-  DiscordCommandService,
+  DiscordCommands,
   problemCardButton,
   receiveReport,
   reportableLink,
   sendProblemCards,
-  type RapiAgent,
+  type SourceCollection,
 } from "@rapi/application";
 import { DiscordHttpGateway } from "@rapi/adapters";
 import type {
@@ -166,7 +166,7 @@ function service(
   const report = t.mock.fn(async () => "받았습니다");
   return {
     report,
-    commands: new DiscordCommandService({} as RapiAgent, allowlists, {
+    commands: new DiscordCommands({} as SourceCollection, allowlists, {
       status: async () => "ok",
       report,
       guildAllowlist: async () => allowed,
