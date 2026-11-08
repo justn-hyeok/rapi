@@ -10,7 +10,7 @@ import {
   sendGuildRequestCards,
   type GuildRequests,
   type RapiAgent,
-} from "@rapi/agent";
+} from "@rapi/application";
 import {
   canManageGuild,
   cleanGuildText,

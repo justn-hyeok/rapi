@@ -1,9 +1,9 @@
+import { type DeliveryAdapter } from "@rapi/application";
 import {
   budgetMonth,
   evaluateBudget,
   formatUsd,
   type BudgetAlertLevel,
-  type DeliveryAdapter,
   type DeliveryPayload,
 } from "@rapi/domain";
 import {

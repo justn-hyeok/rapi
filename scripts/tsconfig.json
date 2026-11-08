@@ -16,7 +16,7 @@
       "path": "../packages/adapters"
     },
     {
-      "path": "../packages/agent"
+      "path": "../packages/application"
     },
     {
       "path": "../packages/db"

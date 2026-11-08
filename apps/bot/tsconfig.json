@@ -8,7 +8,7 @@
   "references": [
     { "path": "../../packages/config" },
     { "path": "../../packages/domain" },
-    { "path": "../../packages/agent" },
+    { "path": "../../packages/application" },
     { "path": "../../packages/adapters" },
     { "path": "../../packages/db" }
   ]

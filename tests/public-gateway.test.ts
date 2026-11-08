@@ -5,7 +5,7 @@ import { once } from "node:events";
 import { generateKeyPairSync, sign } from "node:crypto";
 import { test } from "node:test";
 import { createDiscordInteractionServer } from "../apps/bot/src/discord-http.js";
-import { DiscordCommandService, type RapiAgent } from "@rapi/agent";
+import { DiscordCommandService, type RapiAgent } from "@rapi/application";
 async function freePort(): Promise<number> {
   const server = createServer();
   server.listen(0, "127.0.0.1");

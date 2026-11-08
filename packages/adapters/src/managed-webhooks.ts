@@ -1,5 +1,6 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
-import { splitDiscordMessage, type SecretBox } from "@rapi/domain";
+import { type SecretBox } from "@rapi/application";
+import { splitDiscordMessage } from "@rapi/domain";
 
 function encryptionKey(value: string): Buffer {
   const key = Buffer.from(value, "base64");

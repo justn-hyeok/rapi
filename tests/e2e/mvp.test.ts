@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { sourceParsers } from "@rapi/adapters";
-import { RapiAgent } from "@rapi/agent";
+import { RapiAgent } from "@rapi/application";
 import { PostgresStore } from "@rapi/db";
 
 const databaseUrl = process.env.DATABASE_URL;

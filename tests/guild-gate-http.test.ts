@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { generateKeyPairSync, sign } from "node:crypto";
 import { once } from "node:events";
 import { describe, it, type TestContext } from "node:test";
-import type { DiscordCommandService } from "@rapi/agent";
+import type { DiscordCommandService } from "@rapi/application";
 import {
   GUILD_CHECK_FAILED_MESSAGE,
   GUILD_NOT_ALLOWED_MESSAGE,

@@ -1,8 +1,11 @@
 import {
+  type DeliveryAdapter,
+  type StarSubscriberStore,
+  type UserConnection,
+} from "./ports/index.js";
+import {
   kstDateKey,
   kstReached,
-  type DeliveryAdapter,
-  type UserConnection,
   type DigTrail,
   type DiscordIdentity,
   type GitHubStar,
@@ -20,7 +23,6 @@ import {
   type ConnectionUser,
 } from "./connections.js";
 import { remindStars, type ReminderPick } from "./star-reminders.js";
-import type { StarSubscriberStore } from "@rapi/domain";
 
 const REMINDER_KST_HOUR = 9;
 // A dig takes about twenty seconds and a hundred GitHub requests, so a run of

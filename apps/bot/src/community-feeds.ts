@@ -8,8 +8,8 @@ import {
   MODEL_CATALOG_URL,
   type CommunityFeedStore,
   type GuildFeatureSwitch,
-} from "@rapi/agent";
-import type { ItemSummarizer } from "@rapi/domain";
+} from "@rapi/application";
+import { type ItemSummarizer } from "@rapi/application";
 
 /** Builds the feeds from config/curation in a release root, posting as the bot. */
 export async function createCommunityFeeds(input: {

@@ -1,11 +1,6 @@
-import {
-  discordEmbed,
-  releaseSummary,
-  templateCard,
-  type DeliveryAdapter,
-} from "@rapi/domain";
+import { type DeliveryAdapter, type RapiUpdateStore } from "./ports/index.js";
+import { discordEmbed, releaseSummary, templateCard } from "@rapi/domain";
 import { messageBody } from "./community-feeds.js";
-import type { RapiUpdateStore } from "@rapi/domain";
 
 export interface RapiRelease {
   tag: string;

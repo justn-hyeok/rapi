@@ -9,7 +9,7 @@ import {
 } from "@rapi/domain";
 import { messageBody } from "./community-feeds.js";
 import { isReviewChannel, PROBLEM_RED_PREFIX } from "./discount-candidates.js";
-import type { ReportStore } from "@rapi/domain";
+import { type ReportStore } from "./ports/index.js";
 
 export const REPORTS_PER_HOUR = 5;
 

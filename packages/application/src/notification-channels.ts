@@ -1,3 +1,4 @@
+import { type DeliveryAdapter, type GuildStore } from "./ports/index.js";
 import {
   alertLabel,
   canManageGuild,
@@ -5,11 +6,9 @@ import {
   isGuildAllowed,
   isReviewAlertKind,
   templateText,
-  type DeliveryAdapter,
   type DiscordIdentity,
   type PublicAlertKind,
 } from "@rapi/domain";
-import type { GuildStore } from "@rapi/domain";
 
 const SNOWFLAKE = /^\d{1,20}$/;
 

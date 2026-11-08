@@ -1,5 +1,5 @@
 import { plainText, type DiscountCandidate } from "@rapi/domain";
-import type { CandidateResult } from "@rapi/domain";
+import { type CandidateResult } from "@rapi/application";
 import { readSource, type SourceHttpOptions } from "./sources.js";
 
 /** A relay site built on new-api, whose /api/status and /api/pricing are public. */

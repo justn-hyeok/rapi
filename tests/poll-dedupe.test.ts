@@ -7,7 +7,7 @@ import {
   HtmlSourceAdapter,
   sourceParsers,
 } from "@rapi/adapters";
-import { RapiAgent } from "@rapi/agent";
+import { RapiAgent } from "@rapi/application";
 import { GitHubSourceAdapter } from "@rapi/adapters";
 import type { PostgresStore } from "@rapi/db";
 

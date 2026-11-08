@@ -50,7 +50,7 @@ import {
   sendProblemCards,
   verifyDiscountCandidates,
   verifyReports,
-} from "@rapi/agent";
+} from "@rapi/application";
 import {
   allowedGuildIds,
   createGuildGate,

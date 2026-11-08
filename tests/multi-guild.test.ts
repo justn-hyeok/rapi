@@ -16,7 +16,7 @@ import {
   CommunityFeeds,
   feedGuildTargets,
   type RapiAgent,
-} from "@rapi/agent";
+} from "@rapi/application";
 import type { PostgresStore } from "@rapi/db";
 
 const ADMINISTRATOR = "8";

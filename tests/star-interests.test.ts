@@ -8,7 +8,7 @@ import {
   validStarToken,
   type StarInterestPage,
   type StarInterestSite,
-} from "@rapi/agent";
+} from "@rapi/application";
 import {
   combinedInterests,
   facetCatalog,

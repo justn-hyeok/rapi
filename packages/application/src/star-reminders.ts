@@ -1,4 +1,10 @@
 import {
+  type DeliveryAdapter,
+  DiscordServerError,
+  type StarOwnerStore,
+  UncertainDeliveryError,
+} from "./ports/index.js";
+import {
   clip,
   closeNeighbors,
   combinedInterests,
@@ -17,17 +23,13 @@ import {
   restingFromHistory,
   starButton,
   starCard,
-  type DeliveryAdapter,
   type DeliveryPayload,
   type DigTrail,
   type GitHubStar,
   type Interests,
   type KeptNeighbor,
   type StoredStar,
-  DiscordServerError,
-  UncertainDeliveryError,
 } from "@rapi/domain";
-import type { StarOwnerStore } from "@rapi/domain";
 
 const REMINDER_KST_HOUR = 9;
 

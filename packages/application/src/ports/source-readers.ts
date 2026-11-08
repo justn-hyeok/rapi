@@ -1,4 +1,4 @@
-import type { HtmlSourcePolicy } from "../domain/html-source.js";
+import type { HtmlSourcePolicy } from "@rapi/domain";
 
 export interface SourcePayload {
   contentType: string;

@@ -1,15 +1,15 @@
+import {
+  type DeliveryAdapter,
+  DiscordRateLimitError,
+  DiscordServerError,
+  UncertainDeliveryError,
+} from "@rapi/application";
 import type {
-  DeliveryAdapter,
   DeliveryPayload,
   DeliveryResult,
   DeliveryTarget,
 } from "@rapi/domain";
-import {
-  DiscordRateLimitError,
-  DiscordServerError,
-  splitDiscordMessage,
-  UncertainDeliveryError,
-} from "@rapi/domain";
+import { splitDiscordMessage } from "@rapi/domain";
 
 export class DiscordDeliveryAdapter implements DeliveryAdapter {
   constructor(private readonly botToken: string) {}

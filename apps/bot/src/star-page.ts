@@ -6,7 +6,7 @@ import {
   starInterestData,
   validStarToken,
   type StarInterestSite,
-} from "@rapi/agent";
+} from "@rapi/application";
 
 const PAGE = fileURLToPath(new URL("./star-page.html", import.meta.url));
 const MAX_BODY_BYTES = 200_000;

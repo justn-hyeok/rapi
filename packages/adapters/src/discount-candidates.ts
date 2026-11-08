@@ -1,3 +1,4 @@
+import { type CandidateResult, type ExternalItem } from "@rapi/application";
 import {
   DISCOUNT_EVIDENCE_MAX_CHARS,
   discountEvidence,
@@ -5,7 +6,6 @@ import {
   plainText,
   postSummary,
   type DiscountCandidate,
-  type CandidateResult,
   type DiscountCandidateKind,
   type ServicePage,
 } from "@rapi/domain";
@@ -17,7 +17,6 @@ import {
   readSource,
   type SourceHttpOptions,
 } from "./sources.js";
-import type { ExternalItem } from "@rapi/domain";
 
 function hostname(url: string): string | null {
   try {

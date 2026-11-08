@@ -1,4 +1,4 @@
-import type { GitHubStar, StoredStar } from "../domain/star-reminders.js";
+import type { GitHubStar, StoredStar } from "@rapi/domain";
 
 export interface StarSubscriber {
   userId: string;

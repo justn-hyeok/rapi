@@ -4,7 +4,7 @@ import {
   CARD_COLORS,
   CommunityFeeds,
   messageBody,
-} from "../packages/agent/src/community-feeds.js";
+} from "../packages/application/src/community-feeds.js";
 
 type Embed = {
   title: string;

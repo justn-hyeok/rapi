@@ -1,5 +1,5 @@
-import type { DiscountCandidate } from "../domain/discount-candidates.js";
-import type { ServicePage } from "../domain/candidate-verification.js";
+import type { DiscountCandidate } from "@rapi/domain";
+import type { ServicePage } from "@rapi/domain";
 
 export interface CandidateResult {
   candidates: DiscountCandidate[];

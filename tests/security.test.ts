@@ -10,7 +10,7 @@ import {
   slashCommandDefinitions,
   verifyDiscordRequest,
 } from "../apps/bot/src/discord-http.js";
-import { requiredCommandAccess } from "../packages/agent/src/discord-commands.js";
+import { requiredCommandAccess } from "../packages/application/src/discord-commands.js";
 
 describe("external input boundaries", () => {
   it("verifies Discord Ed25519 requests", () => {

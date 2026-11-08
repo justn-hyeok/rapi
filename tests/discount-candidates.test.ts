@@ -23,7 +23,7 @@ import {
   collectDiscountCandidates,
   verifyDiscountCandidates,
   verifyReports,
-} from "@rapi/agent";
+} from "@rapi/application";
 import {
   discountEvidence,
   knownOperator,

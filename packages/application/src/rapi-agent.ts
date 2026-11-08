@@ -1,16 +1,16 @@
 import { randomUUID } from "node:crypto";
 export { DEFAULT_CODEX_MODEL as DEFAULT_SUMMARY_MODEL } from "@rapi/domain";
-import type {
-  ExternalItem,
-  FeedReader,
-  GitHubEventReader,
-  HtmlReader,
-  SourceParsers,
-  SourcePayload,
-  SourceStore,
-  StarRecommender,
-  Visibility,
-} from "@rapi/domain";
+import {
+  type ExternalItem,
+  type FeedReader,
+  type GitHubEventReader,
+  type HtmlReader,
+  type SourceParsers,
+  type SourcePayload,
+  type SourceStore,
+  type StarRecommender,
+} from "./ports/index.js";
+import type { Visibility } from "@rapi/domain";
 import {
   canonicalizeUrl,
   parseHtmlSourcePolicy,

@@ -5,9 +5,9 @@ import {
   DiscordServerError,
   PermanentDeliveryError,
   UncertainDeliveryError,
-} from "@rapi/domain";
+} from "@rapi/application";
 import { DiscordDeliveryAdapter } from "@rapi/adapters";
-import { remindStars, starReminderPayload } from "@rapi/agent";
+import { remindStars, starReminderPayload } from "@rapi/application";
 import type { DeliveryPayload, GitHubStar, StoredStar } from "@rapi/domain";
 
 // 09:30 in Seoul on 2026-11-05, and 08:59 the same morning.

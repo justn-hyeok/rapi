@@ -1,10 +1,6 @@
 import { readFile } from "node:fs/promises";
-import type {
-  CandidateJob,
-  DiscountCandidateKind,
-  KnownOperator,
-  ServicePages,
-} from "@rapi/domain";
+import { type CandidateJob, type ServicePages } from "@rapi/application";
+import type { DiscountCandidateKind, KnownOperator } from "@rapi/domain";
 import { type CommitLogSource, CommitLogRoute } from "./commit-logs.js";
 import { curlFetch } from "./curl-fetch.js";
 import {

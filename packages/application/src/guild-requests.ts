@@ -1,4 +1,9 @@
 import {
+  type DeliveryAdapter,
+  type DiscountCandidateStore,
+  type GuildStore,
+} from "./ports/index.js";
+import {
   canManageGuild,
   cleanGuildText,
   discordEmbed,
@@ -7,7 +12,6 @@ import {
   GUILD_REQUEST_WAIT_DAYS,
   guildRequestCard,
   isGuildAllowed,
-  type DeliveryAdapter,
   type DeliveryPayload,
   type DiscordIdentity,
   type GuildRequestForCard,
@@ -19,7 +23,6 @@ import {
   isReviewChannel,
   sendClaimedCards,
 } from "./discount-candidates.js";
-import type { DiscountCandidateStore, GuildStore } from "@rapi/domain";
 
 export const GUILD_APPROVE_PREFIX = "guild_approve:";
 export const GUILD_BLOCK_PREFIX = "guild_block:";
