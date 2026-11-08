@@ -6,6 +6,7 @@
 /** Which Rapi feature a call belongs to; used for metering and the monthly cap. */
 export type ModelFeature =
   | "summary"
+  | "translation"
   | "rewrite"
   | "archive_qa"
   | "public_qa"

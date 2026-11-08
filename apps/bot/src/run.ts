@@ -106,6 +106,12 @@ const summarizer =
       : new CodexModelGateway(
           process.env.SUMMARY_MODEL || DEFAULT_SUMMARY_MODEL,
         );
+// Chinese posts read better through a model that knows Chinese; without one set,
+// the summarizer translates as before.
+const translator =
+  modelClient && config.MODEL_FOR_TRANSLATION
+    ? new ApiModelGateway(modelClient, `api:${config.MODEL_FOR_TRANSLATION}`)
+    : summarizer;
 const agent = new SourceCollection(
   stores.sources,
   new WebSourceGateway({ githubToken: config.GITHUB_READ_TOKEN }),
@@ -346,16 +352,16 @@ async function collectCandidates(): Promise<void> {
         githubToken: config.GITHUB_READ_TOKEN,
       }),
       // Lists and forums in Chinese go out in Korean.
-      ...(summarizer?.translate && {
-        translate: (texts: string[]) => summarizer.translate!(texts),
+      ...(translator?.translate && {
+        translate: (texts: string[]) => translator.translate!(texts),
       }),
     })),
     ...(await verifyDiscountCandidates({
       store: stores.discounts,
       operators: sources.operators,
       pages: servicePageGateway(),
-      ...(summarizer?.translate && {
-        translate: (texts: string[]) => summarizer.translate!(texts),
+      ...(translator?.translate && {
+        translate: (texts: string[]) => translator.translate!(texts),
       }),
     })),
   ];

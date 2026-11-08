@@ -120,6 +120,28 @@ test("sends a chat completions request and parses usage and table cost", async (
   });
 });
 
+test("asks for json_object with the schema in the system message for DeepSeek", async () => {
+  const { client: c, calls } = client([json(completion("{}"))], {
+    jsonMode: "object",
+  });
+  await c.complete({ ...request, jsonSchema: { type: "object" } });
+  const body = sentBody(calls[0]!);
+  assert.deepEqual(body.response_format, { type: "json_object" });
+  const system = (body.messages as Array<{ content: string }>)[0]!.content;
+  assert.match(system, /^sys\n/);
+  assert.match(system, /\{"type":"object"\}$/);
+});
+
+test("translation is its own metered feature, picked by MODEL_FOR_TRANSLATION", async () => {
+  const { client: c, calls } = client([json(completion("{}"))], {
+    modelsByFeature: { translation: "deepseek-flash" },
+  });
+  assert.equal(c.modelFor("translation"), "deepseek-flash");
+  assert.equal(c.modelFor("summary"), "gpt-4o-mini");
+  await c.complete({ ...request, feature: "translation" });
+  assert.equal(sentBody(calls[0]!).model, "deepseek-flash");
+});
+
 test("uses response_format json_schema when a schema is given", async () => {
   const { client: c, calls } = client([json(completion("{}"))]);
   await c.complete({ ...request, jsonSchema: { type: "object" } });

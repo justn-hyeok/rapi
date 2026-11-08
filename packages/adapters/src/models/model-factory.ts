@@ -18,7 +18,9 @@ export interface ModelClientConfig {
   MODEL_DEFAULT?: string | undefined;
   MODEL_MONTHLY_BUDGET_USD?: number | undefined;
   MODEL_PRICES_FILE?: string | undefined;
+  MODEL_API_JSON_MODE?: "schema" | "object" | undefined;
   MODEL_FOR_SUMMARY?: string | undefined;
+  MODEL_FOR_TRANSLATION?: string | undefined;
   MODEL_FOR_REWRITE?: string | undefined;
   MODEL_FOR_ARCHIVE_QA?: string | undefined;
   MODEL_FOR_PUBLIC_QA?: string | undefined;
@@ -30,6 +32,7 @@ export interface ModelClientConfig {
 
 const FEATURES: ModelFeature[] = [
   "summary",
+  "translation",
   "rewrite",
   "archive_qa",
   "public_qa",
@@ -79,6 +82,9 @@ export function createModelClient(
     apiKey: config.MODEL_API_KEY,
     defaultModel: config.MODEL_DEFAULT,
     modelsByFeature,
+    ...(config.MODEL_API_JSON_MODE
+      ? { jsonMode: config.MODEL_API_JSON_MODE }
+      : {}),
     prices: loadPrices(
       options.pricesFile ?? config.MODEL_PRICES_FILE ?? "ops/model-prices.json",
       warn,
