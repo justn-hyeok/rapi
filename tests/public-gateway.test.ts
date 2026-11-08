@@ -32,7 +32,7 @@ test("public gateway denies private routes, forwards signed interactions and fai
     },
     async pages(_method, url) {
       return url.pathname.startsWith("/stars") ||
-        url.pathname === "/github/callback"
+        url.pathname === "/connect/github/callback"
         ? { status: 200, type: "text/plain", body: "star page" }
         : null;
     },
@@ -72,7 +72,18 @@ test("public gateway denies private routes, forwards signed interactions and fai
     // The star page's three paths pass; anything else under /stars does not.
     assert.equal((await fetch(base + "/stars?t=x")).status, 200);
     assert.equal((await fetch(base + "/stars/data?t=x")).status, 200);
-    assert.equal((await fetch(base + "/github/callback?code=x")).status, 200);
+    assert.equal(
+      (await fetch(base + "/connect/github/callback?code=x")).status,
+      200,
+    );
+    // Only a service's callback passes, not anything else under /connect.
+    for (const path of [
+      "/github/callback",
+      "/connect/github",
+      "/connect/GitHub/callback",
+      "/connect/github/callback/x",
+    ])
+      assert.equal((await fetch(base + path)).status, 404, path);
     assert.equal(
       (
         await fetch(base + "/stars/interests?t=x", {

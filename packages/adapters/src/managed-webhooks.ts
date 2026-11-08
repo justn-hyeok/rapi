@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
-import { splitDiscordMessage } from "@rapi/core";
+import { splitDiscordMessage, type SecretBox } from "@rapi/core";
 
 function encryptionKey(value: string): Buffer {
   const key = Buffer.from(value, "base64");
@@ -39,6 +39,14 @@ export function decryptSecret(value: string, encodedKey: string): string {
     decipher.update(Buffer.from(ciphertextValue, "base64url")),
     decipher.final(),
   ]).toString("utf8");
+}
+
+/** Seals with AES-256-GCM under the deployment's WEBHOOK_ENCRYPTION_KEY. */
+export function secretBox(key: string): SecretBox {
+  return {
+    seal: (text) => encryptSecret(text, key),
+    open: (sealed) => decryptSecret(sealed, key),
+  };
 }
 
 export function parseDiscordWebhookUrl(value: string): {

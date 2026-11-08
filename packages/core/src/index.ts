@@ -20,6 +20,7 @@ export * from "./ports/source-readers.js";
 export * from "./ports/summarizer.js";
 export * from "./ports/discord-rest.js";
 export * from "./ports/discount-routes.js";
+export * from "./ports/connections.js";
 export * from "./ports/discounts-store.js";
 export * from "./ports/guilds-store.js";
 export * from "./ports/community-store.js";

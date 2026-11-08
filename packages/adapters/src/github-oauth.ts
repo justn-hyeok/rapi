@@ -1,3 +1,4 @@
+import type { OAuthGrant, OAuthProvider } from "@rapi/core";
 import { readSource, type SourceHttpOptions } from "./sources.js";
 
 /** A GitHub OAuth app this deployment owns. It asks for no scope: public data only. */
@@ -28,7 +29,7 @@ export async function finishGitHubOAuth(
   app: GitHubOAuthApp,
   code: string,
   options: SourceHttpOptions = {},
-): Promise<{ token: string; login: string }> {
+): Promise<OAuthGrant> {
   const fetcher = options.fetch ?? fetch;
   const exchanged = await fetcher(
     "https://github.com/login/oauth/access_token",
@@ -50,6 +51,7 @@ export async function finishGitHubOAuth(
   );
   const grant = (await exchanged.json().catch(() => ({}))) as {
     access_token?: unknown;
+    scope?: unknown;
     error?: unknown;
   };
   if (!exchanged.ok || typeof grant.access_token !== "string")
@@ -65,10 +67,19 @@ export async function finishGitHubOAuth(
     },
     { maxBodyBytes: 100_000, ...options },
   );
-  const login = (JSON.parse(body) as { login?: unknown }).login;
-  if (typeof login !== "string" || !LOGIN.test(login))
+  const user = JSON.parse(body) as { id?: unknown; login?: unknown };
+  if (
+    typeof user.login !== "string" ||
+    !LOGIN.test(user.login) ||
+    typeof user.id !== "number"
+  )
     throw new Error("GitHub did not say whose token it is");
-  return { token: grant.access_token, login };
+  return {
+    token: grant.access_token,
+    accountId: String(user.id),
+    accountName: user.login,
+    scopes: typeof grant.scope === "string" ? grant.scope.slice(0, 200) : "",
+  };
 }
 
 /**
@@ -97,4 +108,16 @@ export async function revokeGitHubGrant(
   await response.arrayBuffer();
   if (!response.ok && response.status !== 404 && response.status !== 422)
     throw new Error(`GitHub returned ${response.status}`);
+}
+
+/** The app as the connections port sees it. */
+export function githubOAuthProvider(
+  app: GitHubOAuthApp,
+  options: SourceHttpOptions = {},
+): OAuthProvider {
+  return {
+    authorizeUrl: (state) => githubAuthorizeUrl(app, state),
+    finish: (code) => finishGitHubOAuth(app, code, options),
+    revoke: (token) => revokeGitHubGrant(app, token, options),
+  };
 }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { GitHubStar } from "@rapi/core";
-import { PostgresStore } from "@rapi/db";
+import { PostgresConnectionStore, PostgresStore } from "@rapi/db";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl || new URL(databaseUrl).pathname !== "/rapi_test")
@@ -234,18 +234,17 @@ describe("star reminders", () => {
       assert.ok(!(await store.starsOf("1").seenStarRepos()).has("x/dug"));
 
       await store.addStarSubscriber("1", "owner");
-      await store.saveStarSubscriber("2", "ann", "sealed-2");
-      await store.saveStarSubscriber("1", "owner-new", null);
+      await store.saveStarSubscriber("2", "ann");
+      await store.saveStarSubscriber("1", "owner-new");
       await store.addStarSubscriber("1", "owner");
       assert.deepEqual(
         (await store.starSubscribers()).map((row) => [
           row.userId,
           row.githubLogin,
-          row.githubToken,
         ]),
         [
-          ["1", "owner-new", null],
-          ["2", "ann", "sealed-2"],
+          ["1", "owner-new"],
+          ["2", "ann"],
         ],
       );
       // A new login drops the stars read for the old one, not what was shown.
@@ -260,7 +259,7 @@ describe("star reminders", () => {
         (await store.starSubscriber("2"))?.pausedReason,
         "DM을 받을 수 없음",
       );
-      await store.saveStarSubscriber("2", "ann", "sealed-2");
+      await store.saveStarSubscriber("2", "ann");
       assert.equal((await store.starSubscriber("2"))?.pausedAt, null);
 
       await ann.saveStarInterests({ "언어:Rust": 1 });
@@ -271,6 +270,46 @@ describe("star reminders", () => {
       assert.deepEqual((await ann.starInterests()).picked, {});
       assert.equal(await ann.starReminderClaimed("2026-11-01"), false);
       assert.deepEqual(names(await store.starsOf("1").currentStars()), []);
+    } finally {
+      await store.close();
+    }
+  });
+  it("keeps one connection per person and service, sealed, apart from the features", async () => {
+    const store = new PostgresStore(databaseUrl);
+    const connections = new PostgresConnectionStore(store);
+    try {
+      await store.resetForTests();
+      const github = {
+        userId: "2",
+        provider: "github" as const,
+        accountId: "583231",
+        accountName: "ann",
+        sealedToken: "v1.sealed",
+        scopes: "",
+      };
+      await connections.saveConnection(github);
+      await connections.saveConnection({
+        ...github,
+        accountName: "ann-renamed",
+        sealedToken: "v1.again",
+      });
+      assert.deepEqual(
+        (await connections.connections("2")).map((row) => [
+          row.provider,
+          row.accountName,
+          row.sealedToken,
+        ]),
+        [["github", "ann-renamed", "v1.again"]],
+      );
+      assert.equal(await connections.connection("3", "github"), null);
+      // Turning star reminders off leaves the connection; cutting it leaves the reminders.
+      await store.saveStarSubscriber("2", "ann-renamed");
+      await store.removeStarSubscriber("2");
+      assert.ok(await connections.connection("2", "github"));
+      await store.saveStarSubscriber("2", "ann-renamed");
+      assert.equal(await connections.removeConnection("2", "github"), true);
+      assert.equal(await connections.removeConnection("2", "github"), false);
+      assert.ok(await store.starSubscriber("2"));
     } finally {
       await store.close();
     }

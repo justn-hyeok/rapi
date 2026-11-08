@@ -9,11 +9,8 @@ import {
   createModelClient,
   readLatestRapiRelease,
   readOwnStars,
-  encryptSecret,
-  decryptSecret,
-  finishGitHubOAuth,
-  githubAuthorizeUrl,
-  revokeGitHubGrant,
+  githubOAuthProvider,
+  secretBox,
   searchRepos,
   digTrails,
   followNeighbors,
@@ -40,8 +37,11 @@ import {
   publishDiscountCard,
   receiveGuildRequest,
   receiveReport,
+  connectCommand,
   remindEveryone,
   starCommand,
+  starConnectionUser,
+  type ConnectionService,
   type StarService,
   STAR_VOTE_PREFIX,
   starVoteButton,
@@ -66,10 +66,11 @@ import {
   compareMigrationNames,
   expectedMigrationNames,
   ModelUsageStore,
+  PostgresConnectionStore,
   PostgresStore,
 } from "@rapi/db";
 import { readFile } from "node:fs/promises";
-import { githubConnectPages } from "./github-connect-page.js";
+import { connectPages } from "./connect-page.js";
 import { starPages } from "./star-page.js";
 import {
   clearGuildCommands,
@@ -210,6 +211,8 @@ const commands = new DiscordCommandService(agent, allowlists, {
   changeGuild: (actorId, action, target) =>
     changeGuild(guildRequests, actorId, action, target),
   stars: (identity, options) => starCommand(starService, identity, options),
+  connections: (identity, options) =>
+    connectCommand(connections, identity, options),
   report: (identity, options) =>
     receiveReport(
       {
@@ -424,10 +427,20 @@ const githubApp =
     ? {
         clientId: config.GITHUB_OAUTH_CLIENT_ID,
         clientSecret: config.GITHUB_OAUTH_CLIENT_SECRET,
-        redirectUri: `${config.RAPI_PUBLIC_BASE_URL.replace(/\/+$/, "")}/github/callback`,
+        redirectUri: `${config.RAPI_PUBLIC_BASE_URL.replace(/\/+$/, "")}/connect/github/callback`,
       }
     : undefined;
 const encryptionKey = config.WEBHOOK_ENCRYPTION_KEY;
+// Accounts people connect on other services; tokens are sealed with the key.
+const connections: ConnectionService | undefined = encryptionKey
+  ? {
+      store: new PostgresConnectionStore(store),
+      providers: githubApp ? { github: githubOAuthProvider(githubApp) } : {},
+      box: secretBox(encryptionKey),
+      secret: encryptionKey,
+      users: {},
+    }
+  : undefined;
 const starService: StarService = {
   store,
   delivery: discord,
@@ -437,23 +450,15 @@ const starService: StarService = {
     followNeighbors: (logins, token) => followNeighbors(logins, token),
     searchRepos: (queries, token) => searchRepos(queries, token),
   },
-  oauth:
-    githubApp && encryptionKey
-      ? {
-          authorizeUrl: (state) => githubAuthorizeUrl(githubApp, state),
-          finish: (code) => finishGitHubOAuth(githubApp, code),
-          revoke: (token) => revokeGitHubGrant(githubApp, token),
-          encrypt: (token) => encryptSecret(token, encryptionKey),
-          decrypt: (value) => decryptSecret(value, encryptionKey),
-          secret: encryptionKey,
-        }
-      : undefined,
+  connections,
   owner: starOwnerId
-    ? { userId: starOwnerId, token: config.GITHUB_READ_TOKEN }
+    ? { userId: starOwnerId, login: starLogin, token: config.GITHUB_READ_TOKEN }
     : undefined,
   site: starSite,
   reads: new Map(),
 };
+if (connections)
+  connections.users.github = { stars: starConnectionUser(starService) };
 let starsReady: Promise<void> | undefined;
 const prepareStars = async () => {
   if (!starOwnerId) return;
@@ -510,10 +515,10 @@ const server = createDiscordInteractionServer(
           customId: string,
         ) => starVoteButton(starSite, identity, customId),
       },
-      pages: async (method: string, url: URL, body: () => Promise<Buffer>) =>
-        (await starPages(starSite)(method, url, body)) ??
-        githubConnectPages(starService)(method, url),
     }),
+    pages: async (method: string, url: URL, body: () => Promise<Buffer>) =>
+      (starSite && (await starPages(starSite)(method, url, body))) ??
+      connectPages(connections)(method, url),
     component: async (identity, customId) => {
       if (!identity.guildId)
         throw new Error("서버에서만 사용할 수 있는 버튼입니다.");
