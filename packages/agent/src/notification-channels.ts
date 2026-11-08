@@ -9,7 +9,7 @@ import {
   type DiscordIdentity,
   type PublicAlertKind,
 } from "@rapi/core";
-import type { PostgresStore } from "@rapi/db";
+import type { GuildStore } from "@rapi/core";
 
 const SNOWFLAKE = /^\d{1,20}$/;
 
@@ -38,7 +38,7 @@ export interface NotificationChannels {
  */
 export function createNotificationChannels(input: {
   store: Pick<
-    PostgresStore,
+    GuildStore,
     | "guildChannels"
     | "publicGuildChannels"
     | "setGuildChannel"

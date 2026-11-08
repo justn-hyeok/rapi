@@ -5,8 +5,8 @@ import {
   type DiscordIdentity,
   type Interests,
 } from "@rapi/core";
-import type { StarOwnerStore } from "@rapi/db";
 import { STAR_VOTE_PREFIX } from "./star-reminders.js";
+import type { StarOwnerStore } from "@rapi/core";
 
 // A link in today's DM keeps working for a week, so an old message still opens it.
 const LINK_DAYS = 7;

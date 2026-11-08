@@ -3,7 +3,7 @@ import {
   enabledGuildFeatures,
   type GuildFeature,
 } from "@rapi/core";
-import type { PostgresStore } from "@rapi/db";
+import type { GuildStore } from "@rapi/core";
 
 export interface GuildFeatureSwitch {
   enabled(guildId: string): Promise<ReadonlySet<GuildFeature>>;
@@ -25,7 +25,7 @@ const logFailure = (error: unknown) =>
  * refuses instead of guessing, and the home guild never needs the database.
  */
 export function createGuildFeatures(input: {
-  store: Pick<PostgresStore, "guildFeatureSettings" | "setGuildFeature">;
+  store: Pick<GuildStore, "guildFeatureSettings" | "setGuildFeature">;
   homeGuildId: string | undefined;
 }): GuildFeatureSwitch {
   return {

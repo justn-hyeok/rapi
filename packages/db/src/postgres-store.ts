@@ -1,6 +1,19 @@
 import { randomUUID } from "node:crypto";
 import { Pool, type PoolClient } from "pg";
 import type {
+  CommunityStore,
+  DiscordLayoutPlanRecord,
+  DiscordLayoutStore,
+  DiscountCandidateStore,
+  GuildStore,
+  ManagedDiscordResourceRecord,
+  RapiUpdateStore,
+  RawEventResult,
+  ReportStore,
+  SourceStore,
+  StarSubscriber,
+  StarSubscriberStore,
+  StarOwnerStore,
   CandidateForCard,
   CandidateForDecision,
   CandidateToVerify,
@@ -14,7 +27,7 @@ import type {
   ReportOutcome,
   Visibility,
 } from "@rapi/core";
-import { StarOwnerStore } from "./star-owner-store.js";
+import { PostgresStarOwnerStore } from "./star-owner-store.js";
 import {
   parseHtmlSourcePolicy,
   UNVETTED_ROUTES,
@@ -29,47 +42,23 @@ const STAR_LOGIN_TABLES = [
   "star_neighbors",
 ] as const;
 
-export interface StarSubscriber {
-  userId: string;
-  githubLogin: string;
-  // Encrypted. Null for the configured owner, read with the deployment's token.
-  githubToken: string | null;
-  subscribedAt: Date;
-  pausedAt: Date | null;
-  pausedReason: string | null;
-}
-
-interface RawEventResult {
-  id: string;
-  inserted: boolean;
-}
-
-export interface ManagedDiscordResourceRecord {
-  guildId: string;
-  resourceType: "role" | "category" | "channel" | "message" | "webhook";
-  key: string;
-  discordId: string;
-  layoutDigest: string;
-}
-
-export interface DiscordLayoutPlanRecord {
-  id: string;
-  guildId: string;
-  createdBy: string;
-  layoutDigest: string;
-  snapshotDigest: string;
-  payload: Record<string, unknown>;
-  expiresAt: Date;
-  appliedAt: Date | null;
-}
-
 // The moment the publication that is $1 places back leaves the hour, if there is one.
 const PUBLICATION_RETRY_AT = `SELECT decided_at + interval '1 hour' AS "retryAt"
   FROM discount_candidates
   WHERE status = 'published' AND decided_at > now() - interval '1 hour'
   ORDER BY decided_at DESC OFFSET $1 LIMIT 1`;
 
-export class PostgresStore {
+export class PostgresStore
+  implements
+    SourceStore,
+    DiscountCandidateStore,
+    ReportStore,
+    GuildStore,
+    RapiUpdateStore,
+    CommunityStore,
+    DiscordLayoutStore,
+    StarSubscriberStore
+{
   readonly pool: Pool;
 
   constructor(
@@ -1092,7 +1081,7 @@ export class PostgresStore {
 
   /** One person's stars and everything learned from them. */
   starsOf(ownerId: string): StarOwnerStore {
-    return new StarOwnerStore(
+    return new PostgresStarOwnerStore(
       this.pool,
       (work) => this.transaction(work),
       ownerId,
