@@ -26,7 +26,7 @@ type InterestStore = Pick<
 /** One person's interest page. */
 export interface StarInterestPage {
   store: InterestStore;
-  ownerId: string;
+  userId: string;
   // A key only this deployment has. The link is signed with a key derived from it.
   secret: string;
   baseUrl: string;
@@ -35,7 +35,7 @@ export interface StarInterestPage {
 /** Everyone's interest pages: each person's data, and whether they are connected. */
 export interface StarInterestSite {
   store: {
-    starsOf(ownerId: string): InterestStore;
+    starsOf(userId: string): InterestStore;
     starSubscriber(userId: string): Promise<{ userId: string } | null>;
   };
   secret: string;
@@ -49,13 +49,13 @@ const DISCORD_ID = /^\d{1,25}$/;
 /** The page of one person, or null for an id that cannot be anyone's. */
 export function interestPageOf(
   site: StarInterestSite,
-  ownerId: string | null | undefined,
+  userId: string | null | undefined,
 ): StarInterestPage | null {
-  const owner = ownerId || site.defaultOwnerId;
-  if (!owner || !DISCORD_ID.test(owner)) return null;
+  const person = userId || site.defaultOwnerId;
+  if (!person || !DISCORD_ID.test(person)) return null;
   return {
-    store: site.store.starsOf(owner),
-    ownerId: owner,
+    store: site.store.starsOf(person),
+    userId: person,
     secret: site.secret,
     baseUrl: site.baseUrl,
   };
@@ -64,19 +64,19 @@ export function interestPageOf(
 const linkKey = (secret: string) =>
   createHmac("sha256", secret).update("rapi star interest link").digest();
 
-const signature = (secret: string, ownerId: string, expires: number) =>
+const signature = (secret: string, userId: string, expires: number) =>
   createHmac("sha256", linkKey(secret))
-    .update(`${ownerId}.${expires}`)
+    .update(`${userId}.${expires}`)
     .digest("base64url");
 
-/** The page's address with a token that names the owner and expires in a week. */
+/** The page's address with a token that names its person and expires in a week. */
 export function starInterestUrl(page: StarInterestPage, now: Date): string {
   const expires = Math.floor((now.getTime() + LINK_DAYS * DAY_MS) / 1000);
-  const token = `${expires}.${signature(page.secret, page.ownerId, expires)}`;
-  return `${page.baseUrl.replace(/\/+$/, "")}/stars?u=${page.ownerId}&t=${token}`;
+  const token = `${expires}.${signature(page.secret, page.userId, expires)}`;
+  return `${page.baseUrl.replace(/\/+$/, "")}/stars?u=${page.userId}&t=${token}`;
 }
 
-/** Whether a token is this owner's and has not expired. */
+/** Whether a token is this person's and has not expired. */
 export function validStarToken(
   page: StarInterestPage,
   token: string | null,
@@ -86,12 +86,12 @@ export function validStarToken(
   const expires = Number(expiresText);
   if (!given || !Number.isInteger(expires) || expires * 1000 < now.getTime())
     return false;
-  const expected = Buffer.from(signature(page.secret, page.ownerId, expires));
+  const expected = Buffer.from(signature(page.secret, page.userId, expires));
   const actual = Buffer.from(given);
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
-/** Every facet the owner's stars have, with what they picked so far. */
+/** Every facet the person's stars have, with what they picked so far. */
 export async function starInterestData(page: StarInterestPage, now: Date) {
   const [stars, saved] = await Promise.all([
     page.store.currentStars(),

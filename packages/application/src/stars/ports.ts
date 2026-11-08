@@ -58,7 +58,7 @@ export interface StarStore {
 }
 
 export interface StarSubscriberStore {
-  starsOf(ownerId: string): StarStore;
+  starsOf(userId: string): StarStore;
   starSubscribers(): Promise<StarSubscriber[]>;
   starSubscriber(userId: string): Promise<StarSubscriber | null>;
   saveStarSubscriber(userId: string, githubLogin: string): Promise<void>;

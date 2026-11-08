@@ -97,7 +97,7 @@ function setup(
   let reads = 0;
   const input = {
     store,
-    ownerId: "42",
+    userId: "42",
     random: () => 0.9,
     reads: {},
     delivery: {

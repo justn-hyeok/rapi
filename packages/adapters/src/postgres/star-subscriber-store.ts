@@ -16,11 +16,11 @@ export class PostgresStarSubscriberStore implements StarSubscriberStore {
   constructor(private readonly db: PostgresDatabase) {}
 
   /** One person's stars and everything learned from them. */
-  starsOf(ownerId: string): StarStore {
+  starsOf(userId: string): StarStore {
     return new PostgresStarStore(
       this.db.pool,
       (work) => this.db.transaction(work),
-      ownerId,
+      userId,
     );
   }
 
@@ -63,7 +63,7 @@ export class PostgresStarSubscriberStore implements StarSubscriberStore {
       // so nothing comes twice and today is not sent again.
       if (old !== undefined && old.toLowerCase() !== githubLogin.toLowerCase())
         for (const table of ["github_stars", "star_neighbors"])
-          await client.query(`DELETE FROM ${table} WHERE owner_id = $1`, [
+          await client.query(`DELETE FROM ${table} WHERE user_id = $1`, [
             userId,
           ]);
       await client.query(
@@ -100,9 +100,7 @@ export class PostgresStarSubscriberStore implements StarSubscriberStore {
         "star_interests",
         "star_votes",
       ])
-        await client.query(`DELETE FROM ${table} WHERE owner_id = $1`, [
-          userId,
-        ]);
+        await client.query(`DELETE FROM ${table} WHERE user_id = $1`, [userId]);
       const removed = await client.query(
         "DELETE FROM star_subscribers WHERE user_id = $1",
         [userId],
@@ -112,15 +110,15 @@ export class PostgresStarSubscriberStore implements StarSubscriberStore {
   }
 
   /** Hands the rows from before stars had owners to the configured owner. */
-  async adoptOwnerlessStars(ownerId: string): Promise<number> {
+  async adoptOwnerlessStars(userId: string): Promise<number> {
     return this.db.transaction(async (client) => {
       let moved = 0;
       for (const table of STAR_LOGIN_TABLES)
         moved +=
           (
             await client.query(
-              `UPDATE ${table} SET owner_id = $1 WHERE owner_id = ''`,
-              [ownerId],
+              `UPDATE ${table} SET user_id = $1 WHERE user_id = ''`,
+              [userId],
             )
           ).rowCount ?? 0;
       return moved;

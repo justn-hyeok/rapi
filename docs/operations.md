@@ -440,7 +440,7 @@ GITHUB_OAUTH_CLIENT_SECRET=...
 - 다른 GitHub 계정으로 다시 연결하면 그 사람의 스타와 취향 이웃만 지우고, 관심사, 👍/👎, 보낸 기록은 남긴다(같은 날 두 번 가지 않고, 본 것도 다시 안 나온다).
 - 서버 안에서만 켤 수 있다. 봇이 DM을 보내려면 같은 서버에 있어야 하기 때문이다. 서버마다 `/기능`으로 끌 수 있지만 기본은 켜짐이다. 끄면 그 서버에서 `/스타`만 안 되고, 이미 켠 사람의 DM은 계속 간다.
 - 최대 500명. 10분마다 도는 한 번에 네 명까지 디깅하고(한 명에 20초, 요청 100번쯤), 나머지는 다음 차례로 넘긴다. 그래서 사람이 많으면 09:00 이후 차례로 간다.
-- 사람마다 행이 따로 있다(`owner_id`): `github_stars`, `star_reminder_days`, `star_suggestions`, `star_neighbors`, `star_interests`, `star_votes`. 받는 사람 목록은 `star_subscribers`이고, 여기에는 토큰이 없다(토큰은 `user_connections`).
+- 사람마다 행이 따로 있다(`user_id`): `github_stars`, `star_reminder_days`, `star_suggestions`, `star_neighbors`, `star_interests`, `star_votes`. 받는 사람 목록은 `star_subscribers`이고, 여기에는 토큰이 없다(토큰은 `user_connections`).
 
 운영자 설정:
 
@@ -502,8 +502,8 @@ DISCORD_SUPERADMIN_USER_IDS=소유자_ID
 
 ```sh
 docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT user_id, github_login, subscribed_at, paused_at, paused_reason FROM star_subscribers ORDER BY subscribed_at"
-docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT owner_id, day, claimed_at, message_id, repos FROM star_reminder_days ORDER BY day DESC, owner_id LIMIT 20"
-docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT owner_id, count(*), count(unstarred_at) AS unstarred, count(last_reminded_at) AS reminded, max(last_reminded_at) FROM github_stars GROUP BY owner_id"
+docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT user_id, day, claimed_at, message_id, repos FROM star_reminder_days ORDER BY day DESC, user_id LIMIT 20"
+docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT user_id, count(*), count(unstarred_at) AS unstarred, count(last_reminded_at) AS reminded, max(last_reminded_at) FROM github_stars GROUP BY user_id"
 ```
 
 오늘 것을 다시 받아 볼 때(09:00 이후에만 나간다). 이미 보낸 스타는 표시가 남아 있어 다른 스타가 온다.
@@ -516,7 +516,7 @@ sudo systemctl restart rapi-bot
 관심사와 👍/👎를 볼 때:
 
 ```sh
-docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT owner_id, jsonb_object_keys(facets) AS facet FROM star_interests"
+docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT user_id, jsonb_object_keys(facets) AS facet FROM star_interests"
 docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT full_name, vote, voted_at FROM star_votes ORDER BY voted_at DESC LIMIT 20"
 docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT full_name, trail_kind, trail_seed, suggested_at FROM star_suggestions ORDER BY suggested_at DESC LIMIT 20"
 docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT login, shared, found_from, followed_at FROM star_neighbors ORDER BY shared DESC LIMIT 20"
