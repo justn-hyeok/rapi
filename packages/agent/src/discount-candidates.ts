@@ -1,31 +1,3 @@
-import { readFile } from "node:fs/promises";
-import {
-  CatalogRoute,
-  ChangelogRoute,
-  CodeSearchRoute,
-  CommitLogRoute,
-  CommunityRoute,
-  curlFetch,
-  CreditFeedRoute,
-  HackerNewsRoute,
-  PromoClockRoute,
-  PullRequestRoute,
-  readServicePage,
-  siteOffer,
-  RelayListRoute,
-  RelaySiteRoute,
-  type CandidateResult,
-  type CatalogSource,
-  type CommitLogSource,
-  type ChangelogSource,
-  type FeedOfferSource,
-  type HackerNewsSource,
-  type PromoClockSource,
-  type RelayListSource,
-  type RelaySiteSource,
-  type ResolveHostname,
-  type SourceHttpOptions,
-} from "@rapi/adapters";
 import {
   discordEmbed,
   discountCard,
@@ -39,7 +11,6 @@ import {
   type DeliveryAdapter,
   type DeliveryPayload,
   type DiscountCandidate,
-  type DiscountCandidateKind,
   type DiscountCandidateRoute,
   type ProblemReportForCard,
   type KnownOperator,
@@ -47,31 +18,12 @@ import {
   UncertainDeliveryError,
 } from "@rapi/core";
 import { messageBody } from "./community-feeds.js";
-import type { SourceStore, DiscountCandidateStore } from "@rapi/core";
-
-export interface DiscountSources {
-  changelogs: ChangelogSource[];
-  pullRequests: { repository: string };
-  codeSearch: { queries: string[]; denylist: string[] };
-  catalog?: CatalogSource;
-  hackerNews?: HackerNewsSource;
-  creditFeed?: FeedOfferSource;
-  communities?: FeedOfferSource[];
-  relayLists?: RelayListSource[];
-  freeLists?: RelayListSource[];
-  commitLogs?: CommitLogSource[];
-  promoClock?: PromoClockSource;
-  relaySites?: RelaySiteSource[];
-  operators: KnownOperator[];
-}
-
-export async function loadDiscountSources(
-  root: string,
-): Promise<DiscountSources> {
-  return JSON.parse(
-    await readFile(`${root}/config/discount-sources.json`, "utf8"),
-  ) as DiscountSources;
-}
+import type {
+  CandidateJob,
+  DiscountCandidateStore,
+  ServicePages,
+  SourceStore,
+} from "@rapi/core";
 
 type CandidateStore = Pick<
   DiscountCandidateStore,
@@ -82,7 +34,6 @@ type CandidateStore = Pick<
     "createSource" | "sourceCursor" | "saveCursor" | "recordSourceFailure"
   >;
 
-const NO_TOKEN = "GITHUB_READ_TOKEN이 없어 건너뜀";
 const CHINESE = /\p{Script=Han}/u;
 const KOREAN = /\p{Script=Hangul}/u;
 // Three words in a row: an English sentence, not a name, an address or "PR #7".
@@ -148,133 +99,21 @@ async function inKorean(
  */
 export async function collectDiscountCandidates(input: {
   store: CandidateStore;
-  sources: DiscountSources;
-  githubToken?: string | undefined;
-  http?: SourceHttpOptions;
-  now?: () => Date;
+  jobs: readonly CandidateJob[];
   translate?: (texts: string[]) => Promise<string[]>;
 }): Promise<string[]> {
-  const { store, sources, githubToken: token, http } = input;
-  const changelog = new ChangelogRoute(http, input.now);
-  const pullRequests = token && new PullRequestRoute(token, http);
-  const codeSearch =
-    token && new CodeSearchRoute(token, sources.codeSearch.denylist, http);
-  const catalogJob = (source: CatalogSource) => ({
-    kind: "candidate_catalog",
-    locator: source.modelsUrl,
-    collect: async (sourceId: string) =>
-      new CatalogRoute(http).collect(
-        source,
-        await store.sourceCursor(sourceId),
-      ),
-  });
-  const hackerNewsJobs = (source: HackerNewsSource) => {
-    const route = new HackerNewsRoute(http, input.now);
-    const job = (kind: DiscountCandidateKind) => (query: string) => ({
-      kind: "candidate_hacker_news",
-      locator: query,
-      collect: () => route.collect(query, kind, source.maxAgeDays),
-    });
-    return [
-      ...source.discount.map(job("discount")),
-      ...source.newService.map(job("new_service")),
-    ];
-  };
-  const creditFeedJob = (source: FeedOfferSource) => ({
-    kind: "candidate_credit_feed",
-    locator: source.url,
-    collect: () => new CreditFeedRoute(http, input.now).collect(source),
-  });
-  const communityJob = (source: FeedOfferSource) => ({
-    kind: "candidate_community",
-    locator: source.url,
-    collect: () =>
-      new CommunityRoute(
-        source.client === "curl" ? { ...http, fetch: curlFetch() } : http,
-        input.now,
-      ).collect(source),
-  });
-  const listJob =
-    (route: "relay_list" | "free_list") => (source: RelayListSource) => ({
-      kind: `candidate_${route}`,
-      locator: `${source.repository}/${source.path}`,
-      collect: async (sourceId: string) =>
-        new RelayListRoute(http).collect(
-          source,
-          await store.sourceCursor(sourceId),
-          route,
-        ),
-    });
-  const promoClockJob = (source: PromoClockSource) => ({
-    kind: "candidate_promoclock",
-    locator: source.url,
-    collect: async (sourceId: string) =>
-      new PromoClockRoute(http).collect(
-        source,
-        await store.sourceCursor(sourceId),
-      ),
-  });
-  const relaySiteJob = (source: RelaySiteSource) => ({
-    kind: "candidate_relay_site",
-    locator: source.url,
-    collect: async (sourceId: string) =>
-      new RelaySiteRoute(http).collect(
-        source,
-        await store.sourceCursor(sourceId),
-      ),
-  });
-  const commitLogJob = (source: CommitLogSource) => ({
-    kind: "candidate_commit_log",
-    locator: source.repository,
-    collect: async (sourceId: string) =>
-      new CommitLogRoute(token, http).collect(
-        source,
-        await store.sourceCursor(sourceId),
-      ),
-  });
-  const jobs: Array<{
-    kind: string;
-    locator: string;
-    collect?: (sourceId: string) => Promise<CandidateResult>;
-  }> = [
-    ...sources.changelogs.map((source) => ({
-      kind: "candidate_changelog",
-      locator: source.url,
-      collect: () => changelog.collect(source),
-    })),
-    {
-      kind: "candidate_pull_request",
-      locator: sources.pullRequests.repository,
-      ...(pullRequests && {
-        collect: () => pullRequests.collect(sources.pullRequests.repository),
-      }),
-    },
-    ...sources.codeSearch.queries.map((query) => ({
-      kind: "candidate_code_search",
-      locator: query,
-      ...(codeSearch && { collect: () => codeSearch.collect(query) }),
-    })),
-    ...(sources.catalog ? [catalogJob(sources.catalog)] : []),
-    ...(sources.hackerNews ? hackerNewsJobs(sources.hackerNews) : []),
-    ...(sources.creditFeed ? [creditFeedJob(sources.creditFeed)] : []),
-    ...(sources.communities ?? []).map(communityJob),
-    ...(sources.relayLists ?? []).map(listJob("relay_list")),
-    ...(sources.freeLists ?? []).map(listJob("free_list")),
-    ...(sources.commitLogs ?? []).map(commitLogJob),
-    ...(sources.promoClock ? [promoClockJob(sources.promoClock)] : []),
-    ...(sources.relaySites ?? []).map(relaySiteJob),
-  ];
-
+  const { store, jobs } = input;
   const failures: string[] = [];
   for (const job of jobs) {
     let sourceId: string | undefined;
     try {
       sourceId = await store.createSource(job.kind, job.locator, "public");
       if (!job.collect) {
-        await store.recordSourceFailure(sourceId, NO_TOKEN);
+        await store.recordSourceFailure(sourceId, job.skipped ?? "건너뜀");
         continue;
       }
-      const collected = await job.collect(sourceId);
+      const id = sourceId;
+      const collected = await job.collect(() => store.sourceCursor(id));
       const { problem, cursor } = collected;
       const translated = await inKorean(
         collected.candidates,
@@ -326,14 +165,14 @@ export async function verifyDiscountCandidates(
   input: {
     store: VerificationStore;
     operators: readonly KnownOperator[];
-    http?: SourceHttpOptions & { resolve?: ResolveHostname };
+    pages: ServicePages;
     translate?: (texts: string[]) => Promise<string[]>;
   },
   only: { limit: number; route?: DiscountCandidateRoute } = {
     limit: VERIFICATIONS_PER_RUN,
   },
 ): Promise<string[]> {
-  const { store, operators, http } = input;
+  const { store, operators, pages } = input;
   const failures: string[] = [];
   let candidates;
   try {
@@ -348,9 +187,7 @@ export async function verifyDiscountCandidates(
   }
   for (const candidate of candidates) {
     try {
-      const page = candidate.domain
-        ? await readServicePage(candidate.domain, http)
-        : null;
+      const page = candidate.domain ? await pages.read(candidate.domain) : null;
       const known = knownOperator(candidate.domain, operators);
       await store.saveCandidateVerification(
         candidate.id,
@@ -359,7 +196,7 @@ export async function verifyDiscountCandidates(
       // A new service's own page may already offer something: that is a deal
       // of its own, found once, when the service is first checked.
       if (candidate.kind === "new_service" && candidate.domain && !known) {
-        const offer = await siteOffer(candidate.domain, page, http);
+        const offer = await pages.offer(candidate.domain, page);
         if (offer) {
           const translated = await inKorean([offer], input.translate);
           if (translated.problem)
@@ -482,7 +319,7 @@ const failureText = (id: string, error: unknown) =>
 export const verifyReports = (input: {
   store: VerificationStore;
   operators: readonly KnownOperator[];
-  http?: SourceHttpOptions & { resolve?: ResolveHostname };
+  pages: ServicePages;
 }): Promise<string[]> =>
   verifyDiscountCandidates(input, {
     limit: REPORT_VERIFICATIONS_PER_RUN,

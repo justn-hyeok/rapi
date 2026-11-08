@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { CommitLogRoute, isPlanOffer } from "@rapi/adapters";
-import { loadDiscountSources } from "@rapi/agent";
+import {
+  CommitLogRoute,
+  isPlanOffer,
+  loadDiscountSources,
+} from "@rapi/adapters";
 
 test("a plan commit counts when it gives something, not when it takes it away", () => {
   for (const message of [

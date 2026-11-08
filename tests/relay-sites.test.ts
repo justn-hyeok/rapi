@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { RELAY_SITE_MAX_CHANGES, RelaySiteRoute } from "@rapi/adapters";
-import { loadDiscountSources } from "@rapi/agent";
+import {
+  RELAY_SITE_MAX_CHANGES,
+  RelaySiteRoute,
+  loadDiscountSources,
+} from "@rapi/adapters";
 
 interface Site {
   invitee?: number;

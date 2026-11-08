@@ -17,10 +17,7 @@ const rules: Record<string, RegExp> = {
 
 // Imports that still cross a boundary. Each one is being moved behind a port;
 // the test fails when an entry here is no longer needed, so the list only shrinks.
-const pending = new Set<string>([
-  "packages/agent/src/discount-candidates.ts -> @rapi/adapters",
-  "packages/agent/src/discount-candidates.ts -> node:fs/promises",
-]);
+const pending = new Set<string>([]);
 
 function sources(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {

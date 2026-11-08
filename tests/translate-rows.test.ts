@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { discountCandidateJobs } from "@rapi/adapters";
 import { collectDiscountCandidates, needsKorean } from "@rapi/agent";
 import type { DiscountCandidate } from "@rapi/core";
 
@@ -48,16 +49,18 @@ test("a row seen before is not translated again", async () => {
         saveCursor: async () => {},
         recordSourceFailure: async () => {},
       } as never,
-      sources: {
-        changelogs: [
-          { url: "https://x.test/atom", format: "feed", maxAgeDays: 30 },
-        ],
-        pullRequests: { repository: "a/b" },
-        codeSearch: { queries: [], denylist: [] },
-        operators: [],
-      },
-      http: { fetch: (async () => new Response(atom)) as typeof fetch },
-      now: () => new Date("2026-11-05T00:00:00Z"),
+      jobs: discountCandidateJobs({
+        sources: {
+          changelogs: [
+            { url: "https://x.test/atom", format: "feed", maxAgeDays: 30 },
+          ],
+          pullRequests: { repository: "a/b" },
+          codeSearch: { queries: [], denylist: [] },
+          operators: [],
+        },
+        http: { fetch: (async () => new Response(atom)) as typeof fetch },
+        now: () => new Date("2026-11-05T00:00:00Z"),
+      }),
       translate: async (texts) => {
         asked.push(texts);
         return texts.map(() => "Sol 50% 할인");
