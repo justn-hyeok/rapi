@@ -1,7 +1,7 @@
 import { discordLayoutPorts } from "@rapi/adapters";
 import { DiscordLayoutManager } from "@rapi/application";
 import { loadEnvironment } from "@rapi/config";
-import { PostgresStore } from "@rapi/db";
+import { PostgresStore } from "@rapi/adapters";
 
 // Posts or refreshes the usage guide in #라피-도움말 without a layout apply.
 const config = loadEnvironment();

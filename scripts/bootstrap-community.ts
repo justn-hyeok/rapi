@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { discordLayoutPorts } from "@rapi/adapters";
 import { DiscordLayoutManager } from "@rapi/application";
 import { loadEnvironment } from "@rapi/config";
-import { PostgresStore } from "@rapi/db";
+import { PostgresStore } from "@rapi/adapters";
 import { replaceEnvironmentValue } from "./update-discord-token.mjs";
 
 const officialFeeds = [

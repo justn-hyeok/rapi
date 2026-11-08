@@ -14,7 +14,11 @@ import { dirname, resolve, join } from "node:path";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 import { randomUUID } from "node:crypto";
-import { verifyRelease } from "./release-artifact.mjs";
+import {
+  migrationsPath,
+  rollbacksPath,
+  verifyRelease,
+} from "./release-artifact.mjs";
 
 const execute = promisify(execFile);
 const ports = { bot: 4000, monitor: 4300 };
@@ -305,7 +309,7 @@ export function systemdDriver(
 }
 
 // Applies the candidate's new migrations during a switch. Every added
-// migration must ship packages/db/rollbacks/<same name>, so a failed switch
+// migration must ship a rollback of the same name, so a failed switch
 // can restore the exact schema the previous release's readiness expects.
 export async function additiveSchemaMigration({
   currentPath,
@@ -324,10 +328,7 @@ export async function additiveSchemaMigration({
     try {
       rollbacks.set(
         name,
-        await readFile(
-          join(candidatePath, "packages/db/rollbacks", name),
-          "utf8",
-        ),
+        await readFile(join(rollbacksPath(candidatePath), name), "utf8"),
       );
     } catch {
       throw new Error(`Migration ${name} has no rollback; refusing to switch`);
@@ -370,10 +371,7 @@ export async function additiveSchemaMigration({
         for (const name of added)
           if (!applied.has(name))
             await client.query(
-              await readFile(
-                join(candidatePath, "packages/db/migrations", name),
-                "utf8",
-              ),
+              await readFile(join(migrationsPath(candidatePath), name), "utf8"),
             );
       }),
     rollback: () =>

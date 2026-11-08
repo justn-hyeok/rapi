@@ -27,7 +27,8 @@ await client.connect();
 try {
   await client.query("SELECT pg_advisory_lock(731904227)");
   const migrationsDirectory = resolve(
-    process.env.RAPI_MIGRATIONS_DIRECTORY ?? "packages/db/migrations",
+    process.env.RAPI_MIGRATIONS_DIRECTORY ??
+      "packages/adapters/postgres/migrations",
   );
   const migrations = (await readdir(migrationsDirectory))
     .filter((name) => /^\d+.*\.sql$/.test(name))

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { GitHubStar } from "@rapi/domain";
-import { PostgresConnectionStore, PostgresStore } from "@rapi/db";
+import { PostgresConnectionStore, PostgresStore } from "@rapi/adapters";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl || new URL(databaseUrl).pathname !== "/rapi_test")

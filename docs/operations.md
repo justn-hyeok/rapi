@@ -401,7 +401,7 @@ docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT reported_at, domain,
 docker exec rapi-postgres-1 psql -U rapi -d rapi -c "UPDATE problem_reports SET carded_at = NULL WHERE id = '행 ID' AND card_message_id IS NULL AND decision IS NULL"
 ```
 
-되돌리면(`packages/db/rollbacks/0006_reports.sql`) `problem_reports`와 제보 후보 행이 지워진다. 이미 빨강이 된 다른 행은 그대로다.
+되돌리면(`packages/adapters/postgres/rollbacks/0006_reports.sql`) `problem_reports`와 제보 후보 행이 지워진다. 이미 빨강이 된 다른 행은 그대로다.
 
 ## 외부 계정 연결 (0.0.11)
 
@@ -522,7 +522,7 @@ docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT full_name, trail_kin
 docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT login, shared, found_from, followed_at FROM star_neighbors ORDER BY shared DESC LIMIT 20"
 ```
 
-되돌리면(`packages/db/rollbacks/0007_star_reminders.sql`) 저장한 스타와 보낸 기록이 지워진다. `0019_star_interests.sql`을 되돌리면 관심사, 👍/👎, 보낸 새 저장소 기록과 스타의 topic 등 추가 정보가 지워지고, 고르기는 예전 방식으로 돌아간다. `0021_star_owners.sql`을 되돌리면 맨 처음 연결된 사람(소유자) 것만 남기고 다른 사람의 스타와 기록, 받는 사람 목록이 지워진다. 0021을 되돌린 채로는 이 기능의 코드가 돌지 않으므로 앞 릴리즈로 함께 되돌린다. `0020_star_digging.sql`을 되돌리면 취향 이웃과, 보낸 것이 어느 길로 왔는지가 지워진다. 디깅은 그날 만난 사람만으로 돌고, 👍/👎는 길을 고르는 데 쓰이지 않는다.
+되돌리면(`packages/adapters/postgres/rollbacks/0007_star_reminders.sql`) 저장한 스타와 보낸 기록이 지워진다. `0019_star_interests.sql`을 되돌리면 관심사, 👍/👎, 보낸 새 저장소 기록과 스타의 topic 등 추가 정보가 지워지고, 고르기는 예전 방식으로 돌아간다. `0021_star_owners.sql`을 되돌리면 맨 처음 연결된 사람(소유자) 것만 남기고 다른 사람의 스타와 기록, 받는 사람 목록이 지워진다. 0021을 되돌린 채로는 이 기능의 코드가 돌지 않으므로 앞 릴리즈로 함께 되돌린다. `0020_star_digging.sql`을 되돌리면 취향 이웃과, 보낸 것이 어느 길로 왔는지가 지워진다. 디깅은 그날 만난 사람만으로 돌고, 👍/👎는 길을 고르는 데 쓰이지 않는다.
 
 ## 서버별 기능 (0.0.9)
 
@@ -575,7 +575,7 @@ docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT guild_id, feature, e
 journalctl -u rapi-bot --since "10 minutes ago" | grep "command registration"
 ```
 
-되돌리면(`packages/db/rollbacks/0008_guild_features.sql`) 저장한 설정이 지워진다. 이전 버전은 서버별 기능을 보지 않으므로 다른 서버에서도 전부 동작한다.
+되돌리면(`packages/adapters/postgres/rollbacks/0008_guild_features.sql`) 저장한 설정이 지워진다. 이전 버전은 서버별 기능을 보지 않으므로 다른 서버에서도 전부 동작한다.
 
 ## 알림 채널
 
@@ -676,7 +676,7 @@ docker exec rapi-postgres-1 psql -U rapi -d rapi -c "SELECT guild_id, name, stat
 docker exec rapi-postgres-1 psql -U rapi -d rapi -c "UPDATE discord_guilds SET carded_at = NULL WHERE guild_id = '<서버 ID>' AND status = 'pending' AND card_message_id IS NULL"
 ```
 
-되돌리면(`packages/db/rollbacks/0009_guild_requests.sql`) 요청자, 사유, 카드 기록이 지워지고 차단은 `rejected`로 남는다. 이전 버전은 이 값을 허용으로 치지 않으므로 계속 거절된다. 이전 버전은 할인 버튼을 다른 서버에서 막지 않고, 서버가 하나도 설정되지 않으면 모두 연다.
+되돌리면(`packages/adapters/postgres/rollbacks/0009_guild_requests.sql`) 요청자, 사유, 카드 기록이 지워지고 차단은 `rejected`로 남는다. 이전 버전은 이 값을 허용으로 치지 않으므로 계속 거절된다. 이전 버전은 할인 버튼을 다른 서버에서 막지 않고, 서버가 하나도 설정되지 않으면 모두 연다.
 
 ## 카드 템플릿
 

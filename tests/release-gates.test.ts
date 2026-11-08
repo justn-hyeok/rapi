@@ -4,7 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import {
+  migrationsPath,
   releaseFileDigests,
+  rollbacksPath,
   verifyRelease,
 } from "../scripts/release-artifact.mjs";
 
@@ -53,5 +55,20 @@ test("a release needs either the full host gates or the CI-verified set", async 
   await assert.rejects(
     verifyRelease(await release(["npm ci", "build", "restore:smoke"])),
     /incomplete/,
+  );
+});
+
+test("a release's SQL is under adapters/postgres, or packages/db before the rename", async () => {
+  const legacy = await realpath(await mkdtemp(join(tmpdir(), "rapi-sql-")));
+  await mkdir(join(legacy, "packages/db/migrations"), { recursive: true });
+  assert.equal(migrationsPath(legacy), join(legacy, "packages/db/migrations"));
+  const current = await realpath(await mkdtemp(join(tmpdir(), "rapi-sql-")));
+  await mkdir(join(current, "packages/adapters/postgres/rollbacks"), {
+    recursive: true,
+  });
+  await mkdir(join(current, "packages/db/rollbacks"), { recursive: true });
+  assert.equal(
+    rollbacksPath(current),
+    join(current, "packages/adapters/postgres/rollbacks"),
   );
 });

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { compareMigrationNames } from "../packages/db/src/index.js";
+import { compareMigrationNames } from "../packages/adapters/src/postgres/index.js";
 
 test("migration health accepts an exact set", () => {
   assert.deepEqual(

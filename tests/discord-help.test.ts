@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { DiscordLayoutManager } from "@rapi/application";
-import type { PostgresStore } from "@rapi/db";
+import type { PostgresStore } from "@rapi/adapters";
 
 function setup(existing: string | null) {
   const calls: Array<{ route: string; method: string; body: string }> = [];

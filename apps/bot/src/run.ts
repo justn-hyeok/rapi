@@ -68,7 +68,7 @@ import {
   ModelUsageStore,
   PostgresConnectionStore,
   PostgresStore,
-} from "@rapi/db";
+} from "@rapi/adapters";
 import { readFile } from "node:fs/promises";
 import { connectPages } from "./connect-page.js";
 import { starPages } from "./star-page.js";

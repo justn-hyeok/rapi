@@ -1,6 +1,22 @@
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import { readFile, readdir, lstat, realpath } from "node:fs/promises";
 import { resolve, relative, join } from "node:path";
+
+// Where a release keeps its SQL. Releases before 0.0.11's package rename kept
+// it under packages/db, and a switch still reads the release it replaces.
+const SQL_DIRECTORIES = ["packages/adapters/postgres", "packages/db"];
+
+function sqlDirectory(root, kind) {
+  for (const directory of SQL_DIRECTORIES) {
+    const path = join(root, directory, kind);
+    if (existsSync(path)) return path;
+  }
+  return join(root, SQL_DIRECTORIES[0], kind);
+}
+
+export const migrationsPath = (root) => sqlDirectory(root, "migrations");
+export const rollbacksPath = (root) => sqlDirectory(root, "rollbacks");
 
 export async function releaseFileDigests(root) {
   const files = {};
@@ -66,7 +82,7 @@ export async function verifyRelease(root, expectedSha) {
     Object.entries(actual).some(([name, digest]) => expected[name] !== digest)
   )
     throw new Error("Release file digest mismatch");
-  const migrations = (await readdir(join(path, "packages/db/migrations")))
+  const migrations = (await readdir(migrationsPath(path)))
     .filter((name) => name.endsWith(".sql"))
     .sort();
   if (JSON.stringify(migrations) !== JSON.stringify(manifest.migrations))

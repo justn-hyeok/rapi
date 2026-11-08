@@ -1,5 +1,5 @@
 import { loadEnvironment } from "@rapi/config";
-import { PostgresStore } from "@rapi/db";
+import { PostgresStore } from "@rapi/adapters";
 
 // Deals reported with /제보 since a date, and whether a route had found the same
 // domain first. A report nothing found first is a deal Rapi missed.
