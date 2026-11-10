@@ -324,6 +324,8 @@ test("only the owner can run it, and only home sees it", async () => {
 test("the store turns Postgres strings into numbers and dates into strings", async () => {
   const pool = {
     async query(sql: string) {
+      // Postgres cannot infer a parameter's type from subtracting an interval.
+      assert.doesNotMatch(sql, /\$1 - interval/);
       if (/source_cursors/.test(sql))
         return {
           rows: [
