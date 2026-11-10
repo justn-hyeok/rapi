@@ -76,13 +76,13 @@ describe("command registration", () => {
       names("home"),
       slashCommandDefinitions.map((command) => command.name),
     );
-    // Only the owner sets review alerts, at home, so nobody else is shown one.
+    // Only the owner uses these, at home, so nobody else is shown them.
     for (const guild of ["a", "b", "c"])
       assert.deepEqual(
         names(guild),
         slashCommandDefinitions
           .map((command) => command.name)
-          .filter((name) => name !== "검토-알림"),
+          .filter((name) => name !== "검토-알림" && name !== "대시보드"),
       );
     assert.ok(
       !slashCommandDefinitions.some((command) => command.name === "서버신청"),

@@ -1,14 +1,16 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
 import { escapeMarkdown } from "@rapi/domain";
 import { type DiscordGateway } from "./ports.js";
+import {
+  signedLinkToken,
+  validSignedLinkToken,
+} from "../shared/signed-link.js";
 
 export const SUGGESTION_MAX_CHARS = 1000;
 export const SUGGESTIONS_PER_HOUR = 5;
 
 const LINK_DAYS = 7;
-const DAY_MS = 86_400_000;
+const LINK_LABEL = "rapi help link";
 const HOUR_MS = 3_600_000;
-const DISCORD_ID = /^\d{1,32}$/;
 
 /**
  * The /help page and its suggestions: a public address to sign links for, the
@@ -32,22 +34,19 @@ export type SuggestionOutcome =
   | "no_channel"
   | "failed";
 
-const linkKey = (secret: string) =>
-  createHmac("sha256", secret).update("rapi help link").digest();
-
-const signature = (secret: string, userId: string, expires: number) =>
-  createHmac("sha256", linkKey(secret))
-    .update(`${userId}.${expires}`)
-    .digest("base64url");
-
 /** The /help address for one person, signed like a star interest link. */
 export function helpPageUrl(
   site: Pick<HelpSite, "secret" | "baseUrl">,
   userId: string,
   now: Date,
 ): string {
-  const expires = Math.floor((now.getTime() + LINK_DAYS * DAY_MS) / 1000);
-  const token = `${expires}.${signature(site.secret, userId, expires)}`;
+  const token = signedLinkToken(
+    site.secret,
+    LINK_LABEL,
+    userId,
+    LINK_DAYS,
+    now,
+  );
   return `${site.baseUrl.replace(/\/+$/, "")}/help?u=${userId}&t=${token}`;
 }
 
@@ -58,14 +57,7 @@ export function validHelpToken(
   token: string | null,
   now: Date,
 ): boolean {
-  if (!userId || !DISCORD_ID.test(userId)) return false;
-  const [expiresText, given] = (token ?? "").split(".");
-  const expires = Number(expiresText);
-  if (!given || !Number.isInteger(expires) || expires * 1000 < now.getTime())
-    return false;
-  const expected = Buffer.from(signature(site.secret, userId, expires));
-  const actual = Buffer.from(given);
-  return actual.length === expected.length && timingSafeEqual(actual, expected);
+  return validSignedLinkToken(site.secret, LINK_LABEL, userId, token, now);
 }
 
 /** Drop one matching time, for when a counted send turned out not to send. */

@@ -427,6 +427,10 @@ GITHUB_OAUTH_CLIENT_SECRET=...
 
 새 서비스를 붙일 때는 `CONNECTION_PROVIDERS`(application)에 이름을 넣고, 그 서비스의 OAuth를 `OAuthGateway` 포트로 구현해(adapters) `apps/bot/src/run.ts`의 `connections.providers`에 꽂는다. 명령, 콜백 주소, 게이트웨이, 저장, 회수는 손대지 않아도 된다.
 
+## 운영자 대시보드
+
+소유자가 홈 서버에서 `/대시보드`를 하면 요약과 24시간짜리 서명 링크를 받는다. 링크(`/dashboard`, `apps/bot/src/dashboard-page.ts`)는 작업별 성공과 실패, 수집원, 할인 후보, 이번 달 모델 사용량, 서버, 스타 알림 수를 보여 주고 아무것도 바꾸지 않는다. 링크가 유효해도 소유자가 아니면 열리지 않는다. 작업 상태는 봇 프로세스 메모리에 있어 재시작하면 `아직 안 돌았어요`로 돌아간다. `ops/model-prices.json`에 없는 모델은 비용이 0으로 쌓여 `가격 모름`으로 표시한다.
+
 ## 소개와 개인정보 페이지
 
 `GET /`는 소개와 초대 링크, `GET /privacy`는 개인정보 안내다(`apps/bot/src/site-page.ts`). `/help`는 전체 명령어 목록이고(`apps/bot/src/help-page.ts`), `/도움말`이 주는 사람별 서명 링크(7일)로 열면 건의 입력칸이 나온다. 건의는 DB에 저장하지 않고 제보 검토 채널로 바로 보낸다. 한 사람당 시간당 5건이고, 이 제한은 메모리에만 있어 재시작하면 초기화된다. 저장하는 정보가 바뀌면 안내도 같이 고친다. 초대 링크의 권한은 카드를 보내는 데 필요한 채널 보기, 메시지 보내기, 링크 첨부뿐이다. `/서버구성`을 켜는 서버는 권한을 따로 줘야 한다. 공개 게이트웨이(`ops/gateway/run.mjs`)가 이 주소들을 통과시키므로, 이 파일이 바뀌면 VM에 복사하고 `rapi-public-gateway`를 다시 시작한다.

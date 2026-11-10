@@ -33,6 +33,7 @@ export const slashCommands = [
   "features",
   "guilds",
   "notification_channels",
+  "dashboard",
 ] as const;
 
 /** The feature each command belongs to. /기능 and /서버 have none: they have to stay reachable. */
@@ -51,6 +52,7 @@ const commandFeatures: Record<
   features: undefined,
   guilds: undefined,
   notification_channels: undefined,
+  dashboard: undefined,
 };
 
 export interface DiscordCommand {
@@ -74,7 +76,8 @@ export function requiredCommandAccess(
     return "user";
   return command === "server_config" ||
     command === "features" ||
-    command === "guilds"
+    command === "guilds" ||
+    command === "dashboard"
     ? "superadmin"
     : "admin";
 }
@@ -154,6 +157,8 @@ export class DiscordCommands {
         action: string,
         target: string,
       ) => Promise<string>;
+      /** The owner's dashboard summary with a signed link. */
+      dashboard?: (userId: string) => Promise<string>;
     },
   ) {}
 
@@ -216,6 +221,17 @@ export class DiscordCommands {
     };
   }
 
+  // Owner only, like /서버. The summary and link come from one operation.
+  private async dashboard(
+    identity: DiscordIdentity,
+  ): Promise<DiscordCommandResult> {
+    if (!discordOwnerIds(this.allowlists).includes(identity.userId))
+      throw new Error("소유자만 쓸 수 있는 명령입니다.");
+    const op = this.operations?.dashboard;
+    if (!op) throw new Error("대시보드가 설정되지 않았습니다.");
+    return { messages: splitDiscordMessage(await op(identity.userId)) };
+  }
+
   async execute(
     identity: DiscordIdentity,
     command: DiscordCommand,
@@ -233,6 +249,7 @@ export class DiscordCommands {
       return this.features(identity, command.options);
     if (command.name === "guilds")
       return this.guilds(identity, command.options);
+    if (command.name === "dashboard") return this.dashboard(identity);
     // Checks its own permissions: a server's admins set this without any Rapi role.
     if (command.name === "notification_channels") {
       const channels = this.operations?.notificationChannels;

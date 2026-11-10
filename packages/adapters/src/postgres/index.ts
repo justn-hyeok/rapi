@@ -12,3 +12,4 @@ export * from "./rapi-update-store.js";
 export * from "./community-store.js";
 export * from "./star-subscriber-store.js";
 export * from "./discord-layout-store.js";
+export * from "./dashboard-store.js";

@@ -24,6 +24,8 @@ import {
   announceRapiUpdate,
   createGuildFeatures,
   createNotificationChannels,
+  dashboardUrl,
+  type DashboardSite,
   helpPageUrl,
   discountCardButton,
   guildRequestButton,
@@ -48,6 +50,7 @@ import {
 import {
   allowedGuildIds,
   createGuildGate,
+  dashboardSummary,
   discordOwnerIds,
   GUILD_NOT_ALLOWED_MESSAGE,
   isGuildAllowed,
@@ -65,6 +68,7 @@ import {
 } from "@rapi/adapters";
 import { readFile } from "node:fs/promises";
 import { connectPages } from "./connect-page.js";
+import { dashboardPages } from "./dashboard-page.js";
 import { helpPages } from "./help-page.js";
 import { starPages } from "./star-page.js";
 import { sitePages } from "./site-page.js";
@@ -226,6 +230,30 @@ const helpSite =
         recent: new Map<string, number[]>(),
       }
     : undefined;
+// The /대시보드 page shares the help link's secret and address, signed with its
+// own label, owner only. loops is declared below; view reads it at request time.
+const dashboardSite: DashboardSite | undefined =
+  config.RAPI_PUBLIC_BASE_URL && config.WEBHOOK_ENCRYPTION_KEY
+    ? {
+        secret: config.WEBHOOK_ENCRYPTION_KEY,
+        baseUrl: config.RAPI_PUBLIC_BASE_URL,
+        ownerIds: discordOwnerIds(allowlists),
+        view: async () => ({
+          ...(await stores.dashboard.dashboardNumbers(new Date())),
+          jobs: Object.entries(loops).map(([name, state]) => ({
+            name,
+            running: state.running === true,
+            ...(state.lastStartedAt
+              ? { lastStartedAt: state.lastStartedAt }
+              : {}),
+            ...(state.lastSuccessAt
+              ? { lastSuccessAt: state.lastSuccessAt }
+              : {}),
+            ...(state.lastError ? { lastError: state.lastError } : {}),
+          })),
+        }),
+      }
+    : undefined;
 const commands = new DiscordCommands(agent, allowlists, {
   ...(helpSite
     ? {
@@ -237,6 +265,15 @@ const commands = new DiscordCommands(agent, allowlists, {
   notificationChannels: channels,
   changeGuild: (actorId, action, target) =>
     changeGuild(guildRequests, actorId, action, target),
+  ...(dashboardSite
+    ? {
+        dashboard: async (userId: string) =>
+          dashboardSummary(
+            await dashboardSite.view(),
+            dashboardUrl(dashboardSite, userId, new Date()),
+          ),
+      }
+    : {}),
   stars: (identity, options) => starCommand(starService, identity, options),
   connections: (identity, options) =>
     connectCommand(connections, identity, options),
@@ -548,6 +585,7 @@ const server = createDiscordInteractionServer(
     pages: async (method: string, url: URL, body: () => Promise<Buffer>) =>
       (starSite && (await starPages(starSite)(method, url, body))) ??
       (await connectPages(connections)(method, url)) ??
+      (await dashboardPages(dashboardSite)(method, url)) ??
       (await helpPages(helpSite)(method, url, body)) ??
       sitePages(config.DISCORD_APPLICATION_ID)(method, url),
     component: async (identity, customId) => {
