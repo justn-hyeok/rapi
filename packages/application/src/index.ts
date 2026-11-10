@@ -7,6 +7,7 @@ export * from "./discord/help.js";
 export * from "./discord/layout-manager.js";
 export * from "./discord/layout.js";
 export * from "./discord/ports.js";
+export * from "./discord/suggestions.js";
 export * from "./discounts/approval.js";
 export * from "./discounts/candidates.js";
 export * from "./discounts/ports.js";

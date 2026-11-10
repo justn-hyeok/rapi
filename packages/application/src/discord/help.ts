@@ -28,23 +28,19 @@ export function helpCards(): DiscordCard[] {
   ];
 }
 
-/** What /도움말 answers: every command, grouped by who may run it. */
-export function helpText(siteUrl?: string): string {
+/** What /도움말 answers: a short guide plus this person's signed /help link. */
+export function helpText(link?: string): string {
   const lines = [
-    "**라피 사용법**",
-    "기능은 서버마다 꺼져 있을 수 있어요.",
-    "",
-    "**누구나**",
-    "`/스타 켜기` GitHub를 연결하면 잊고 있던 스타와 새로 찾은 저장소를 매일 아침 DM으로 보내 줍니다.",
-    "`/연결 보기` 연결한 계정을 봅니다. `/연결 끊기`로 끊습니다.",
-    "`/제보` AI 할인이나 새 서비스 링크를 운영자에게 알립니다.",
-    "",
-    "**서버 관리자**",
-    "`/ai-할인-알림 켜기` AI 할인 카드를 받을 채널을 정합니다.",
-    "`/새-서비스-알림 켜기` 새 AI 서비스 소식을 받을 채널을 정합니다.",
-    "`/라피-업데이트-알림 켜기` 라피 새 버전 소식을 받을 채널을 정합니다.",
+    "**라피 도움말**",
+    "`/스타 켜기` 잊고 있던 GitHub 스타를 매일 아침 DM으로 받습니다.",
+    "`/ai-할인-알림 켜기` AI 할인 카드를 받을 채널을 정합니다. 서버 관리자만 쓸 수 있어요.",
   ];
-  if (siteUrl) lines.push("", `소개와 개인정보 안내: ${siteUrl}`);
+  if (link)
+    lines.push(
+      "",
+      `전체 명령어와 건의: <${link}>`,
+      "링크는 7일 동안 쓸 수 있어요.",
+    );
   return lines.join("\n");
 }
 

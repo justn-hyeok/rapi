@@ -34,6 +34,7 @@ test("public gateway denies private routes, forwards signed interactions and fai
       return url.pathname.startsWith("/stars") ||
         url.pathname === "/" ||
         url.pathname === "/privacy" ||
+        url.pathname.startsWith("/help") ||
         url.pathname === "/connect/github/callback"
         ? { status: 200, type: "text/plain", body: "star page" }
         : null;
@@ -75,6 +76,19 @@ test("public gateway denies private routes, forwards signed interactions and fai
     assert.equal((await fetch(base + "/")).status, 200);
     assert.equal((await fetch(base + "/privacy")).status, 200);
     assert.equal((await fetch(base + "/privacy/x")).status, 404);
+    assert.equal((await fetch(base + "/", { method: "HEAD" })).status, 200);
+    assert.equal(
+      (await fetch(base + "/privacy", { method: "HEAD" })).status,
+      200,
+    );
+    assert.equal((await fetch(base + "/help", { method: "HEAD" })).status, 404);
+    assert.equal((await fetch(base + "/help")).status, 200);
+    assert.equal(
+      (await fetch(base + "/help/suggestions?t=x", { method: "POST" })).status,
+      200,
+    );
+    assert.equal((await fetch(base + "/help/suggestions")).status, 404);
+    assert.equal((await fetch(base + "/help/x")).status, 404);
     assert.equal((await fetch(base + "/", { method: "POST" })).status, 404);
     assert.equal(
       (await fetch(base + "/privacy", { method: "POST" })).status,

@@ -24,6 +24,7 @@ import {
   announceRapiUpdate,
   createGuildFeatures,
   createNotificationChannels,
+  helpPageUrl,
   discountCardButton,
   guildRequestButton,
   problemCardButton,
@@ -64,6 +65,7 @@ import {
 } from "@rapi/adapters";
 import { readFile } from "node:fs/promises";
 import { connectPages } from "./connect-page.js";
+import { helpPages } from "./help-page.js";
 import { starPages } from "./star-page.js";
 import { sitePages } from "./site-page.js";
 import {
@@ -212,9 +214,23 @@ const guildRequests = {
   // Sends the card now unless a run is already going; the timer catches that one.
   onOpened: () => void runLoop("cards", sendCards),
 };
+// The /help page shares the star link's secret and address, signed with its own
+// label, and sends suggestions to the report review channel.
+const helpSite =
+  config.RAPI_PUBLIC_BASE_URL && config.WEBHOOK_ENCRYPTION_KEY
+    ? {
+        secret: config.WEBHOOK_ENCRYPTION_KEY,
+        baseUrl: config.RAPI_PUBLIC_BASE_URL,
+        reviewChannelId: async () => (await channels.review()).report,
+        delivery: discord,
+        recent: new Map<string, number[]>(),
+      }
+    : undefined;
 const commands = new DiscordCommands(agent, allowlists, {
-  ...(config.RAPI_PUBLIC_BASE_URL
-    ? { siteUrl: config.RAPI_PUBLIC_BASE_URL }
+  ...(helpSite
+    ? {
+        helpLink: (userId: string) => helpPageUrl(helpSite, userId, new Date()),
+      }
     : {}),
   guildAllowlist: () => guildGate.allowed(),
   guildFeatures,
@@ -532,6 +548,7 @@ const server = createDiscordInteractionServer(
     pages: async (method: string, url: URL, body: () => Promise<Buffer>) =>
       (starSite && (await starPages(starSite)(method, url, body))) ??
       (await connectPages(connections)(method, url)) ??
+      (await helpPages(helpSite)(method, url, body)) ??
       sitePages(config.DISCORD_APPLICATION_ID)(method, url),
     component: async (identity, customId) => {
       if (!identity.guildId)

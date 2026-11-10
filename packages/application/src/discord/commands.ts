@@ -147,8 +147,8 @@ export class DiscordCommands {
       guildAllowlist?: () => Promise<readonly string[]>;
       guildFeatures?: GuildFeatureSwitch;
       notificationChannels?: Pick<NotificationChannels, "change">;
-      /** Public site address, linked from /도움말 when set. */
-      siteUrl?: string;
+      /** This person's signed /help link, linked from /도움말 when set. */
+      helpLink?: (userId: string) => string;
       changeGuild?: (
         actorId: string,
         action: string,
@@ -272,7 +272,9 @@ export class DiscordCommands {
     switch (command.name) {
       case "help": {
         return {
-          messages: splitDiscordMessage(helpText(this.operations?.siteUrl)),
+          messages: splitDiscordMessage(
+            helpText(this.operations?.helpLink?.(identity.userId)),
+          ),
         };
       }
       case "sources": {
