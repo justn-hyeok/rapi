@@ -12,6 +12,7 @@ export * from "./guilds/guilds.js";
 export * from "./models/budget.js";
 export * from "./models/codex.js";
 export * from "./models/usage.js";
+export * from "./operations/dashboard.js";
 export * from "./operations/health.js";
 export * from "./shared/public-url.js";
 export * from "./shared/redact.js";

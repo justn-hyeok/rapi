@@ -57,7 +57,7 @@ Postgres는 `PostgresDatabase`(연결과 트랜잭션) 하나 위에 포트마�
 | Discord | `discord/` 권한, 카드, 메시지 모양 | `discord/` 명령, 도움말, 서버 구성 | `discord/` |
 | 모델 | `models/` 예산, 사용량 | `models/` 포트 | `models/` |
 
-domain의 `operations/`(상태 판단)와 `shared/`(공개 주소 규칙, 비밀 가리기)는 여러 기능이 같이 쓴다. apps/bot에서 `discord-http.ts`는 Discord 상호작용과 웹 페이지 서버, `connect-page.ts`·`star-page.ts`·`site-page.ts`·`help-page.ts`는 웹 페이지, `run.ts`는 조립이다.
+domain의 `operations/`(상태 판단)와 `shared/`(공개 주소 규칙, 비밀 가리기)는 여러 기능이 같이 쓴다. apps/bot에서 `discord-http.ts`는 Discord 상호작용과 웹 페이지 서버, `connect-page.ts`·`star-page.ts`·`site-page.ts`·`help-page.ts`·`dashboard-page.ts`는 웹 페이지, `run.ts`는 조립이다.
 
 ## 새로 붙일 때
 

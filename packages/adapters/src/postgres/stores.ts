@@ -1,5 +1,6 @@
 import { PostgresCommunityStore } from "./community-store.js";
 import { PostgresConnectionStore } from "./connection-store.js";
+import { PostgresDashboardStore } from "./dashboard-store.js";
 import type { PostgresDatabase } from "./database.js";
 import { PostgresDiscordLayoutStore } from "./discord-layout-store.js";
 import { PostgresDiscountCandidateStore } from "./discount-candidate-store.js";
@@ -23,6 +24,7 @@ export function postgresStores(db: PostgresDatabase) {
     stars: new PostgresStarSubscriberStore(db),
     connections: new PostgresConnectionStore(db),
     modelUsage: new PostgresModelUsageStore(db),
+    dashboard: new PostgresDashboardStore(db),
   };
 }
 

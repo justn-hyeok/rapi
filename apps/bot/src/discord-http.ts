@@ -77,6 +77,7 @@ export const discordCommandAliases = {
   "새-서비스-알림": "notification_channels",
   "라피-업데이트-알림": "notification_channels",
   "검토-알림": "notification_channels",
+  대시보드: "dashboard",
 } as const satisfies Record<string, DiscordCommand["name"]>;
 
 const serviceOption = {
@@ -286,6 +287,11 @@ export const slashCommandDefinitions = [
       },
     ],
   },
+  {
+    name: "대시보드",
+    description: "라피 운영 현황을 봅니다. 소유자만 쓸 수 있습니다",
+    type: 1,
+  },
   ...ALERT_COMMANDS.map(({ name, about }) =>
     alertCommand(name, `${about}을 받을 채널을 정합니다`),
   ),
@@ -373,7 +379,8 @@ export function guildCommandDefinitions(
   return guildId === homeGuildId
     ? slashCommandDefinitions
     : slashCommandDefinitions.filter(
-        (command) => command.name !== REVIEW_ALERT_COMMAND,
+        (command) =>
+          command.name !== REVIEW_ALERT_COMMAND && command.name !== "대시보드",
       );
 }
 
@@ -879,6 +886,7 @@ export function createDiscordInteractionServer(
       if (
         ((commandName === "server_config" && options.action === "적용") ||
           commandName === "guilds" ||
+          commandName === "dashboard" ||
           commandName === "notification_channels") &&
         interaction.application_id &&
         interaction.token

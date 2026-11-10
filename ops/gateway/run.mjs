@@ -13,8 +13,9 @@ function respond(response, status, body) {
 
 const server = createServer((incoming, outgoing) => {
   const path = incoming.url?.split("?")[0] ?? "";
-  // Discord's interactions, each person's star interest page and help page,
-  // which check their own signed links, a service's return from connecting an
+  // Discord's interactions, each person's star interest page and help page
+  // and the owner's dashboard, which check their own signed links, a
+  // service's return from connecting an
   // account (/connect/<service>/callback), which checks its signed state, and
   // the intro and privacy pages at / and /privacy, which also answer HEAD.
   const allowed =
@@ -28,6 +29,7 @@ const server = createServer((incoming, outgoing) => {
         path === "/stars" ||
         path === "/stars/data" ||
         path === "/help" ||
+        path === "/dashboard" ||
         /^\/connect\/[a-z][a-z0-9_-]{1,31}\/callback$/.test(path))) ||
     (incoming.method === "HEAD" && (path === "/" || path === "/privacy"));
   if (!allowed) {
