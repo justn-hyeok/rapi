@@ -65,6 +65,7 @@ import {
 import { readFile } from "node:fs/promises";
 import { connectPages } from "./connect-page.js";
 import { starPages } from "./star-page.js";
+import { sitePages } from "./site-page.js";
 import {
   clearGuildCommands,
   createDiscordInteractionServer,
@@ -212,6 +213,9 @@ const guildRequests = {
   onOpened: () => void runLoop("cards", sendCards),
 };
 const commands = new DiscordCommands(agent, allowlists, {
+  ...(config.RAPI_PUBLIC_BASE_URL
+    ? { siteUrl: config.RAPI_PUBLIC_BASE_URL }
+    : {}),
   guildAllowlist: () => guildGate.allowed(),
   guildFeatures,
   notificationChannels: channels,
@@ -527,7 +531,8 @@ const server = createDiscordInteractionServer(
     }),
     pages: async (method: string, url: URL, body: () => Promise<Buffer>) =>
       (starSite && (await starPages(starSite)(method, url, body))) ??
-      connectPages(connections)(method, url),
+      (await connectPages(connections)(method, url)) ??
+      sitePages(config.DISCORD_APPLICATION_ID)(method, url),
     component: async (identity, customId) => {
       if (!identity.guildId)
         throw new Error("서버에서만 사용할 수 있는 버튼입니다.");

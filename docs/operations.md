@@ -427,6 +427,10 @@ GITHUB_OAUTH_CLIENT_SECRET=...
 
 새 서비스를 붙일 때는 `CONNECTION_PROVIDERS`(application)에 이름을 넣고, 그 서비스의 OAuth를 `OAuthGateway` 포트로 구현해(adapters) `apps/bot/src/run.ts`의 `connections.providers`에 꽂는다. 명령, 콜백 주소, 게이트웨이, 저장, 회수는 손대지 않아도 된다.
 
+## 소개와 개인정보 페이지
+
+`GET /`는 소개와 초대 링크, `GET /privacy`는 개인정보 안내다(`apps/bot/src/site-page.ts`). 저장하는 정보가 바뀌면 안내도 같이 고친다. 초대 링크의 권한은 카드를 보내는 데 필요한 채널 보기, 메시지 보내기, 링크 첨부뿐이다. `/서버구성`을 켜는 서버는 권한을 따로 줘야 한다. 공개 게이트웨이(`ops/gateway/run.mjs`)가 두 주소를 통과시키므로, 이 파일이 바뀌면 VM에 복사하고 `rapi-public-gateway`를 다시 시작한다.
+
 ## 스타 리마인드 (0.0.8)
 
 잊고 있던 GitHub 스타와 새로 파낸 저장소를 매일 아침 그 사람의 DM으로 보낸다. 새 릴리즈 알림이 아니다. 스타는 취향이 드러나므로 채널에는 보내지 않는다.

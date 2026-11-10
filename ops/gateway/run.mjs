@@ -14,13 +14,16 @@ function respond(response, status, body) {
 const server = createServer((incoming, outgoing) => {
   const path = incoming.url?.split("?")[0] ?? "";
   // Discord's interactions, each person's star interest page, which checks
-  // its own signed link, and a service's return from connecting an account
-  // (/connect/<service>/callback), which checks its signed state.
+  // its own signed link, a service's return from connecting an account
+  // (/connect/<service>/callback), which checks its signed state, and the
+  // intro and privacy pages at / and /privacy.
   const allowed =
     (incoming.method === "POST" &&
       (path === "/interactions" || path === "/stars/interests")) ||
     (incoming.method === "GET" &&
-      (path === "/stars" ||
+      (path === "/" ||
+        path === "/privacy" ||
+        path === "/stars" ||
         path === "/stars/data" ||
         /^\/connect\/[a-z][a-z0-9_-]{1,31}\/callback$/.test(path)));
   if (!allowed) {

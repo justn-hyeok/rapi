@@ -64,6 +64,7 @@ const stringOption = (name: string, description: string, required = true) => ({
 });
 
 export const discordCommandAliases = {
+  도움말: "help",
   수집원: "sources",
   상태: "status",
   서버구성: "server_config",
@@ -146,6 +147,7 @@ const alertCommand = (
 });
 
 export const slashCommandDefinitions = [
+  { name: "도움말", description: "라피로 할 수 있는 일을 봅니다", type: 1 },
   { name: "수집원", description: "수집원 상태를 확인합니다", type: 1 },
   { name: "상태", description: "라피 운영 상태를 확인합니다", type: 1 },
   {

@@ -32,6 +32,8 @@ test("public gateway denies private routes, forwards signed interactions and fai
     },
     async pages(_method, url) {
       return url.pathname.startsWith("/stars") ||
+        url.pathname === "/" ||
+        url.pathname === "/privacy" ||
         url.pathname === "/connect/github/callback"
         ? { status: 200, type: "text/plain", body: "star page" }
         : null;
@@ -69,6 +71,15 @@ test("public gateway denies private routes, forwards signed interactions and fai
       assert.equal((await fetch(base + path, { method: "POST" })).status, 404);
     }
     assert.equal((await fetch(base + "/interactions")).status, 404);
+    // The intro and privacy pages pass on GET and nothing else does.
+    assert.equal((await fetch(base + "/")).status, 200);
+    assert.equal((await fetch(base + "/privacy")).status, 200);
+    assert.equal((await fetch(base + "/privacy/x")).status, 404);
+    assert.equal((await fetch(base + "/", { method: "POST" })).status, 404);
+    assert.equal(
+      (await fetch(base + "/privacy", { method: "POST" })).status,
+      404,
+    );
     // The star page's three paths pass; anything else under /stars does not.
     assert.equal((await fetch(base + "/stars?t=x")).status, 200);
     assert.equal((await fetch(base + "/stars/data?t=x")).status, 200);
