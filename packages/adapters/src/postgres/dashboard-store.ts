@@ -32,8 +32,8 @@ export class PostgresDashboardStore implements DashboardStore {
              ORDER BY s.created_at`,
         ),
         this.db.pool.query<Record<string, string>>(
-          `SELECT count(*) FILTER (WHERE first_seen_at >= $1 - interval '7 days') AS found7d,
-                  count(*) FILTER (WHERE carded_at >= $1 - interval '7 days') AS carded7d,
+          `SELECT count(*) FILTER (WHERE first_seen_at >= $1::timestamptz - interval '7 days') AS found7d,
+                  count(*) FILTER (WHERE carded_at >= $1::timestamptz - interval '7 days') AS carded7d,
                   count(*) FILTER (WHERE status='new' AND card_message_id IS NOT NULL) AS waiting,
                   count(*) FILTER (WHERE status='published') AS published,
                   count(*) FILTER (WHERE status='discarded') AS discarded
