@@ -17,11 +17,13 @@ import {
   type GuildFeature,
 } from "@rapi/domain";
 import type { GuildFeatureSwitch } from "../guilds/features.js";
+import { helpText } from "./help.js";
 import type { NotificationChannels } from "../guilds/notification-channels.js";
 import { SourceCollection } from "../sources/collection.js";
 import type { ReportOptions } from "../discounts/reports.js";
 
 export const slashCommands = [
+  "help",
   "sources",
   "status",
   "server_config",
@@ -45,6 +47,7 @@ const commandFeatures: Record<
   stars: "stars",
   // Connecting an account is not a server's feature to switch off.
   connections: undefined,
+  help: undefined,
   features: undefined,
   guilds: undefined,
   notification_channels: undefined,
@@ -67,7 +70,8 @@ const PERSONAL = new Set<DiscordCommand["name"]>(["stars", "connections"]);
 export function requiredCommandAccess(
   command: DiscordCommand["name"],
 ): DiscordAccessLevel {
-  if (PERSONAL.has(command) || command === "report") return "user";
+  if (command === "help" || PERSONAL.has(command) || command === "report")
+    return "user";
   return command === "server_config" ||
     command === "features" ||
     command === "guilds"
@@ -143,6 +147,8 @@ export class DiscordCommands {
       guildAllowlist?: () => Promise<readonly string[]>;
       guildFeatures?: GuildFeatureSwitch;
       notificationChannels?: Pick<NotificationChannels, "change">;
+      /** Public site address, linked from /도움말 when set. */
+      siteUrl?: string;
       changeGuild?: (
         actorId: string,
         action: string,
@@ -238,7 +244,10 @@ export class DiscordCommands {
       await this.assertGuildFeature(identity.guildId, feature);
     // Anyone in an allowed server may report or get star reminders; the channel
     // gate still applies.
-    const anyMember = command.name === "report" || PERSONAL.has(command.name);
+    const anyMember =
+      command.name === "help" ||
+      command.name === "report" ||
+      PERSONAL.has(command.name);
     if (command.name === "report" && !identity.guildId)
       throw new Error("제보는 서버에서만 보낼 수 있습니다.");
     // The DM needs a server shared with the bot, which a server command proves.
@@ -261,6 +270,11 @@ export class DiscordCommands {
     assertDiscordLevel(level, required);
     const actorId = identity.userId;
     switch (command.name) {
+      case "help": {
+        return {
+          messages: splitDiscordMessage(helpText(this.operations?.siteUrl)),
+        };
+      }
       case "sources": {
         const rows = await this.agent.store.sourceStatus();
         return { messages: splitDiscordMessage(JSON.stringify(rows, null, 2)) };
